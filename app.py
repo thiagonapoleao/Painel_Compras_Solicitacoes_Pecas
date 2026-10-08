@@ -1,550 +1,1051 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
+import json
+from datetime import date, time
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (Tema Claro e Layout Expandido)
+# CONFIGURAÇÃO GERAL DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Painel de Compras & Solicitações de Peças",
+    page_title="Gestão de Peças - Compras & Ordens",
     page_icon="📦",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS personalizada forçando tema claro em tudo
+# -----------------------------------------------------------------------------
+# CSS GLOBAL - 100% MODO CLARO & NAVBAR SUPERIOR
+# -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* Fundo Global Claro */
+    /* Forçar fundo claro global */
     .stApp {
         background-color: #f8fafc !important;
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     
-    /* Barra Lateral */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff !important;
-        border-right: 1px solid #e2e8f0;
+    /* Ocultar elementos padrão do Streamlit */
+    #MainMenu, footer, header {visibility: hidden;}
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 100% !important;
     }
-    section[data-testid="stSidebar"] * {
-        color: #0f172a !important;
-    }
-    
-    /* Inputs */
-    .stSelectbox div[data-baseweb="select"] > div,
-    .stTextInput input {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-        border-color: #cbd5e1 !important;
-    }
-    
-    /* Header Personalizado */
-    .header-box {
-        background-color: #ffffff;
+
+    /* Navbar Superior */
+    .top-navbar {
+        background: #ffffff;
         border: 1px solid #e2e8f0;
-        padding: 1.25rem 1.5rem;
         border-radius: 1rem;
-        margin-bottom: 1.5rem;
+        padding: 0.85rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }
-    
-    /* Caixa de Escopo */
-    .scope-box {
-        background-color: #eff6ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 1rem;
-        padding: 1.25rem;
         margin-bottom: 1.5rem;
     }
+    .navbar-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-    /* Cards de KPI */
-    .kpi-card {
-        background-color: #ffffff;
+    /* Estilização dos Botões de Aba da Navbar */
+    div[data-testid="stHorizontalBlock"] button {
+        border-radius: 0.75rem !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.25rem !important;
+        transition: all 0.2s ease !important;
+    }
+
+    /* Cards e Formulários */
+    .form-container {
+        background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 1rem;
-        padding: 1rem 1.15rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        margin-bottom: 1rem;
+        padding: 1.75rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        margin-bottom: 1.5rem;
     }
-    .kpi-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: #475569;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .kpi-value {
-        font-size: 1.4rem;
-        font-weight: 800;
-        margin-top: 0.35rem;
-        color: #0f172a;
-    }
-    .kpi-sub {
-        font-size: 0.72rem;
-        color: #64748b;
-        margin-top: 0.2rem;
-    }
-    .badge-percent {
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 0.15rem 0.45rem;
-        border-radius: 0.375rem;
-        float: right;
-    }
-
-    /* Cards Informativos de Alertas */
-    .alert-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.75rem;
-        padding: 1.1rem;
-        height: 100%;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    }
-
-    /* Tabela 100% Clara */
-    table.custom-table {
-        width: 100%;
-        border-collapse: collapse;
-        background-color: #ffffff;
-        border-radius: 0.75rem;
-        overflow: hidden;
-        border: 1px solid #cbd5e1;
-        font-size: 0.84rem;
-    }
-    table.custom-table th {
-        background-color: #f1f5f9;
-        color: #0f172a;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.73rem;
-        letter-spacing: 0.05em;
-        padding: 0.85rem 1rem;
-        border-bottom: 2px solid #cbd5e1;
-        text-align: left;
-    }
-    table.custom-table td {
-        padding: 0.75rem 1rem;
-        color: #1e293b;
-        border-bottom: 1px solid #e2e8f0;
-        text-align: left;
-    }
-    table.custom-table tr:hover {
-        background-color: #f8fafc;
+    
+    /* Inputs em Modo Claro */
+    .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input, .stTimeInput input, .stTextArea textarea {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 0.6rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# DADOS BRUTOS
+# BASE DE DADOS INICIAL (SESSION STATE PARA PERSISTÊNCIA NA SESSÃO)
 # -----------------------------------------------------------------------------
-@st.cache_data
-def load_data():
-    data = [
-        {"ano": "2025", "mes": "Agosto", "data": "05/08/2025", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39},
-        {"ano": "2025", "mes": "Agosto", "data": "08/08/2025", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52},
-        {"ano": "2025", "mes": "Agosto", "data": "12/08/2025", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00},
-        {"ano": "2025", "mes": "Agosto", "data": "14/08/2025", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18},
-        {"ano": "2025", "mes": "Agosto", "data": "18/08/2025", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00},
-        {"ano": "2025", "mes": "Agosto", "data": "20/08/2025", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00},
-        {"ano": "2025", "mes": "Agosto", "data": "22/08/2025", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50},
-        {"ano": "2025", "mes": "Agosto", "data": "25/08/2025", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50},
-        {"ano": "2025", "mes": "Agosto", "data": "28/08/2025", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04},
-        
-        {"ano": "2025", "mes": "Setembro", "data": "02/09/2025", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00},
-        {"ano": "2025", "mes": "Setembro", "data": "05/09/2025", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50},
-        {"ano": "2025", "mes": "Setembro", "data": "10/09/2025", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00},
-        {"ano": "2025", "mes": "Setembro", "data": "14/09/2025", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80},
-        {"ano": "2025", "mes": "Setembro", "data": "19/09/2025", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 4.39},
-        {"ano": "2025", "mes": "Setembro", "data": "19/09/2025", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00},
-        {"ano": "2025", "mes": "Setembro", "data": "21/09/2025", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00},
-        {"ano": "2025", "mes": "Setembro", "data": "23/09/2025", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50},
-        {"ano": "2025", "mes": "Setembro", "data": "25/09/2025", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04},
-
-        {"ano": "2025", "mes": "Outubro", "data": "10/10/2025", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00},
-        {"ano": "2025", "mes": "Outubro", "data": "15/10/2025", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05},
-        {"ano": "2025", "mes": "Outubro", "data": "22/10/2025", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00},
-
-        {"ano": "2025", "mes": "Novembro", "data": "03/11/2025", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80},
-        {"ano": "2025", "mes": "Novembro", "data": "03/11/2025", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18},
-        {"ano": "2025", "mes": "Novembro", "data": "04/11/2025", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00},
-
-        {"ano": "2026", "mes": "Março", "data": "02/03/2026", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00},
-        {"ano": "2026", "mes": "Março", "data": "07/03/2026", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00},
-        {"ano": "2026", "mes": "Abril", "data": "23/04/2026", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00},
-        {"ano": "2026", "mes": "Abril", "data": "24/04/2026", "solicitante": "LUCAS", "peca": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 2, "qtAprovada": 1, "qtNaoAprovada": 1, "custoUnit": 410.00},
-        {"ano": "2026", "mes": "Agosto", "data": "14/08/2026", "solicitante": "WILLIAN NEVES", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 195.00},
-        {"ano": "2026", "mes": "Agosto", "data": "17/08/2026", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 195.00},
-        {"ano": "2026", "mes": "Agosto", "data": "25/08/2026", "solicitante": "RYAN", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 7, "qtAprovada": 6, "qtNaoAprovada": 1, "custoUnit": 195.00},
-        {"ano": "2026", "mes": "Agosto", "data": "27/08/2026", "solicitante": "VITOR", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 195.00},
-        {"ano": "2026", "mes": "Setembro", "data": "11/09/2026", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 14, "qtAprovada": 14, "qtNaoAprovada": 0, "custoUnit": 195.00},
-        {"ano": "2026", "mes": "Setembro", "data": "15/09/2026", "solicitante": "CESAR", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "qt": 20, "qtAprovada": 18, "qtNaoAprovada": 2, "custoUnit": 18.50},
-        {"ano": "2026", "mes": "Setembro", "data": "15/09/2026", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 25, "qtAprovada": 25, "qtNaoAprovada": 0, "custoUnit": 9.80},
-        {"ano": "2026", "mes": "Setembro", "data": "23/09/2026", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 30, "qtNaoAprovada": 0, "custoUnit": 9.50},
-        {"ano": "2026", "mes": "Setembro", "data": "23/09/2026", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 28, "qtNaoAprovada": 2, "custoUnit": 9.80}
+if "orders_data" not in st.session_state:
+    st.session_state.orders_data = [
+        {"ordem": "OC-2025-001", "codigo": "MB-101", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "data": "2025-08-05", "hora": "09:30", "custoUnit": 4.39, "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "valorVenda": 12.00, "fornecedor": "EVOCA", "codFornecedor": "EV-9941", "solicitante": "WILLIAN NEVES", "observacao": "Reposição preventiva", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-002", "codigo": "MB-102", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "data": "2025-08-08", "hora": "10:15", "custoUnit": 8.52, "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "valorVenda": 22.00, "fornecedor": "EVOCA", "codFornecedor": "EV-3312", "solicitante": "FLAVIO", "observacao": "Troca de bicos desgastados", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-003", "codigo": "MB-103", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "data": "2025-08-12", "hora": "14:00", "custoUnit": 334.00, "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "valorVenda": 520.00, "fornecedor": "EVOCA", "codFornecedor": "EV-8821", "solicitante": "WILLIAN NEVES", "observacao": "Manutenção corretiva", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-004", "codigo": "AC-201", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "data": "2025-08-14", "hora": "11:20", "custoUnit": 75.18, "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "valorVenda": 130.00, "fornecedor": "LUCAS", "codFornecedor": "LC-701", "solicitante": "NAPOLEAO", "observacao": "1 item avariado no transporte", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-005", "codigo": "SN-301", "peca": "REMOVE GRUDE", "categoria": "Snaks", "data": "2025-08-18", "hora": "15:45", "custoUnit": 72.00, "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "valorVenda": 115.00, "fornecedor": "FABIO", "codFornecedor": "FB-019", "solicitante": "FABIO", "observacao": "Insumo de limpeza", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-006", "codigo": "MB-104", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "data": "2025-08-20", "hora": "08:30", "custoUnit": 180.00, "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "valorVenda": 290.00, "fornecedor": "PARAMOUNT", "codFornecedor": "PM-550", "solicitante": "LUCAS", "observacao": "Estoque mínimo atingido", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-007", "codigo": "AC-202", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "data": "2025-08-22", "hora": "16:10", "custoUnit": 26.50, "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "valorVenda": 48.00, "fornecedor": "MGC", "codFornecedor": "MG-910", "solicitante": "WILLIAN NEVES", "observacao": "Pintura de carenagens", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-008", "codigo": "HD-401", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "data": "2025-08-25", "hora": "13:30", "custoUnit": 10.50, "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "valorVenda": 24.00, "fornecedor": "IMELKRON", "codFornecedor": "IM-220", "solicitante": "FLAVIO", "observacao": "5 itens com rosca danificada", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-009", "codigo": "MB-105", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "data": "2025-08-28", "hora": "10:00", "custoUnit": 91.04, "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "valorVenda": 165.00, "fornecedor": "EVOCA", "codFornecedor": "EV-1022", "solicitante": "NAPOLEAO", "observacao": "Reposição Solista", "ano": "2025", "mes": "Agosto"},
+        {"ordem": "OC-2025-010", "codigo": "MB-106", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "data": "2025-09-02", "hora": "09:10", "custoUnit": 195.00, "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "valorVenda": 320.00, "fornecedor": "PARAMOUNT", "codFornecedor": "PM-771", "solicitante": "THIAGO", "observacao": "Lote principal de bombas", "ano": "2025", "mes": "Setembro"},
+        {"ordem": "OC-2025-011", "codigo": "AC-203", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "data": "2025-09-05", "hora": "11:40", "custoUnit": 18.50, "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "valorVenda": 35.00, "fornecedor": "EVOCA", "codFornecedor": "EV-4411", "solicitante": "SAMANTHA", "observacao": "Reposição de vedação", "ano": "2025", "mes": "Setembro"},
+        {"ordem": "OC-2025-012", "codigo": "MB-107", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "data": "2025-09-10", "hora": "14:20", "custoUnit": 280.00, "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "valorVenda": 450.00, "fornecedor": "EVOCA", "codFornecedor": "EV-8080", "solicitante": "ALAN", "observacao": "Motores de carrossel", "ano": "2025", "mes": "Setembro"},
+        {"ordem": "OC-2025-013", "codigo": "AC-204", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "data": "2025-09-14", "hora": "16:00", "custoUnit": 9.80, "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "valorVenda": 20.00, "fornecedor": "PARAMOUNT", "codFornecedor": "PM-070", "solicitante": "CESAR", "observacao": "Anéis o-ring caldeira", "ano": "2025", "mes": "Setembro"}
     ]
-    df = pd.DataFrame(data)
-    df["custoTotal"] = df["qtAprovada"] * df["custoUnit"]
-    return df
 
-df_raw = load_data()
-
-def format_currency(val):
-    return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+# Mapeador de mês por extenso para consistência do Dashboard
+MESES_EXTENSO = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
 
 # -----------------------------------------------------------------------------
-# HEADER SUPERIOR
+# CONTROLE DE PÁGINA (NAVBAR SUPERIOR)
 # -----------------------------------------------------------------------------
-st.markdown("""
-<div class="header-box">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div>
-            <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0;">
-                📦 Painel de Compras & Solicitações de Peças
-            </h1>
-            <p style="font-size: 0.85rem; color: #64748b; margin: 0.25rem 0 0 0;">
-                Controle Operacional: Ordens de Compra, Custos Reais e Status de Atendimento
-            </p>
-        </div>
-        <div>
-            <span style="background-color: #d1fae5; color: #065f46; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid #6ee7b7;">
-                ● Cálculos em Tempo Real
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "Dashboard Compras"
+
+# Barra de Navegação Superior
+nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
+
+with nav_col1:
+    st.markdown("""
+    <div class="navbar-title">
+        <span style="background-color: #0284c7; color: white; padding: 6px 12px; border-radius: 10px;">📦</span>
+        <span>Sistema Integrado de Peças & Suprimentos</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with nav_col2:
+    if st.button("📊 Dashboard Compras", use_container_width=True, type="primary" if st.session_state.active_tab == "Dashboard Compras" else "secondary"):
+        st.session_state.active_tab = "Dashboard Compras"
+        st.rerun()
+
+with nav_col3:
+    if st.button("📝 Pedido de Compras", use_container_width=True, type="primary" if st.session_state.active_tab == "Pedido de Compras" else "secondary"):
+        st.session_state.active_tab = "Pedido de Compras"
+        st.rerun()
+
+st.markdown("<hr style='border: 0; border-top: 1px solid #e2e8f0; margin: 0.5rem 0 1.5rem 0;'>", unsafe_allow_html=True)
+
+# =============================================================================
+# ABA 1: PEDIDO DE COMPRAS (CADASTRO, PESQUISA E EDIÇÃO)
+# =============================================================================
+if st.session_state.active_tab == "Pedido de Compras":
+    st.markdown("### 📋 Gestão de Pedidos e Ordens de Compra")
+    st.markdown("Pesquise por uma Ordem de Compra para atualizar os dados ou cadastre um novo pedido no formulário.")
+
+    # Seção de Pesquisa e Seleção de Ordem de Compra
+    with st.container():
+        st.markdown('<div class="form-container">', unsafe_allow_html=True)
+        st.markdown("##### 🔍 Pesquisar ou Criar Ordem de Compra")
+        
+        ordens_existentes = ["+ Novo Pedido (Cadastrar Novo)"] + [item["ordem"] for item in st.session_state.orders_data]
+        selected_oc = st.selectbox("Selecione uma Ordem de Compra para editar ou cadastre uma nova:", ordens_existentes)
+        
+        # Buscar registro selecionado se houver
+        record = None
+        edit_mode = False
+        if selected_oc != "+ Novo Pedido (Cadastrar Novo)":
+            record = next((item for item in st.session_state.orders_data if item["ordem"] == selected_oc), None)
+            if record:
+                edit_mode = True
+                st.info(f"Modo de Edição Ativo: Alterando os dados da **{selected_oc}**.")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Valores padrão ou carregados do registro
+    default_oc = record["ordem"] if record else f"OC-2026-{len(st.session_state.orders_data)+1:03d}"
+    default_cod = record["codigo"] if record else ""
+    default_peca = record["peca"] if record else ""
+    default_cat = record["categoria"] if record else "Multi Bebidas"
+    default_fornecedor = record["fornecedor"] if record else "EVOCA"
+    default_cod_forn = record["codFornecedor"] if record else ""
+    default_solicitante = record["solicitante"] if record else "WILLIAN NEVES"
+    default_data = date.fromisoformat(record["data"]) if record else date.today()
+    default_hora = time.fromisoformat(record["hora"]) if record else time(10, 0)
+    default_custo = float(record["custoUnit"]) if record else 0.0
+    default_venda = float(record.get("valorVenda", 0.0)) if record else 0.0
+    default_qt = int(record["qt"]) if record else 1
+    default_qt_aprovada = int(record["qtAprovada"]) if record else 1
+    default_qt_nao_aprovada = int(record["qtNaoAprovada"]) if record else 0
+    default_obs = record.get("observacao", "") if record else ""
+
+    # Formulário de Cadastro / Edição
+    with st.form("form_pedido_compras", clear_on_submit=False):
+        st.markdown(f"#### {'✏️ Atualizar Pedido: ' + selected_oc if edit_mode else '➕ Formulário de Entrada do Pedido'}")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            ordem_val = st.text_input("Ordem de Compra *", value=default_oc, disabled=edit_mode)
+            peca_val = st.text_input("Produto (Nome da Peça) *", value=default_peca)
+            solicitante_val = st.text_input("Solicitante / Setor *", value=default_solicitante)
+            data_val = st.date_input("Data do Pedido", value=default_data)
+        
+        with c2:
+            codigo_val = st.text_input("Código do Produto", value=default_cod)
+            categoria_val = st.selectbox(
+                "Categoria", 
+                ["Multi Bebidas", "Acessorios", "Snaks", "Hidraulica", "Outros"], 
+                index=["Multi Bebidas", "Acessorios", "Snaks", "Hidraulica", "Outros"].index(default_cat) if default_cat in ["Multi Bebidas", "Acessorios", "Snaks", "Hidraulica", "Outros"] else 0
+            )
+            fornecedor_val = st.text_input("Fornecedor *", value=default_fornecedor)
+            hora_val = st.time_input("Horário de Chegada do Pedido", value=default_hora)
+
+        with c3:
+            cod_forn_val = st.text_input("Cód da Peça do Fornecedor", value=default_cod_forn)
+            custo_val = st.number_input("Valor de Compra (Custo Unitário R$) *", min_value=0.0, value=default_custo, step=0.5, format="%.2f")
+            venda_val = st.number_input("Valor de Venda (R$)", min_value=0.0, value=default_venda, step=0.5, format="%.2f")
+            qt_val = st.number_input("Qt Solicitada *", min_value=1, value=default_qt, step=1)
+
+        c4, c5, c6 = st.columns(3)
+        with c4:
+            qt_aprovada_val = st.number_input("Qt Aprovada (Atendida) *", min_value=0, value=default_qt_aprovada, step=1)
+        with c5:
+            # Cálculo automático padrão caso o usuário não altere
+            qt_nao_aprovada_val = st.number_input("Qt Não Aprovada (Não Atendida) *", min_value=0, value=default_qt_nao_aprovada, step=1)
+        with c6:
+            st.metric("Custo Total Calculado (R$)", f"R$ {(qt_aprovada_val * custo_val):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        obs_val = st.text_area("Observação", value=default_obs, placeholder="Detalhes, justificativa ou motivo de não atendimento...")
+
+        btn_save = st.form_submit_button("💾 Salvar Informações no Banco de Dados", type="primary", use_container_width=True)
+
+        if btn_save:
+            if not ordem_val or not peca_val or not fornecedor_val or not solicitante_val:
+                st.error("Por favor, preencha todos os campos obrigatórios (*).")
+            else:
+                ano_str = str(data_val.year)
+                mes_str = MESES_EXTENSO.get(data_val.month, "Janeiro")
+                
+                novo_registro = {
+                    "ordem": ordem_val.strip().upper(),
+                    "codigo": codigo_val.strip().upper(),
+                    "peca": peca_val.strip().upper(),
+                    "categoria": categoria_val,
+                    "data": data_val.isoformat(),
+                    "hora": hora_val.strftime("%H:%M"),
+                    "custoUnit": float(custo_val),
+                    "qt": int(qt_val),
+                    "qtAprovada": int(qt_aprovada_val),
+                    "qtNaoAprovada": int(qt_nao_aprovada_val),
+                    "valorVenda": float(venda_val),
+                    "fornecedor": fornecedor_val.strip().upper(),
+                    "codFornecedor": cod_forn_val.strip().upper(),
+                    "solicitante": solicitante_val.strip().upper(),
+                    "observacao": obs_val.strip(),
+                    "ano": ano_str,
+                    "mes": mes_str
+                }
+
+                if edit_mode:
+                    # Atualiza item existente
+                    idx = next(i for i, item in enumerate(st.session_state.orders_data) if item["ordem"] == selected_oc)
+                    st.session_state.orders_data[idx] = novo_registro
+                    st.success(f"Ordem de Compra **{selected_oc}** atualizada com sucesso!")
+                else:
+                    # Verifica duplicidade
+                    if any(item["ordem"] == ordem_val.strip().upper() for item in st.session_state.orders_data):
+                        st.error(f"A Ordem de Compra {ordem_val} já existe! Use a busca acima para editá-la.")
+                    else:
+                        st.session_state.orders_data.append(novo_registro)
+                        st.success(f"Ordem de Compra **{ordem_val}** cadastrada com sucesso!")
+                st.rerun()
+
+    # Visualização rápida da planilha de dados atualizada
+    st.write("")
+    st.markdown("##### 📑 Base de Ordens de Compra Cadastradas")
+    df_preview = pd.DataFrame(st.session_state.orders_data)
+    df_preview["custoTotal"] = df_preview["qtAprovada"] * df_preview["custoUnit"]
+    st.dataframe(df_preview, use_container_width=True, hide_index=True)
+
+
+# =============================================================================
+# ABA 2: DASHBOARD COMPRAS (100% MODO CLARO, SEM BOTÃO DE DARK MODE)
+# =============================================================================
+elif st.session_state.active_tab == "Dashboard Compras":
+    # Prepara os dados atualizados para passar ao HTML
+    json_data = json.dumps(st.session_state.orders_data, ensure_ascii=False)
+
+    html_code = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Dashboard Executivo - Solicitações & Ordens de Compra</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+      <script src="https://unpkg.com/lucide@latest"></script>
+      <style>
+        body {{
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          background-color: #f8fafc;
+          color: #1e293b;
+        }}
+        .kpi-card {{
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }}
+        .kpi-card:hover {{
+          transform: translateY(-2px);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }}
+      </style>
+    </head>
+    <body class="min-h-screen">
+
+      <!-- Header Superior em Modo Claro -->
+      <header class="sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-4 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-md">
+              <i data-lucide="package-search" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel Executivo de Compras & Solicitações de Peças</h1>
+              <p class="text-xs text-slate-500">Controle Operacional: Ordens de Compra, Custos Reais e Status de Atendimento</p>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Cálculos em Tempo Real
             </span>
+          </div>
         </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+      </header>
 
-# -----------------------------------------------------------------------------
-# ESCOPO / ESPECIFICAÇÃO DO PROJETO
-# -----------------------------------------------------------------------------
-st.markdown("""
-<div class="scope-box">
-    <h3 style="font-size: 0.85rem; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin: 0 0 0.5rem 0;">
-        📋 Especificação & Requisitos da Solicitação
-    </h3>
-    <ul style="font-size: 0.78rem; color: #334155; margin: 0; padding-left: 1.2rem; line-height: 1.6;">
-        <li><strong>Base de Dados Analisada:</strong> Foco exclusivo na aba de <em>Solicitações de Compra de Peças</em> e ordens de reposição de estoque.</li>
-        <li><strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</li>
-        <li><strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</li>
-        <li><strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</li>
-        <li><strong>Gráficos de Destaque com Valores em Preto:</strong> Top 5 solicitantes para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor com valores nítidos em preto.</li>
-        <li><strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada em tema totalmente claro com busca por peça.</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-# -----------------------------------------------------------------------------
-# BARRA LATERAL / FILTROS DINÂMICOS
-# -----------------------------------------------------------------------------
-st.sidebar.markdown("### 🎛️ Filtros do Painel")
+        <!-- ESCOPO DO PROJETO -->
+        <section class="bg-blue-50/80 border border-blue-200 rounded-2xl p-5 shadow-sm">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-start gap-3">
+              <div class="p-2 rounded-xl bg-blue-600 text-white mt-0.5">
+                <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  Especificação & Requisitos da Solicitação
+                  <span class="text-[10px] normal-case bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-300 font-semibold">Parâmetros Ativos</span>
+                </h2>
+                <div class="text-xs text-slate-600 mt-2 space-y-1.5 leading-relaxed">
+                  <p>• <strong>Base de Dados Analisada:</strong> Foco exclusivo na aba de <em>Solicitações de Compra de Peças</em> e ordens de reposição de estoque.</p>
+                  <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
+                  <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
+                  <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
+                  <p>• <strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor exibindo os <strong>valores numéricos e em R$ diretamente nas barras/fatias</strong>.</p>
+                  <p>• <strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com pesquisa em tempo real, quantidades solicitadas/atendidas/não atendidas e valor financeiro.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-year_options = ["Todos os Anos"] + sorted(list(df_raw["ano"].unique()))
-month_options = ["Todos os Meses"] + list(df_raw["mes"].unique())
-cat_options = ["Todas as Categorias"] + sorted(list(df_raw["categoria"].unique()))
-req_options = ["Todos os Solicitantes"] + sorted(list(df_raw["solicitante"].unique()))
+        <!-- Filtros Dinâmicos (Grid Claro) -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i>
+              <span>Filtros do Painel de Solicitações</span>
+            </div>
+            <span id="activeFilterBadge" class="text-xs font-medium text-slate-500">Filtrando: Todos os registros</span>
+          </div>
 
-selected_year = st.sidebar.selectbox("Ano", year_options)
-selected_month = st.sidebar.selectbox("Mês", month_options)
-selected_cat = st.sidebar.selectbox("Categoria de Peças", cat_options)
-selected_req = st.sidebar.selectbox("Solicitante / Setor", req_options)
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Ano</label>
+              <select id="filterYear" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Todos os Anos</option>
+              </select>
+            </div>
 
-# Aplicar Filtros
-df_filtered = df_raw.copy()
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Mês</label>
+              <select id="filterMonth" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Todos os Meses</option>
+              </select>
+            </div>
 
-if selected_year != "Todos os Anos":
-    df_filtered = df_filtered[df_filtered["ano"] == selected_year]
-if selected_month != "Todos os Meses":
-    df_filtered = df_filtered[df_filtered["mes"] == selected_month]
-if selected_cat != "Todas as Categorias":
-    df_filtered = df_filtered[df_filtered["categoria"] == selected_cat]
-if selected_req != "Todos os Solicitantes":
-    df_filtered = df_filtered[df_filtered["solicitante"] == selected_req]
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Categoria de Peças</label>
+              <select id="filterCategory" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Todas as Categorias</option>
+              </select>
+            </div>
 
-# -----------------------------------------------------------------------------
-# CÁLCULO DAS MÉTRICAS / KPIS
-# -----------------------------------------------------------------------------
-total_custo = df_filtered["custoTotal"].sum()
-total_pedidos = len(df_filtered)
-total_itens = df_filtered["qt"].sum()
-total_atendidas = df_filtered["qtAprovada"].sum()
-total_nao_atendidas = df_filtered["qtNaoAprovada"].sum()
-avg_cost = (total_custo / total_pedidos) if total_pedidos > 0 else 0
+            <div>
+              <label class="block text-xs font-medium text-slate-500 mb-1">Solicitante / Setor</label>
+              <select id="filterRequester" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Todos os Solicitantes</option>
+              </select>
+            </div>
 
-pct_atendidas = round((total_atendidas / total_itens) * 100) if total_itens > 0 else 0
-pct_nao_atendidas = (100 - pct_atendidas) if total_itens > 0 else 0
+            <div class="flex items-end">
+              <button id="resetFilters" class="w-full py-2 px-4 rounded-xl border border-slate-300 bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center gap-1.5">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                Limpar Filtros
+              </button>
+            </div>
+          </div>
+        </section>
 
-# -----------------------------------------------------------------------------
-# EXIBIÇÃO DOS CARDS DE KPIS
-# -----------------------------------------------------------------------------
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+        <!-- CARDS DE KPIS PRINCIPAIS -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          
+          <!-- KPI 1 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Valor Compras (Custo)</span>
+              <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+                <i data-lucide="badge-dollar-sign" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3">
+              <span id="kpiTotalCost" class="text-xl font-bold tracking-tight text-amber-600">R$ 0,00</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Soma da coluna Custo</p>
+            </div>
+          </div>
 
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Valor Compras (Custo)</div>
-        <div class="kpi-value" style="color: #d97706;">{format_currency(total_custo)}</div>
-        <div class="kpi-sub">Soma da coluna Custo</div>
-    </div>
-    """, unsafe_allow_html=True)
+          <!-- KPI 2 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Pedidos</span>
+              <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3">
+              <span id="kpiTotalRequests" class="text-xl font-bold tracking-tight text-slate-900">0</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Ordens registradas</p>
+            </div>
+          </div>
 
-with col2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Total de Pedidos</div>
-        <div class="kpi-value">{total_pedidos}</div>
-        <div class="kpi-sub">Ordens registradas</div>
-    </div>
-    """, unsafe_allow_html=True)
+          <!-- KPI 3 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Qtde Solicitada</span>
+              <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                <i data-lucide="boxes" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3">
+              <span id="kpiItemsQty" class="text-xl font-bold tracking-tight text-slate-900">0 un</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Total de peças pedidas</p>
+            </div>
+          </div>
 
-with col3:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Qtde Solicitada</div>
-        <div class="kpi-value">{total_itens:,} un</div>
-        <div class="kpi-sub">Total de peças pedidas</div>
-    </div>
-    """.replace(",", "."), unsafe_allow_html=True)
+          <!-- KPI 4 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between ring-1 ring-emerald-500/20">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Peças Atendidas</span>
+              <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3 flex items-baseline justify-between">
+              <div>
+                <span id="kpiApprovedQty" class="text-xl font-bold tracking-tight text-emerald-600">0 un</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">Aprovadas / Compradas</p>
+              </div>
+              <span id="kpiApprovedPercent" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">0%</span>
+            </div>
+          </div>
 
-with col4:
-    st.markdown(f"""
-    <div class="kpi-card" style="border-color: #a7f3d0;">
-        <span class="badge-percent" style="background-color: #d1fae5; color: #065f46;">{pct_atendidas}%</span>
-        <div class="kpi-title" style="color: #059669;">Peças Atendidas</div>
-        <div class="kpi-value" style="color: #059669;">{total_atendidas:,} un</div>
-        <div class="kpi-sub">Aprovadas / Compradas</div>
-    </div>
-    """.replace(",", "."), unsafe_allow_html=True)
+          <!-- KPI 5 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between ring-1 ring-rose-500/20">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider">Não Atendidas</span>
+              <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600">
+                <i data-lucide="x-circle" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3 flex items-baseline justify-between">
+              <div>
+                <span id="kpiUnapprovedQty" class="text-xl font-bold tracking-tight text-rose-600">0 un</span>
+                <p class="text-[11px] text-slate-400 mt-0.5">Reprovadas / Pendentes</p>
+              </div>
+              <span id="kpiUnapprovedPercent" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700">0%</span>
+            </div>
+          </div>
 
-with col5:
-    st.markdown(f"""
-    <div class="kpi-card" style="border-color: #fecdd3;">
-        <span class="badge-percent" style="background-color: #ffe4e6; color: #9f1239;">{pct_nao_atendidas}%</span>
-        <div class="kpi-title" style="color: #e11d48;">Não Atendidas</div>
-        <div class="kpi-value" style="color: #e11d48;">{total_nao_atendidas:,} un</div>
-        <div class="kpi-sub">Reprovadas / Pendentes</div>
-    </div>
-    """.replace(",", "."), unsafe_allow_html=True)
+          <!-- KPI 6 -->
+          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Custo Médio / Pedido</span>
+              <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
+                <i data-lucide="calculator" class="w-4 h-4"></i>
+              </span>
+            </div>
+            <div class="mt-3">
+              <span id="kpiAvgCost" class="text-xl font-bold tracking-tight text-slate-900">R$ 0,00</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Média por pedido</p>
+            </div>
+          </div>
+        </section>
 
-with col6:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Custo Médio / Pedido</div>
-        <div class="kpi-value">{format_currency(avg_cost)}</div>
-        <div class="kpi-sub">Média por pedido</div>
-    </div>
-    """, unsafe_allow_html=True)
+        <!-- Top 5 Solicitantes em Agosto e Setembro -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="font-bold text-base flex items-center gap-2 text-slate-900">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                  Top 5 Solicitantes / Locais Internos — Agosto
+                </h3>
+                <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+              </div>
+              <span class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Agosto</span>
+            </div>
+            <div class="relative h-64">
+              <canvas id="chartTopAgosto"></canvas>
+            </div>
+          </div>
 
-# -----------------------------------------------------------------------------
-# GRÁFICOS: TOP 5 AGOSTO & SETEMBRO (TEXTOS EM PRETO)
-# -----------------------------------------------------------------------------
-st.write("")
-col_chart1, col_chart2 = st.columns(2)
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="font-bold text-base flex items-center gap-2 text-slate-900">
+                  <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                  Top 5 Solicitantes / Locais Internos — Setembro
+                </h3>
+                <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+              </div>
+              <span class="text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md">Setembro</span>
+            </div>
+            <div class="relative h-64">
+              <canvas id="chartTopSetembro"></canvas>
+            </div>
+          </div>
+        </section>
 
-df_base_year = df_raw if selected_year == "Todos os Anos" else df_raw[df_raw["ano"] == selected_year]
+        <!-- Categorias e Fornecedor com Valores -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="font-bold text-base text-slate-900">Distribuição por Categoria de Peças</h3>
+                <p class="text-xs text-slate-500">Quantidades totais exibidas em cada fatia</p>
+              </div>
+              <i data-lucide="pie-chart" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <div class="relative h-64">
+              <canvas id="chartCategoryDist"></canvas>
+            </div>
+          </div>
 
-# Agosto
-df_agosto = df_base_year[df_base_year["mes"] == "Agosto"].groupby("solicitante")["qt"].sum().reset_index()
-df_agosto = df_agosto.sort_values(by="qt", ascending=False).head(5)
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="font-bold text-base text-slate-900">Soma de Custo por Fornecedor (R$)</h3>
+                <p class="text-xs text-slate-500">Valor exato em reais destacado sobre as barras</p>
+              </div>
+              <i data-lucide="building-2" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <div class="relative h-64">
+              <canvas id="chartSupplierCost"></canvas>
+            </div>
+          </div>
+        </section>
 
-# Setembro
-df_setembro = df_base_year[df_base_year["mes"] == "Setembro"].groupby("solicitante")["qt"].sum().reset_index()
-df_setembro = df_setembro.sort_values(by="qt", ascending=False).head(5)
+        <!-- TABELA COM RESUMO POR PEÇA SOLICITADA -->
+        <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
+            <div>
+              <h2 class="text-base font-bold flex items-center gap-2 text-slate-900">
+                <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
+                Resumo Detalhado por Peça Solicitada
+              </h2>
+              <p class="text-xs text-slate-500">Consolidado por item, quantidades solicitadas, atendidas e custo total</p>
+            </div>
 
-with col_chart1:
-    st.markdown("##### 🔹 Top 5 Solicitantes / Locais Internos — Agosto")
-    fig_ago = go.Figure()
-    fig_ago.add_trace(go.Bar(
-        x=df_agosto["solicitante"],
-        y=df_agosto["qt"],
-        text=[f"<b>{v} un</b>" for v in df_agosto["qt"]],
-        textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),
-        marker=dict(color="#0284c7")
-    ))
-    fig_ago.update_layout(
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),
-        margin=dict(t=35, b=20, l=10, r=10),
-        height=320,
-        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
-        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
-    )
-    st.plotly_chart(fig_ago, use_container_width=True)
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                <input type="text" id="tableSearch" placeholder="Buscar peça..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 sm:w-64">
+              </div>
+              <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold">
+                0 itens
+              </span>
+            </div>
+          </div>
 
-with col_chart2:
-    st.markdown("##### 🔹 Top 5 Solicitantes / Locais Internos — Setembro")
-    fig_set = go.Figure()
-    fig_set.add_trace(go.Bar(
-        x=df_setembro["solicitante"],
-        y=df_setembro["qt"],
-        text=[f"<b>{v} un</b>" for v in df_setembro["qt"]],
-        textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),
-        marker=dict(color="#0891b2")
-    ))
-    fig_set.update_layout(
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),
-        margin=dict(t=35, b=20, l=10, r=10),
-        height=320,
-        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
-        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
-    )
-    st.plotly_chart(fig_set, use_container_width=True)
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-600">
+              <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
+                <tr>
+                  <th class="py-3 px-4 rounded-l-lg">Peça / Produto Solicitado</th>
+                  <th class="py-3 px-4">Categoria</th>
+                  <th class="py-3 px-4 text-center">Qtde Total</th>
+                  <th class="py-3 px-4 text-center text-emerald-600">Atendidas</th>
+                  <th class="py-3 px-4 text-center text-rose-600">Não Atendidas</th>
+                  <th class="py-3 px-4 text-center">Nº Pedidos</th>
+                  <th class="py-3 px-4 text-right">Custo Unit. Médio</th>
+                  <th class="py-3 px-4 text-right rounded-r-lg">Custo Total (R$)</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody" class="divide-y divide-slate-100">
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-# -----------------------------------------------------------------------------
-# GRÁFICOS: CATEGORIAS & FORNECEDORES (TEXTOS EM PRETO)
-# -----------------------------------------------------------------------------
-col_chart3, col_chart4 = st.columns(2)
+        <!-- Insights e Alertas Executivos -->
+        <section class="bg-gradient-to-r from-blue-900/10 via-indigo-900/10 to-transparent border border-blue-200 rounded-2xl p-6">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="p-2 rounded-lg bg-blue-600 text-white">
+              <i data-lucide="sparkles" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Diagnósticos Automáticos de Compras</h2>
+              <p class="text-xs text-slate-500">Alertas identificados a partir do custo e da taxa de atendimento de peças</p>
+            </div>
+          </div>
 
-with col_chart3:
-    st.markdown("##### 🥧 Distribuição por Categoria de Peças")
-    df_cat = df_filtered.groupby("categoria")["qt"].sum().reset_index()
-    fig_cat = px.pie(
-        df_cat,
-        names="categoria",
-        values="qt",
-        hole=0.55,
-        color_discrete_sequence=['#38bdf8', '#22d3ee', '#fbbf24', '#a5b4fc', '#6ee7b7']
-    )
-    fig_cat.update_traces(
-        textinfo="value+percent",
-        textposition="inside",
-        textfont=dict(color="#000000", size=12, family="Inter")
-    )
-    fig_cat.update_layout(
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=320,
-        font=dict(color="#000000", family="Inter"),
-        legend=dict(font=dict(color="#000000"))
-    )
-    st.plotly_chart(fig_cat, use_container_width=True)
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
+              <div class="flex items-center gap-2 text-emerald-600 font-semibold mb-1">
+                <i data-lucide="check-check" class="w-4 h-4"></i>
+                <span>Taxa Global de Atendimento</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Mais de <strong>90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
+              </p>
+            </div>
 
-with col_chart4:
-    st.markdown("##### 🏢 Soma de Custo por Fornecedor (R$)")
-    df_sup = df_filtered.groupby("fornecedor")["custoTotal"].sum().reset_index()
-    fig_sup = go.Figure()
-    fig_sup.add_trace(go.Bar(
-        x=df_sup["fornecedor"],
-        y=df_sup["custoTotal"],
-        text=[f"<b>{format_currency(v)}</b>" for v in df_sup["custoTotal"]],
-        textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),
-        marker=dict(color="#f59e0b")
-    ))
-    fig_sup.update_layout(
-        plot_bgcolor="#ffffff",
-        paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),
-        margin=dict(t=35, b=20, l=10, r=10),
-        height=320,
-        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
-        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
-    )
-    st.plotly_chart(fig_sup, use_container_width=True)
+            <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
+              <div class="flex items-center gap-2 text-rose-600 font-semibold mb-1">
+                <i data-lucide="alert-octagon" class="w-4 h-4"></i>
+                <span>Itens Não Atendidos / Reprovados</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
+              </p>
+            </div>
 
-# -----------------------------------------------------------------------------
-# TABELA RESUMO POR PEÇA (TEMA 100% CLARO GARANTIDO SEM MOSTRAR CÓDIGO)
-# -----------------------------------------------------------------------------
-st.write("")
-st.markdown("### 📊 Resumo Detalhado por Peça Solicitada")
+            <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
+              <div class="flex items-center gap-2 text-blue-600 font-semibold mb-1">
+                <i data-lucide="trending-up" class="w-4 h-4"></i>
+                <span>Controle da Coluna Custo</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong>EVOCA</strong> e <strong>PARAMOUNT</strong>, com conciliação financeira automatizada.
+              </p>
+            </div>
+          </div>
+        </section>
 
-search_term = st.text_input("🔍 Buscar peça ou categoria na tabela:", placeholder="Digite o nome da peça ou categoria...")
+      </main>
 
-# Agrupamento por Peça
-df_table = df_filtered.groupby(["peca", "categoria"]).agg(
-    qtTotal=("qt", "sum"),
-    qtAtendida=("qtAprovada", "sum"),
-    qtNaoAtendida=("qtNaoAprovada", "sum"),
-    pedidosCount=("peca", "count"),
-    custoTotal=("custoTotal", "sum")
-).reset_index()
+      <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-400 border-t border-slate-200 mt-12">
+        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
+      </footer>
 
-df_table["custoUnitMedio"] = df_table.apply(
-    lambda row: (row["custoTotal"] / row["qtAtendida"]) if row["qtAtendida"] > 0 else 0, axis=1
-)
+      <script>
+        lucide.createIcons();
+        Chart.register(ChartDataLabels);
 
-# Filtro de busca
-if search_term:
-    mask = df_table["peca"].str.contains(search_term, case=False, na=False) | \
-           df_table["categoria"].str.contains(search_term, case=False, na=False)
-    df_table = df_table[mask]
+        // Carrega dados integrados com a sessão Streamlit
+        const rawOrdersData = {json_data};
 
-# Ordenar por Custo Total Decrescente
-df_table = df_table.sort_values(by="custoTotal", ascending=False)
+        rawOrdersData.forEach(item => {{
+          item.custoTotal = item.qtAprovada * item.custoUnit;
+        }});
 
-if len(df_table) == 0:
-    st.warning("Nenhuma peça encontrada com os filtros selecionados.")
-else:
-    # Preparar DataFrame formatado visualmente para tema claro
-    df_view = pd.DataFrame()
-    df_view["Peça / Produto Solicitado"] = df_table["peca"]
-    df_view["Categoria"] = df_table["categoria"]
-    df_view["Qtde Total"] = df_table["qtTotal"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
-    df_view["Atendidas"] = df_table["qtAtendida"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
-    df_view["Não Atendidas"] = df_table["qtNaoAtendida"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
-    df_view["Nº Pedidos"] = df_table["pedidosCount"]
-    df_view["Custo Unit. Médio"] = df_table["custoUnitMedio"].apply(format_currency)
-    df_view["Custo Total (R$)"] = df_table["custoTotal"].apply(format_currency)
+        const filterYear = document.getElementById('filterYear');
+        const filterMonth = document.getElementById('filterMonth');
+        const filterCategory = document.getElementById('filterCategory');
+        const filterRequester = document.getElementById('filterRequester');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const activeFilterBadge = document.getElementById('activeFilterBadge');
 
-    # Renderização HTML limpa direta do Pandas
-    table_html = df_view.to_html(classes="custom-table", index=False)
-    st.markdown(f'<div style="overflow-x: auto; margin-top: 10px; margin-bottom: 25px;">{table_html}</div>', unsafe_allow_html=True)
+        const kpiTotalCost = document.getElementById('kpiTotalCost');
+        const kpiTotalRequests = document.getElementById('kpiTotalRequests');
+        const kpiItemsQty = document.getElementById('kpiItemsQty');
+        const kpiApprovedQty = document.getElementById('kpiApprovedQty');
+        const kpiApprovedPercent = document.getElementById('kpiApprovedPercent');
+        const kpiUnapprovedQty = document.getElementById('kpiUnapprovedQty');
+        const kpiUnapprovedPercent = document.getElementById('kpiUnapprovedPercent');
+        const kpiAvgCost = document.getElementById('kpiAvgCost');
 
-# -----------------------------------------------------------------------------
-# DIAGNÓSTICOS E ALERTAS EXECUTIVOS
-# -----------------------------------------------------------------------------
-st.markdown("### ✨ Diagnósticos Automáticos de Compras")
-col_diag1, col_diag2, col_diag3 = st.columns(3)
+        const tableBody = document.getElementById('tableBody');
+        const tableSearch = document.getElementById('tableSearch');
+        const tableCountBadge = document.getElementById('tableCountBadge');
 
-with col_diag1:
-    st.markdown("""
-    <div class="alert-card">
-        <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.35rem;">
-            ✔ Taxa Global de Atendimento
-        </div>
-        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
-            Mais de <strong>90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+        function formatCurrency(val) {{
+          return val.toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
+        }}
 
-with col_diag2:
-    st.markdown("""
-    <div class="alert-card">
-        <div style="font-weight: 700; color: #e11d48; font-size: 0.85rem; margin-bottom: 0.35rem;">
-            ⚠ Itens Não Atendidos / Reprovados
-        </div>
-        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
-            A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+        function populateDropdowns() {{
+          const years = [...new Set(rawOrdersData.map(d => d.ano))].sort();
+          const months = [...new Set(rawOrdersData.map(d => d.mes))];
+          const categories = [...new Set(rawOrdersData.map(d => d.categoria))].sort();
+          const requesters = [...new Set(rawOrdersData.map(d => d.solicitante))].sort();
 
-with col_diag3:
-    st.markdown("""
-    <div class="alert-card">
-        <div style="font-weight: 700; color: #0284c7; font-size: 0.85rem; margin-bottom: 0.35rem;">
-            📈 Controle da Coluna Custo
-        </div>
-        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
-            A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong>EVOCA</strong> e <strong>PARAMOUNT</strong>, com conciliação financeira automatizada.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+          years.forEach(y => {{
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            filterYear.appendChild(opt);
+          }});
 
-# -----------------------------------------------------------------------------
-# RODAPÉ
-# -----------------------------------------------------------------------------
-st.markdown("""
-<div style="text-align: center; color: #64748b; font-size: 0.75rem; border-top: 1px solid #e2e8f0; margin-top: 2.5rem; padding-top: 1.5rem; padding-bottom: 2rem;">
-    Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
-</div>
-""", unsafe_allow_html=True)
+          months.forEach(m => {{
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            filterMonth.appendChild(opt);
+          }});
+
+          categories.forEach(c => {{
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            filterCategory.appendChild(opt);
+          }});
+
+          requesters.forEach(r => {{
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = r;
+            filterRequester.appendChild(opt);
+          }});
+        }}
+
+        populateDropdowns();
+
+        // Configuração de Gráfico 100% no Modo Claro
+        function getChartTheme(type = 'bar') {{
+          return {{
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {{ padding: {{ top: 24, bottom: 6, left: 6, right: 6 }} }},
+            plugins: {{
+              legend: {{ display: false }},
+              tooltip: {{
+                backgroundColor: '#ffffff',
+                titleColor: '#0f172a',
+                bodyColor: '#334155',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                padding: 10
+              }},
+              datalabels: {{
+                anchor: 'end',
+                align: 'top',
+                offset: 2,
+                color: '#0f172a',
+                font: {{ family: 'Inter', weight: 'bold', size: 11 }},
+                formatter: function(value) {{
+                  if (value === 0 || value === null || value === undefined) return '';
+                  return typeof value === 'number' && value >= 1000 ? value.toLocaleString('pt-BR') : value;
+                }}
+              }}
+            }},
+            scales: type === 'bar' ? {{
+              x: {{
+                grid: {{ color: 'rgba(226, 232, 240, 0.8)' }},
+                ticks: {{ color: '#0f172a', font: {{ family: 'Inter', size: 10, weight: '600' }} }}
+              }},
+              y: {{
+                grid: {{ color: 'rgba(226, 232, 240, 0.8)' }},
+                ticks: {{ color: '#0f172a', font: {{ family: 'Inter', size: 10, weight: '600' }} }},
+                beginAtZero: true
+              }}
+            }} : undefined
+          }};
+        }}
+
+        const ctxAgosto = document.getElementById('chartTopAgosto').getContext('2d');
+        const ctxSetembro = document.getElementById('chartTopSetembro').getContext('2d');
+        const ctxCategory = document.getElementById('chartCategoryDist').getContext('2d');
+        const ctxSupplier = document.getElementById('chartSupplierCost').getContext('2d');
+
+        let chartAgosto = new Chart(ctxAgosto, {{
+          type: 'bar',
+          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
+          options: {{
+            ...getChartTheme('bar'),
+            plugins: {{
+              ...getChartTheme('bar').plugins,
+              datalabels: {{
+                anchor: 'end',
+                align: 'top',
+                color: '#0f172a',
+                font: {{ weight: 'bold', size: 11 }},
+                formatter: (val) => val ? `${{val}} un` : ''
+              }}
+            }}
+          }}
+        }});
+
+        let chartSetembro = new Chart(ctxSetembro, {{
+          type: 'bar',
+          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
+          options: {{
+            ...getChartTheme('bar'),
+            plugins: {{
+              ...getChartTheme('bar').plugins,
+              datalabels: {{
+                anchor: 'end',
+                align: 'top',
+                color: '#0f172a',
+                font: {{ weight: 'bold', size: 11 }},
+                formatter: (val) => val ? `${{val}} un` : ''
+              }}
+            }}
+          }}
+        }});
+
+        let chartCategory = new Chart(ctxCategory, {{
+          type: 'doughnut',
+          data: {{
+            labels: [],
+            datasets: [{{
+              data: [],
+              backgroundColor: ['#0284c7', '#06b6d4', '#f59e0b', '#6366f1', '#10b981'],
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }}]
+          }},
+          options: {{
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            layout: {{ padding: 12 }},
+            plugins: {{
+              legend: {{
+                position: 'right',
+                labels: {{ boxWidth: 12, color: '#0f172a', font: {{ family: 'Inter', size: 11, weight: '600' }} }}
+              }},
+              datalabels: {{
+                color: '#0f172a',
+                font: {{ weight: 'bold', size: 11 }},
+                formatter: (val, ctx) => {{
+                  if (val === 0) return '';
+                  const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((val / sum) * 100);
+                  return `${{val}}\\n(${{percentage}}%)`;
+                }},
+                textAlign: 'center'
+              }}
+            }}
+          }}
+        }});
+
+        let chartSupplier = new Chart(ctxSupplier, {{
+          type: 'bar',
+          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
+          options: {{
+            ...getChartTheme('bar'),
+            plugins: {{
+              ...getChartTheme('bar').plugins,
+              datalabels: {{
+                anchor: 'end',
+                align: 'top',
+                color: '#0f172a',
+                font: {{ weight: 'bold', size: 11 }},
+                formatter: (val) => val ? formatCurrency(val) : ''
+              }}
+            }}
+          }}
+        }});
+
+        function updateDashboard() {{
+          const yearVal = filterYear.value;
+          const monthVal = filterMonth.value;
+          const catVal = filterCategory.value;
+          const reqVal = filterRequester.value;
+          const searchVal = tableSearch.value.trim().toLowerCase();
+
+          const filtered = rawOrdersData.filter(item => {{
+            const matchYear = (yearVal === 'ALL' || item.ano === yearVal);
+            const matchMonth = (monthVal === 'ALL' || item.mes === monthVal);
+            const matchCat = (catVal === 'ALL' || item.categoria === catVal);
+            const matchReq = (reqVal === 'ALL' || item.solicitante === reqVal);
+            return matchYear && matchMonth && matchCat && matchReq;
+          }});
+
+          activeFilterBadge.innerText = `Filtros: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
+
+          const totalCusto = filtered.reduce((acc, cur) => acc + cur.custoTotal, 0);
+          const totalItens = filtered.reduce((acc, cur) => acc + cur.qt, 0);
+          const totalAtendidas = filtered.reduce((acc, cur) => acc + cur.qtAprovada, 0);
+          const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + cur.qtNaoAprovada, 0);
+          const totalPedidos = filtered.length;
+          const avgCost = totalPedidos > 0 ? (totalCusto / totalPedidos) : 0;
+
+          const pctAtendidas = totalItens > 0 ? Math.round((totalAtendidas / totalItens) * 100) : 0;
+          const pctNaoAtendidas = totalItens > 0 ? (100 - pctAtendidas) : 0;
+
+          kpiTotalCost.innerText = formatCurrency(totalCusto);
+          kpiTotalRequests.innerText = totalPedidos;
+          kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
+          
+          kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
+          kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
+          kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
+          kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
+
+          kpiAvgCost.innerText = formatCurrency(avgCost);
+
+          const agostoItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Agosto');
+          const setembroItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Setembro');
+
+          function getTop5(items) {{
+            const counts = {{}};
+            items.forEach(d => {{
+              counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt;
+            }});
+            return Object.entries(counts)
+              .map(([name, qt]) => ({{ name, qt }}))
+              .sort((a, b) => b.qt - a.qt)
+              .slice(0, 5);
+          }}
+
+          const topAgosto = getTop5(agostoItems);
+          chartAgosto.data.labels = topAgosto.map(d => d.name);
+          chartAgosto.data.datasets[0].data = topAgosto.map(d => d.qt);
+          chartAgosto.update();
+
+          const topSetembro = getTop5(setembroItems);
+          chartSetembro.data.labels = topSetembro.map(d => d.name);
+          chartSetembro.data.datasets[0].data = topSetembro.map(d => d.qt);
+          chartSetembro.update();
+
+          const catCounts = {{}};
+          filtered.forEach(d => {{
+            catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt;
+          }});
+          chartCategory.data.labels = Object.keys(catCounts);
+          chartCategory.data.datasets[0].data = Object.values(catCounts);
+          chartCategory.update();
+
+          const supplierCosts = {{}};
+          filtered.forEach(d => {{
+            supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal;
+          }});
+          chartSupplier.data.labels = Object.keys(supplierCosts);
+          chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
+          chartSupplier.update();
+
+          renderTable(filtered, searchVal);
+        }}
+
+        function renderTable(dataList, searchTerm) {{
+          const grouped = {{}};
+
+          dataList.forEach(item => {{
+            if (!grouped[item.peca]) {{
+              grouped[item.peca] = {{
+                peca: item.peca,
+                categoria: item.categoria,
+                qtTotal: 0,
+                qtAtendida: 0,
+                qtNaoAtendida: 0,
+                pedidosCount: 0,
+                custoTotal: 0
+              }};
+            }}
+            grouped[item.peca].qtTotal += item.qt;
+            grouped[item.peca].qtAtendida += item.qtAprovada;
+            grouped[item.peca].qtNaoAtendida += item.qtNaoAprovada;
+            grouped[item.peca].pedidosCount += 1;
+            grouped[item.peca].custoTotal += item.custoTotal;
+          }});
+
+          let itemsArray = Object.values(grouped);
+
+          if (searchTerm) {{
+            itemsArray = itemsArray.filter(i => 
+              i.peca.toLowerCase().includes(searchTerm) || 
+              i.categoria.toLowerCase().includes(searchTerm)
+            );
+          }}
+
+          itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
+          tableCountBadge.innerText = `${{itemsArray.length}} peças`;
+
+          if (itemsArray.length === 0) {{
+            tableBody.innerHTML = `
+              <tr>
+                <td colspan="8" class="text-center py-8 text-slate-400">
+                  Nenhuma peça encontrada com os filtros selecionados.
+                </td>
+              </tr>
+            `;
+            return;
+          }}
+
+          tableBody.innerHTML = itemsArray.map(item => {{
+            const unitAvg = item.qtAtendida > 0 ? (item.custoTotal / item.qtAtendida) : 0;
+            return `
+              <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4 font-semibold text-slate-800">
+                  ${{item.peca}}
+                </td>
+                <td class="py-3 px-4">
+                  <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                    ${{item.categoria}}
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-center font-bold text-slate-700">
+                  ${{item.qtTotal.toLocaleString('pt-BR')}} un
+                </td>
+                <td class="py-3 px-4 text-center font-semibold text-emerald-600">
+                  ${{item.qtAtendida.toLocaleString('pt-BR')}} un
+                </td>
+                <td class="py-3 px-4 text-center font-semibold text-rose-500">
+                  ${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un
+                </td>
+                <td class="py-3 px-4 text-center text-slate-500">
+                  ${{item.pedidosCount}}
+                </td>
+                <td class="py-3 px-4 text-right text-slate-500">
+                  ${{formatCurrency(unitAvg)}}
+                </td>
+                <td class="py-3 px-4 text-right font-bold text-amber-600">
+                  ${{formatCurrency(item.custoTotal)}}
+                </td>
+              </tr>
+            `;
+          }}).join('');
+        }}
+
+        [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {{
+          select.addEventListener('change', updateDashboard);
+        }});
+
+        tableSearch.addEventListener('input', () => {{
+          updateDashboard();
+        }});
+
+        resetFiltersBtn.addEventListener('click', () => {{
+          filterYear.value = 'ALL';
+          filterMonth.value = 'ALL';    
+          filterCategory.value = 'ALL';
+          filterRequester.value = 'ALL';
+          tableSearch.value = '';
+          updateDashboard();
+        }});
+
+        updateDashboard();
+      </script>
+    </body>
+    </html>
+    """
+
+    components.html(html_code, height=2150, scrolling=True)
