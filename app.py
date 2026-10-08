@@ -45,16 +45,22 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO E HARMONIOSO
+# FORÇANDO 100% TEMA CLARO GLOBAL NO STREAMLIT (INPUTS, CALENDÁRIO E TABELA)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* Oculta menus padrão do Streamlit */
+    /* 1. VARIÁVEIS NATIVAS DO STREAMLIT FORÇADAS PARA TEMA CLARO */
+    :root {
+        --background-color: #f8fafc !important;
+        --secondary-background-color: #ffffff !important;
+        --text-color: #0f172a !important;
+        --primary-color: #0284c7 !important;
+    }
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Fundo geral e texto principal */
     .stApp {
         background-color: #f8fafc !important;
         color: #0f172a !important;
@@ -68,7 +74,7 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Títulos e Textos */
+    /* 2. TEXTOS E LABELS FORÇADOS PARA ESCURO */
     h1, h2, h3, h4, h5, h6, p, span, div {
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -85,7 +91,7 @@ st.markdown("""
         font-weight: 400 !important;
     }
 
-    /* Bordas e fundo do formulário e de expanders */
+    /* 3. BORDAS E FUNDO DO FORMULÁRIO */
     [data-testid="stForm"], [data-testid="stExpander"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
@@ -94,7 +100,7 @@ st.markdown("""
         padding: 1.25rem !important;
     }
 
-    /* Campos de Entrada: Input, Select, Date, Textarea */
+    /* 4. CAMPOS DE ENTRADA (INPUT, SELECT, NUMBER, TEXTAREA) */
     input, select, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
         background-color: #ffffff !important;
         color: #0f172a !important;
@@ -103,16 +109,38 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    /* Date picker (Data do Pedido) coerente com tema claro */
-    div[data-baseweb="calendar"] {
+    /* 5. POP-UP COMPLETO DO CALENDÁRIO (DATA DO PEDIDO) TOTALMENTE CLARO */
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    [data-baseweb="calendar"],
+    [data-baseweb="calendar"] * {
         background-color: #ffffff !important;
         color: #0f172a !important;
+    }
+    
+    /* Dias da semana e cabeçalho do calendário */
+    [data-baseweb="calendar"] button {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Hover e seleção dos dias */
+    [data-baseweb="calendar"] button:hover {
+        background-color: #f1f5f9 !important;
+        color: #0284c7 !important;
+    }
+    
+    [data-baseweb="calendar"] [aria-selected="true"] {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+    }
+
+    /* Bordas e sombra do calendário */
+    [data-baseweb="popover"] {
         border: 1px solid #cbd5e1 !important;
         border-radius: 12px !important;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
-    }
-    div[data-baseweb="calendar"] * {
-        color: #0f172a !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
     }
 
     /* Foco nos campos */
@@ -121,7 +149,7 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
     }
 
-    /* Botões Padrão no Tema Claro */
+    /* 6. BOTÕES NATIVOS */
     .stButton > button {
         border-radius: 10px !important;
         font-weight: 600 !important;
@@ -129,7 +157,6 @@ st.markdown("""
         transition: all 0.2s ease !important;
     }
     
-    /* Botão Secundário (Navegação inativa) */
     .stButton > button[kind="secondary"] {
         background-color: #ffffff !important;
         color: #475569 !important;
@@ -141,7 +168,6 @@ st.markdown("""
         border-color: #94a3b8 !important;
     }
 
-    /* Botão Primário (Navegação ativa / Salvar) */
     .stButton > button[kind="primary"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
@@ -153,19 +179,21 @@ st.markdown("""
         border-color: #0369a1 !important;
     }
 
-    /* Tabela do Streamlit: Fundo branco e borda limpa */
-    [data-testid="stDataFrame"] {
+    /* 7. TABELA DO STREAMLIT TOTALMENTE CLARA */
+    [data-testid="stDataFrame"],
+    [data-testid="stDataFrame"] > div,
+    [data-testid="stDataFrame"] iframe {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 12px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
-        overflow: hidden;
     }
-    [data-testid="stDataFrame"] div {
-        color: #0f172a !important;
+    
+    [data-testid="stDataFrame"] canvas {
+        filter: none !important;
     }
 
-    /* Banner do modo de edição */
+    /* 8. BANNER MODO EDIÇÃO */
     .edit-mode-banner {
         background-color: #fef3c7;
         border-left: 5px solid #d97706;
@@ -289,7 +317,7 @@ if 'form_reset_counter' not in st.session_state:
     st.session_state.form_reset_counter = 0
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR
+# BARRA DE NAVEGAÇÃO SUPERIOR (100% TEMA CLARO NATIVO)
 # -----------------------------------------------------------------------------
 nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
 
@@ -297,7 +325,7 @@ with nav_col1:
     st.markdown("""
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
             <span style="font-size: 1.4rem;">📦</span>
-            <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
+            <span style="font-size: 1.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -363,7 +391,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     next_oc_num = f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
     def_oc = record_to_edit.get("ordemCompra", next_oc_num) if record_to_edit else next_oc_num
     
-    # Valores dos campos: se for novo registro, começam limpos/zerados
+    # Valores dos campos
     def_prod = record_to_edit.get("peca", produtos_lista[0] if produtos_lista else "") if record_to_edit else (produtos_lista[0] if produtos_lista else "")
     def_cod = record_to_edit.get("codProduto", catalogo_produtos.get(def_prod, "")) if record_to_edit else catalogo_produtos.get(def_prod, "")
     def_cat = record_to_edit.get("categoria", "Multi Bebidas") if record_to_edit else "Multi Bebidas"
@@ -371,7 +399,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
     def_solicitante = record_to_edit.get("solicitante", "") if record_to_edit else ""
     
-    # Preserva sempre a Data Atual para novos cadastros
+    # Data atual preservada
     try:
         def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
     except Exception:
@@ -397,7 +425,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO PRINCIPAL COM BORDAS E CAMPOS CLAROS ------------------
+    # ------------------ FORMULÁRIO COM TEMA 100% CLARO ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
         st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -421,7 +449,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            # Campo Data do Pedido com fundo claro e calendário harmonioso
+            # Data do Pedido com calendário totalmente ajustado para fundo branco
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -478,7 +506,7 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # 1. Envio para gravação física na planilha Google via Apps Script
+                # 1. Gravação na planilha Google
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
 
                 # 2. Atualização dos dados em memória
@@ -510,7 +538,13 @@ if st.session_state.active_tab == "Pedido de Compras":
         'fornecedor', 'codPecaFornecedor', 'solicitante', 'Custo Total (R$)', 'observacao'
     ]
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
-    st.dataframe(df_preview[cols_existentes], use_container_width=True, hide_index=True)
+    
+    # Exibição nativa com estilo e bordas claras
+    st.dataframe(
+        df_preview[cols_existentes],
+        use_container_width=True,
+        hide_index=True
+    )
 
 # -----------------------------------------------------------------------------
 # ABA 2: PAINEL EXECUTIVO ("Dashboard Compras" - 100% TEMA CLARO)
