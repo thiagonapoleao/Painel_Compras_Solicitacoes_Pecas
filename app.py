@@ -11,20 +11,32 @@ import requests
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
 
 def gravar_na_planilha_google(dados_registro):
-    """Envia o novo registro diretamente para a planilha Google Sheets via Apps Script tratando redirecionamentos"""
+    """
+    Envia o registro para o Webhook do Google Apps Script.
+    Usa formato de payload com fallback para garantir gravação com sucesso.
+    """
     try:
-        session = requests.Session()
-        response = session.post(
+        # Envio padrão compatível com Google Apps Script doPost(e)
+        response = requests.post(
             WEBHOOK_URL,
             data=json.dumps(dados_registro),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "text/plain;charset=utf-8"},
             allow_redirects=True,
             timeout=15
         )
         if response.status_code in [200, 302]:
             return True, "Gravado com sucesso na planilha Google!"
         else:
-            return False, f"Falha na comunicação com Google Planilhas (HTTP {response.status_code})"
+            # Tentativa de fallback em formato de formulário
+            resp_fallback = requests.post(
+                WEBHOOK_URL,
+                data=dados_registro,
+                allow_redirects=True,
+                timeout=15
+            )
+            if resp_fallback.status_code in [200, 302]:
+                return True, "Gravado com sucesso na planilha Google!"
+            return False, f"Falha na comunicação (HTTP {response.status_code})"
     except Exception as e:
         return False, f"Erro ao conectar com Google Planilhas: {str(e)}"
 
@@ -37,14 +49,14 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# CONTROLE GLOBAL DE TEMA (LIGHT / DARK) COMPARTILHADO ENTRE TODAS AS ABAS
+# CONTROLE GLOBAL DE TEMA (LIGHT / DARK)
 # -----------------------------------------------------------------------------
 if 'current_theme' not in st.session_state:
     st.session_state.current_theme = "light"
 
 is_dark = st.session_state.current_theme == "dark"
 
-# Estilização CSS que responde ao tema ativo em todas as abas
+# Estilização CSS completa: garante alta legibilidade e contraste
 if is_dark:
     theme_css = """
     <style>
@@ -62,17 +74,17 @@ if is_dark:
             padding-right: 1.5rem !important;
             max-width: 100% !important;
         }
+        label, .stWidgetLabel, .stMarkdown p, .stCaption, h1, h2, h3, h4, h5, h6 {
+            color: #f1f5f9 !important;
+        }
         .edit-mode-banner {
             background-color: #78350f;
             border-left: 5px solid #f59e0b;
             padding: 12px 18px;
             border-radius: 8px;
             margin-bottom: 15px;
-            color: #fef3c7;
+            color: #fef3c7 !important;
             font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
     </style>
     """
@@ -93,17 +105,33 @@ else:
             padding-right: 1.5rem !important;
             max-width: 100% !important;
         }
+        /* Força cor escura para labels, títulos e textos no modo claro */
+        label, .stWidgetLabel, p, span, .stCaption, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
+            color: #0f172a !important;
+            font-weight: 600 !important;
+        }
+        .stCaption {
+            color: #475569 !important;
+            font-weight: 400 !important;
+        }
+        /* Inputs e selects com bordas e texto bem escuro */
+        input, select, textarea, div[data-baseweb="select"] {
+            color: #0f172a !important;
+            background-color: #ffffff !important;
+        }
+        /* Estilização da tabela Streamlit no modo claro */
+        [data-testid="stDataFrame"] {
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 10px;
+        }
         .edit-mode-banner {
             background-color: #fef3c7;
             border-left: 5px solid #d97706;
             padding: 12px 18px;
             border-radius: 8px;
             margin-bottom: 15px;
-            color: #92400e;
+            color: #92400e !important;
             font-weight: 600;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
     </style>
     """
@@ -160,7 +188,7 @@ def carregar_catalogo_produtos():
 catalogo_produtos = carregar_catalogo_produtos()
 
 # -----------------------------------------------------------------------------
-# BASE DE DADOS COMPLETA PRESERVADA (st.session_state)
+# BASE DE DADOS COMPLETA (st.session_state)
 # -----------------------------------------------------------------------------
 if 'orders_data' not in st.session_state:
     st.session_state.orders_data = [
@@ -173,38 +201,12 @@ if 'orders_data' not in st.session_state:
         { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
         { "ordemCompra": "OC-2025-008", "codProduto": "405", "ano": "2025", "mes": "Agosto", "data": "25/08/2025", "horarioChegada": "10:30", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "codPecaFornecedor": "IM-405", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50, "valorVenda": 22.00, "observacao": "Estoque parcial" },
         { "ordemCompra": "OC-2025-009", "codProduto": "2617", "ano": "2025", "mes": "Agosto", "data": "28/08/2025", "horarioChegada": "17:10", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-        
         { "ordemCompra": "OC-2025-010", "codProduto": "535", "ano": "2025", "mes": "Setembro", "data": "02/09/2025", "horarioChegada": "08:45", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
         { "ordemCompra": "OC-2025-011", "codProduto": "700", "ano": "2025", "mes": "Setembro", "data": "05/09/2025", "horarioChegada": "14:15", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
         { "ordemCompra": "OC-2025-012", "codProduto": "2673", "ano": "2025", "mes": "Setembro", "data": "10/09/2025", "horarioChegada": "11:50", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-CARROSSEL", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00, "valorVenda": 480.00, "observacao": "" },
         { "ordemCompra": "OC-2025-013", "codProduto": "650", "ano": "2025", "mes": "Setembro", "data": "14/09/2025", "horarioChegada": "16:20", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
         { "ordemCompra": "OC-2025-014", "codProduto": "2290", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "15:10", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-015", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "09:30", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-016", "codProduto": "305", "ano": "2025", "mes": "Setembro", "data": "21/09/2025", "horarioChegada": "14:00", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-SUP", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00, "valorVenda": 120.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-017", "codProduto": "649", "ano": "2025", "mes": "Setembro", "data": "23/09/2025", "horarioChegada": "10:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-018", "codProduto": "2617", "ano": "2025", "mes": "Setembro", "data": "25/09/2025", "horarioChegada": "11:30", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-
-        { "ordemCompra": "OC-2025-019", "codProduto": "105", "ano": "2025", "mes": "Outubro", "data": "10/10/2025", "horarioChegada": "13:00", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "codPecaFornecedor": "WN-PINCEL", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00, "valorVenda": 15.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-020", "codProduto": "410", "ano": "2025", "mes": "Outubro", "data": "15/10/2025", "horarioChegada": "15:45", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-BANANA", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05, "valorVenda": 65.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-021", "codProduto": "534", "ano": "2025", "mes": "Outubro", "data": "22/10/2025", "horarioChegada": "10:20", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00, "valorVenda": 310.00, "observacao": "" },
-
-        { "ordemCompra": "OC-2025-022", "codProduto": "905", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "09:10", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "codPecaFornecedor": "TM-ROSA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80, "valorVenda": 210.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-023", "codProduto": "302", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "14:40", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-MET", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18, "valorVenda": 135.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-024", "codProduto": "903", "ano": "2025", "mes": "Novembro", "data": "04/11/2025", "horarioChegada": "16:15", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-SPRAY", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
-
-        { "ordemCompra": "OC-2026-001", "codProduto": "880", "ano": "2026", "mes": "Março", "data": "02/03/2026", "horarioChegada": "10:30", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-880", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00, "valorVenda": 190.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-002", "codProduto": "881", "ano": "2026", "mes": "Março", "data": "07/03/2026", "horarioChegada": "11:20", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-881", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00, "valorVenda": 390.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-003", "codProduto": "882", "ano": "2026", "mes": "Abril", "data": "23/04/2026", "horarioChegada": "14:00", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-882", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00, "valorVenda": 195.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-004", "codProduto": "2680", "ano": "2026", "mes": "Abril", "data": "24/04/2026", "horarioChegada": "15:30", "solicitante": "LUCAS", "peca": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-MOINHO", "qt": 2, "qtAprovada": 1, "qtNaoAprovada": 1, "custoUnit": 410.00, "valorVenda": 690.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-005", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "14/08/2026", "horarioChegada": "09:40", "solicitante": "WILLIAN NEVES", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-006", "codProduto": "535", "ano": "2026", "mes": "Agosto", "data": "17/08/2026", "horarioChegada": "10:50", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-007", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "25/08/2026", "horarioChegada": "13:10", "solicitante": "RYAN", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 7, "qtAprovada": 6, "qtNaoAprovada": 1, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-008", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "27/08/2026", "horarioChegada": "16:20", "solicitante": "VITOR", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-009", "codProduto": "534", "ano": "2026", "mes": "Setembro", "data": "11/09/2026", "horarioChegada": "09:00", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 14, "qtAprovada": 14, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-010", "codProduto": "700", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "11:15", "solicitante": "CESAR", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 20, "qtAprovada": 18, "qtNaoAprovada": 2, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-011", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "14:40", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 25, "qtAprovada": 25, "qtNaoAprovada": 0, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-012", "codProduto": "649", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "15:30", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 30, "qtAprovada": 30, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-013", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "16:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 30, "qtAprovada": 28, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" }
+        { "ordemCompra": "OC-2025-015", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "09:30", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" }
     ]
 
 if 'active_tab' not in st.session_state:
@@ -213,8 +215,12 @@ if 'active_tab' not in st.session_state:
 if 'edit_order_id' not in st.session_state:
     st.session_state.edit_order_id = None
 
+# Contador para resetar os campos do formulário preservando data e número da OC
+if 'form_reset_counter' not in st.session_state:
+    st.session_state.form_reset_counter = 0
+
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR (NAVBAR COM BOTÃO GLOBAL DE TEMA)
+# BARRA DE NAVEGAÇÃO SUPERIOR
 # -----------------------------------------------------------------------------
 nav_col1, nav_col2, nav_col3, nav_col4 = st.columns([3.5, 2.5, 2.5, 1.5])
 
@@ -242,14 +248,14 @@ with nav_col4:
         st.session_state.current_theme = "light" if is_dark else "dark"
         st.rerun()
 
-st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #94a3b833;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #94a3b844;'>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ABA 1: FORMULÁRIO DE CADASTRO E EDIÇÃO ("Pedido de Compras")
 # -----------------------------------------------------------------------------
 if st.session_state.active_tab == "Pedido de Compras":
-    st.subheader("📝 Gestão e Lançamento de Pedidos de Compra")
-    st.caption("Cadastre novas ordens e sincronize automaticamente com a aba 'Ordem de Compra(Peças)'.")
+    st.subheader("📝 Lançamento & Gestão de Pedidos de Compra")
+    st.caption("Cadastre novas ordens e sincronize em tempo real com a planilha 'Gastos peças e suprimentos'.")
 
     # ------------------ SEÇÃO DE PESQUISA & EDIÇÃO ------------------
     with st.expander("🔍 Pesquisar por Ordem de Compra para Editar", expanded=(st.session_state.edit_order_id is not None)):
@@ -287,36 +293,42 @@ if st.session_state.active_tab == "Pedido de Compras":
                 </div>
             """, unsafe_allow_html=True)
 
-    # ------------------ PREPARAÇÃO DOS DADOS DO FORMULÁRIO ------------------
+    # ------------------ VALORES DOS CAMPOS ------------------
     produtos_lista = sorted(list(catalogo_produtos.keys()))
-
-    def_oc = record_to_edit.get("ordemCompra", f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}") if record_to_edit else f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
+    
+    # Número sequencial da OC
+    next_oc_num = f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
+    def_oc = record_to_edit.get("ordemCompra", next_oc_num) if record_to_edit else next_oc_num
+    
+    # Se não estiver editando, os campos de valores são zerados/limpos
     def_prod = record_to_edit.get("peca", produtos_lista[0] if produtos_lista else "") if record_to_edit else (produtos_lista[0] if produtos_lista else "")
     def_cod = record_to_edit.get("codProduto", catalogo_produtos.get(def_prod, "")) if record_to_edit else catalogo_produtos.get(def_prod, "")
     def_cat = record_to_edit.get("categoria", "Multi Bebidas") if record_to_edit else "Multi Bebidas"
-    def_forn = record_to_edit.get("fornecedor", "EVOCA") if record_to_edit else "EVOCA"
+    def_forn = record_to_edit.get("fornecedor", "") if record_to_edit else ""
     def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
-    def_solicitante = record_to_edit.get("solicitante", "WILLIAN NEVES") if record_to_edit else "WILLIAN NEVES"
+    def_solicitante = record_to_edit.get("solicitante", "") if record_to_edit else ""
     
+    # Mantém SEMPRE a data atual para novos registros
     try:
         def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
     except Exception:
         def_data = datetime.today().date()
         
-    def_hora = record_to_edit.get("horarioChegada", "10:00") if record_to_edit else "10:00"
-    def_valor_compra = float(record_to_edit.get("custoUnit", 10.0)) if record_to_edit else 10.0
-    def_valor_venda = float(record_to_edit.get("valorVenda", 20.0)) if record_to_edit else 20.0
-    def_qt_sol = int(record_to_edit.get("qt", 10)) if record_to_edit else 10
-    def_qt_apr = int(record_to_edit.get("qtAprovada", 10)) if record_to_edit else 10
+    def_hora = record_to_edit.get("horarioChegada", "") if record_to_edit else ""
+    def_valor_compra = float(record_to_edit.get("custoUnit", 0.0)) if record_to_edit else 0.0
+    def_valor_venda = float(record_to_edit.get("valorVenda", 0.0)) if record_to_edit else 0.0
+    def_qt_sol = int(record_to_edit.get("qt", 1)) if record_to_edit else 1
+    def_qt_apr = int(record_to_edit.get("qtAprovada", 0)) if record_to_edit else 0
     def_obs = record_to_edit.get("observacao", "") if record_to_edit else ""
 
     col_p1, col_p2 = st.columns([3, 1])
     with col_p1:
+        reset_key = f"prod_select_{st.session_state.form_reset_counter}"
         produto_selecionado = st.selectbox(
             "Produto (Coluna B da planilha)*",
             options=produtos_lista + ["Outro (Digitar Manualmente)"],
             index=produtos_lista.index(def_prod) if def_prod in produtos_lista else 0,
-            key="widget_produto_select"
+            key=reset_key
         )
     with col_p2:
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
@@ -346,6 +358,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("##### 📅 Prazos e Horários")
         col_t1, col_t2 = st.columns(2)
         with col_t1:
+            # Data atual mantida
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -357,7 +370,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         with col_q2:
             qt_aprovada = st.number_input("Qt Aprovada*", min_value=0, value=def_qt_apr, step=1)
         with col_q3:
-            valor_compra = st.number_input("Valor de Compra (Custo Unit. R$)*", min_value=0.01, value=def_valor_compra, step=0.50, format="%.2f")
+            valor_compra = st.number_input("Valor de Compra (Custo Unit. R$)*", min_value=0.00, value=def_valor_compra, step=0.50, format="%.2f")
         with col_q4:
             valor_venda = st.number_input("Valor de Venda (R$)", min_value=0.00, value=def_valor_venda, step=0.50, format="%.2f")
 
@@ -372,7 +385,7 @@ if st.session_state.active_tab == "Pedido de Compras":
 
         if btn_salvar:
             if not ordem_compra or not produto_final or not fornecedor or not solicitante:
-                st.error("Preencha todos os campos obrigatórios (*).")
+                st.error("Por favor, preencha todos os campos obrigatórios (*).")
             elif qt_aprovada > qt_solicitada:
                 st.error("A Quantidade Aprovada não pode ser maior que a Quantidade Solicitada.")
             else:
@@ -402,24 +415,25 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # 1. Grava diretamente na planilha Google Sheets via Webhook
+                # 1. Envio para gravação na planilha Google
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
-                if not sucesso_planilha:
-                    st.warning(f"⚠️ {msg_planilha}")
-                else:
-                    st.success("✅ Pedido gravado com sucesso na planilha 'Gastos peças e suprimentos'!")
 
-                # 2. Atualiza a memória de sessão para o dashboard refletir imediatamente
+                # 2. Atualização dos dados em memória
                 if record_to_edit:
                     idx = st.session_state.orders_data.index(record_to_edit)
                     st.session_state.orders_data[idx] = registro_dados
                     st.session_state.edit_order_id = None
-                    st.success(f"✅ Ordem de Compra **{ordem_compra}** atualizada!")
-                    st.rerun()
+                    st.success(f"✅ Ordem de Compra **{ordem_compra}** alterada com sucesso!")
                 else:
                     st.session_state.orders_data.insert(0, registro_dados)
-                    st.success(f"✅ Nova Ordem de Compra **{ordem_compra}** ({produto_final}) salva!")
-                    st.rerun()
+                    if sucesso_planilha:
+                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi salva com sucesso e gravada na planilha Google!")
+                    else:
+                        st.warning(f"⚠️ Salvo no painel, mas o Google Sheets reportou: {msg_planilha}")
+                
+                # Incrementa contador para zerar o form preservando data e OC seguinte
+                st.session_state.form_reset_counter += 1
+                st.rerun()
 
     # ------------------ TABELA COMPLETA DE REGISTROS ------------------
     st.markdown("---")
