@@ -13,17 +13,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS personalizada para forçar modo claro completo (inclusive tabelas e inputs)
+# Estilização CSS personalizada forçando tema claro em tudo
 st.markdown("""
 <style>
-    /* Forçar fundo claro global */
+    /* Fundo Global Claro */
     .stApp {
         background-color: #f8fafc !important;
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     
-    /* Forçar cores claras na barra lateral */
+    /* Barra Lateral */
     section[data-testid="stSidebar"] {
         background-color: #ffffff !important;
         border-right: 1px solid #e2e8f0;
@@ -32,23 +32,12 @@ st.markdown("""
         color: #0f172a !important;
     }
     
-    /* Inputs, Selectbox e Campos de Busca em Tema Claro */
+    /* Inputs */
     .stSelectbox div[data-baseweb="select"] > div,
     .stTextInput input {
         background-color: #ffffff !important;
         color: #0f172a !important;
         border-color: #cbd5e1 !important;
-    }
-
-    /* Forçar tema claro nas tabelas nativas do Streamlit (Glide Data Grid) */
-    div[data-testid="stDataFrame"] {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 0.75rem !important;
-        padding: 0.5rem;
-    }
-    div[data-testid="stDataFrame"] * {
-        color: #0f172a !important;
     }
     
     /* Header Personalizado */
@@ -115,32 +104,34 @@ st.markdown("""
         box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
 
-    /* Tabela HTML customizada 100% clara */
-    .custom-table {
+    /* Tabela 100% Clara */
+    table.custom-table {
         width: 100%;
         border-collapse: collapse;
         background-color: #ffffff;
         border-radius: 0.75rem;
         overflow: hidden;
-        border: 1px solid #e2e8f0;
-        font-size: 0.82rem;
+        border: 1px solid #cbd5e1;
+        font-size: 0.84rem;
     }
-    .custom-table th {
+    table.custom-table th {
         background-color: #f1f5f9;
-        color: #334155;
+        color: #0f172a;
         font-weight: 700;
         text-transform: uppercase;
-        font-size: 0.72rem;
+        font-size: 0.73rem;
         letter-spacing: 0.05em;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #e2e8f0;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #cbd5e1;
+        text-align: left;
     }
-    .custom-table td {
+    table.custom-table td {
         padding: 0.75rem 1rem;
         color: #1e293b;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
     }
-    .custom-table tr:hover {
+    table.custom-table tr:hover {
         background-color: #f8fafc;
     }
 </style>
@@ -370,13 +361,13 @@ with col_chart1:
         y=df_agosto["qt"],
         text=[f"<b>{v} un</b>" for v in df_agosto["qt"]],
         textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
+        textfont=dict(color="#000000", size=12, family="Inter"),
         marker=dict(color="#0284c7")
     ))
     fig_ago.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        font=dict(color="#000000", family="Inter"),
         margin=dict(t=35, b=20, l=10, r=10),
         height=320,
         yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
@@ -392,13 +383,13 @@ with col_chart2:
         y=df_setembro["qt"],
         text=[f"<b>{v} un</b>" for v in df_setembro["qt"]],
         textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
+        textfont=dict(color="#000000", size=12, family="Inter"),
         marker=dict(color="#0891b2")
     ))
     fig_set.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        font=dict(color="#000000", family="Inter"),
         margin=dict(t=35, b=20, l=10, r=10),
         height=320,
         yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
@@ -421,7 +412,6 @@ with col_chart3:
         hole=0.55,
         color_discrete_sequence=['#38bdf8', '#22d3ee', '#fbbf24', '#a5b4fc', '#6ee7b7']
     )
-    # Rótulos nas fatias em PRETO
     fig_cat.update_traces(
         textinfo="value+percent",
         textposition="inside",
@@ -446,13 +436,13 @@ with col_chart4:
         y=df_sup["custoTotal"],
         text=[f"<b>{format_currency(v)}</b>" for v in df_sup["custoTotal"]],
         textposition="outside",
-        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
+        textfont=dict(color="#000000", size=12, family="Inter"),
         marker=dict(color="#f59e0b")
     ))
     fig_sup.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        font=dict(color="#000000", family="Inter"),
         margin=dict(t=35, b=20, l=10, r=10),
         height=320,
         yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
@@ -461,7 +451,7 @@ with col_chart4:
     st.plotly_chart(fig_sup, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# TABELA RESUMO POR PEÇA (TEMA 100% CLARO GARANTIDO)
+# TABELA RESUMO POR PEÇA (TEMA 100% CLARO GARANTIDO SEM MOSTRAR CÓDIGO)
 # -----------------------------------------------------------------------------
 st.write("")
 st.markdown("### 📊 Resumo Detalhado por Peça Solicitada")
@@ -481,56 +471,32 @@ df_table["custoUnitMedio"] = df_table.apply(
     lambda row: (row["custoTotal"] / row["qtAtendida"]) if row["qtAtendida"] > 0 else 0, axis=1
 )
 
-# Filtro de texto da tabela
+# Filtro de busca
 if search_term:
     mask = df_table["peca"].str.contains(search_term, case=False, na=False) | \
            df_table["categoria"].str.contains(search_term, case=False, na=False)
     df_table = df_table[mask]
 
-# Ordenar por Custo Total
+# Ordenar por Custo Total Decrescente
 df_table = df_table.sort_values(by="custoTotal", ascending=False)
 
-# Construir tabela HTML 100% Clara (imune a temas escuros de navegadores/Streamlit)
 if len(df_table) == 0:
     st.warning("Nenhuma peça encontrada com os filtros selecionados.")
 else:
-    table_rows = []
-    for _, row in df_table.iterrows():
-        table_rows.append(f"""
-        <tr>
-            <td style="font-weight: 600; color: #0f172a;">{row['peca']}</td>
-            <td><span style="background-color: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 6px; font-size: 11px; border: 1px solid #e2e8f0;">{row['categoria']}</span></td>
-            <td style="text-align: center; font-weight: 700; color: #334155;">{int(row['qtTotal']):,} un</td>
-            <td style="text-align: center; font-weight: 700; color: #059669;">{int(row['qtAtendida']):,} un</td>
-            <td style="text-align: center; font-weight: 700; color: #e11d48;">{int(row['qtNaoAtendida']):,} un</td>
-            <td style="text-align: center; color: #64748b;">{row['pedidosCount']}</td>
-            <td style="text-align: right; color: #475569;">{format_currency(row['custoUnitMedio'])}</td>
-            <td style="text-align: right; font-weight: 700; color: #d97706;">{format_currency(row['custoTotal'])}</td>
-        </tr>
-        """.replace(",", "."))
+    # Preparar DataFrame formatado visualmente para tema claro
+    df_view = pd.DataFrame()
+    df_view["Peça / Produto Solicitado"] = df_table["peca"]
+    df_view["Categoria"] = df_table["categoria"]
+    df_view["Qtde Total"] = df_table["qtTotal"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
+    df_view["Atendidas"] = df_table["qtAtendida"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
+    df_view["Não Atendidas"] = df_table["qtNaoAtendida"].apply(lambda v: f"{int(v):,} un".replace(",", "."))
+    df_view["Nº Pedidos"] = df_table["pedidosCount"]
+    df_view["Custo Unit. Médio"] = df_table["custoUnitMedio"].apply(format_currency)
+    df_view["Custo Total (R$)"] = df_table["custoTotal"].apply(format_currency)
 
-    table_html = f"""
-    <div style="overflow-x: auto; margin-top: 0.5rem; margin-bottom: 1.5rem;">
-        <table class="custom-table">
-            <thead>
-                <tr>
-                    <th style="text-align: left;">Peça / Produto Solicitado</th>
-                    <th style="text-align: left;">Categoria</th>
-                    <th style="text-align: center;">Qtde Total</th>
-                    <th style="text-align: center; color: #059669;">Atendidas</th>
-                    <th style="text-align: center; color: #e11d48;">Não Atendidas</th>
-                    <th style="text-align: center;">Nº Pedidos</th>
-                    <th style="text-align: right;">Custo Unit. Médio</th>
-                    <th style="text-align: right; color: #d97706;">Custo Total (R$)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {''.join(table_rows)}
-            </tbody>
-        </table>
-    </div>
-    """
-    st.markdown(table_html, unsafe_allow_html=True)
+    # Renderização HTML limpa direta do Pandas
+    table_html = df_view.to_html(classes="custom-table", index=False)
+    st.markdown(f'<div style="overflow-x: auto; margin-top: 10px; margin-bottom: 25px;">{table_html}</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # DIAGNÓSTICOS E ALERTAS EXECUTIVOS
