@@ -11,20 +11,22 @@ import requests
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
 
 def gravar_na_planilha_google(dados_registro):
-    """Envia o novo registro diretamente para a planilha Google Sheets via Apps Script"""
+    """Envia o novo registro diretamente para a planilha Google Sheets via Apps Script tratando redirecionamentos"""
     try:
-        response = requests.post(
+        session = requests.Session()
+        response = session.post(
             WEBHOOK_URL,
             data=json.dumps(dados_registro),
             headers={"Content-Type": "application/json"},
-            timeout=10
+            allow_redirects=True,
+            timeout=15
         )
-        if response.status_code == 200:
+        if response.status_code in [200, 302]:
             return True, "Gravado com sucesso na planilha Google!"
         else:
-            return False, f"Falha na comunicação (HTTP {response.status_code})"
+            return False, f"Falha na comunicação com Google Planilhas (HTTP {response.status_code})"
     except Exception as e:
-        return False, f"Erro ao enviar para o Google Planilhas: {str(e)}"
+        return False, f"Erro ao conectar com Google Planilhas: {str(e)}"
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
@@ -34,34 +36,79 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS com Tema Claro por padrão
-st.markdown("""
-<style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
-        max-width: 100% !important;
-    }
-    
-    .edit-mode-banner {
-        background-color: #fef3c7;
-        border-left: 5px solid #d97706;
-        padding: 12px 18px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        color: #92400e;
-        font-weight: 600;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-</style>
-""", unsafe_allow_html=True)
+# -----------------------------------------------------------------------------
+# CONTROLE GLOBAL DE TEMA (LIGHT / DARK) COMPARTILHADO ENTRE TODAS AS ABAS
+# -----------------------------------------------------------------------------
+if 'current_theme' not in st.session_state:
+    st.session_state.current_theme = "light"
+
+is_dark = st.session_state.current_theme == "dark"
+
+# Estilização CSS que responde ao tema ativo em todas as abas
+if is_dark:
+    theme_css = """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .stApp {
+            background-color: #020617 !important;
+            color: #f8fafc !important;
+        }
+        .block-container {
+            padding-top: 0.5rem !important;
+            padding-bottom: 1rem !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+            max-width: 100% !important;
+        }
+        .edit-mode-banner {
+            background-color: #78350f;
+            border-left: 5px solid #f59e0b;
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            color: #fef3c7;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+    """
+else:
+    theme_css = """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .stApp {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        .block-container {
+            padding-top: 0.5rem !important;
+            padding-bottom: 1rem !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+            max-width: 100% !important;
+        }
+        .edit-mode-banner {
+            background-color: #fef3c7;
+            border-left: 5px solid #d97706;
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            color: #92400e;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+    """
+
+st.markdown(theme_css, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA CARREGAR PRODUTOS DA PLANILHA GOOGLE (Aba gid=270834817)
@@ -167,15 +214,15 @@ if 'edit_order_id' not in st.session_state:
     st.session_state.edit_order_id = None
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR (NAVBAR)
+# BARRA DE NAVEGAÇÃO SUPERIOR (NAVBAR COM BOTÃO GLOBAL DE TEMA)
 # -----------------------------------------------------------------------------
-nav_col1, nav_col2, nav_col3 = st.columns([4, 3, 3])
+nav_col1, nav_col2, nav_col3, nav_col4 = st.columns([3.5, 2.5, 2.5, 1.5])
 
 with nav_col1:
     st.markdown("""
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
             <span style="font-size: 1.4rem;">📦</span>
-            <span style="font-size: 1.15rem; font-weight: 800; color: #1e293b; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
+            <span style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -189,14 +236,20 @@ with nav_col3:
         st.session_state.active_tab = "Pedido de Compras"
         st.rerun()
 
-st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+with nav_col4:
+    theme_btn_label = "☀️ Claro" if is_dark else "🌙 Escuro"
+    if st.button(theme_btn_label, use_container_width=True):
+        st.session_state.current_theme = "light" if is_dark else "dark"
+        st.rerun()
+
+st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #94a3b833;'>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ABA 1: FORMULÁRIO DE CADASTRO E EDIÇÃO ("Pedido de Compras")
 # -----------------------------------------------------------------------------
 if st.session_state.active_tab == "Pedido de Compras":
     st.subheader("📝 Gestão e Lançamento de Pedidos de Compra")
-    st.caption("Cadastre novas ordens e sincronize automaticamente com a planilha Google 'Gastos peças e suprimentos'.")
+    st.caption("Cadastre novas ordens e sincronize automaticamente com a aba 'Ordem de Compra(Peças)'.")
 
     # ------------------ SEÇÃO DE PESQUISA & EDIÇÃO ------------------
     with st.expander("🔍 Pesquisar por Ordem de Compra para Editar", expanded=(st.session_state.edit_order_id is not None)):
@@ -349,12 +402,12 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # 1. Grava na planilha Google através do webhook Apps Script
+                # 1. Grava diretamente na planilha Google Sheets via Webhook
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
                 if not sucesso_planilha:
-                    st.warning(f"⚠️ Aviso sobre a Planilha: {msg_planilha}")
+                    st.warning(f"⚠️ {msg_planilha}")
                 else:
-                    st.success("✅ Pedido gravado com sucesso na planilha Google!")
+                    st.success("✅ Pedido gravado com sucesso na planilha 'Gastos peças e suprimentos'!")
 
                 # 2. Atualiza a memória de sessão para o dashboard refletir imediatamente
                 if record_to_edit:
@@ -387,10 +440,11 @@ if st.session_state.active_tab == "Pedido de Compras":
 # -----------------------------------------------------------------------------
 elif st.session_state.active_tab == "Dashboard Compras":
     json_orders_data = json.dumps(st.session_state.orders_data, ensure_ascii=False)
+    html_theme_class = "dark" if is_dark else "light"
 
     html_code = f"""
     <!DOCTYPE html>
-    <html lang="pt-BR" class="light">
+    <html lang="pt-BR" class="{html_theme_class}">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -446,10 +500,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
               <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Cálculos em Tempo Real
             </span>
-            <button id="themeToggle" class="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-2 text-xs font-medium shadow-sm">
-              <i data-lucide="moon" id="themeIcon" class="w-4 h-4"></i>
-              <span id="themeText">Modo Escuro</span>
-            </button>
           </div>
         </div>
       </header>
@@ -731,30 +781,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
         lucide.createIcons();
         Chart.register(ChartDataLabels);
 
-        const themeToggleBtn = document.getElementById('themeToggle');
-        const htmlElem = document.documentElement;
-        const themeIcon = document.getElementById('themeIcon');
-        const themeText = document.getElementById('themeText');
-
-        // Padrão: Modo Claro
-        htmlElem.classList.remove('dark');
-        htmlElem.classList.add('light');
-
-        themeToggleBtn.addEventListener('click', () => {{
-          const isDarkNow = htmlElem.classList.toggle('dark');
-          if (isDarkNow) {{
-            htmlElem.classList.remove('light');
-            themeIcon.setAttribute('data-lucide', 'sun');
-            themeText.textContent = 'Modo Claro';
-          }} else {{
-            htmlElem.classList.add('light');
-            themeIcon.setAttribute('data-lucide', 'moon');
-            themeText.textContent = 'Modo Escuro';
-          }}
-          lucide.createIcons();
-          updateChartsTheme();
-        }});
-
+        const isSystemDark = document.documentElement.classList.contains('dark');
         const rawOrdersData = {json_orders_data};
 
         rawOrdersData.forEach(item => {{
@@ -869,13 +896,13 @@ elif st.session_state.active_tab == "Dashboard Compras":
           type: 'bar',
           data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
           options: {{
-            ...getChartTheme(false, 'bar'),
+            ...getChartTheme(isSystemDark, 'bar'),
             plugins: {{
-              ...getChartTheme(false, 'bar').plugins,
+              ...getChartTheme(isSystemDark, 'bar').plugins,
               datalabels: {{
                 anchor: 'end',
                 align: 'top',
-                color: '#0284c7',
+                color: isSystemDark ? '#38bdf8' : '#0284c7',
                 font: {{ weight: 'bold', size: 11 }},
                 formatter: (val) => val ? `${{val}} un` : ''
               }}
@@ -887,13 +914,13 @@ elif st.session_state.active_tab == "Dashboard Compras":
           type: 'bar',
           data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
           options: {{
-            ...getChartTheme(false, 'bar'),
+            ...getChartTheme(isSystemDark, 'bar'),
             plugins: {{
-              ...getChartTheme(false, 'bar').plugins,
+              ...getChartTheme(isSystemDark, 'bar').plugins,
               datalabels: {{
                 anchor: 'end',
                 align: 'top',
-                color: '#0891b2',
+                color: isSystemDark ? '#22d3ee' : '#0891b2',
                 font: {{ weight: 'bold', size: 11 }},
                 formatter: (val) => val ? `${{val}} un` : ''
               }}
@@ -915,7 +942,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 'rgba(16, 185, 129, 0.85)'
               ],
               borderWidth: 2,
-              borderColor: '#ffffff'
+              borderColor: isSystemDark ? '#0f172a' : '#ffffff'
             }}]
           }},
           options: {{
@@ -926,7 +953,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             plugins: {{
               legend: {{
                 position: 'right',
-                labels: {{ boxWidth: 12, color: '#64748b', font: {{ family: 'Inter', size: 11 }} }}
+                labels: {{ boxWidth: 12, color: isSystemDark ? '#94a3b8' : '#64748b', font: {{ family: 'Inter', size: 11 }} }}
               }},
               datalabels: {{
                 color: '#ffffff',
@@ -947,13 +974,13 @@ elif st.session_state.active_tab == "Dashboard Compras":
           type: 'bar',
           data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
           options: {{
-            ...getChartTheme(false, 'bar'),
+            ...getChartTheme(isSystemDark, 'bar'),
             plugins: {{
-              ...getChartTheme(false, 'bar').plugins,
+              ...getChartTheme(isSystemDark, 'bar').plugins,
               datalabels: {{
                 anchor: 'end',
                 align: 'top',
-                color: '#d97706',
+                color: isSystemDark ? '#fbbf24' : '#d97706',
                 font: {{ weight: 'bold', size: 11 }},
                 formatter: (val) => val ? formatCurrency(val) : ''
               }}
@@ -1120,23 +1147,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
               </tr>
             `;
           }}).join('');
-        }}
-
-        function updateChartsTheme() {{
-          const isDark = htmlElem.classList.contains('dark');
-          const theme = getChartTheme(isDark, 'bar');
-
-          [chartAgosto, chartSetembro, chartSupplier].forEach(chart => {{
-            chart.options.scales.x.grid.color = theme.scales.x.grid.color;
-            chart.options.scales.x.ticks.color = theme.scales.x.ticks.color;
-            chart.options.scales.y.grid.color = theme.scales.y.grid.color;
-            chart.options.scales.y.ticks.color = theme.scales.y.ticks.color;
-            chart.update();
-          }});
-
-          chartCategory.data.datasets[0].borderColor = isDark ? '#0f172a' : '#ffffff';
-          chartCategory.options.plugins.legend.labels.color = isDark ? '#94a3b8' : '#64748b';
-          chartCategory.update();
         }}
 
         [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {{
