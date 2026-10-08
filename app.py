@@ -4,8 +4,9 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+import os
 
-# --- Configurações da Página (Design Corporativo) ---
+# --- Configurações da Página (Design Corporativo Claro) ---
 st.set_page_config(
     page_title="Portal de Compras - Suprimentos",
     page_icon="📦",
@@ -13,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS para visual corporativo limpo
+# Estilização CSS para tema corporativo claro
 st.markdown("""
     <style>
     .main {
@@ -43,7 +44,7 @@ COLUNAS_PEDIDO = [
 ]
 
 
-# --- Autenticação com o Google Sheets (Passo 3 Atualizado) ---
+# --- Autenticação com o Google Sheets ---
 @st.cache_resource
 def conectar_sheets():
     scope = [
@@ -51,19 +52,36 @@ def conectar_sheets():
         "https://www.googleapis.com/auth/drive"
     ]
     
-    # 1. Tenta carregar do Streamlit Secrets (Nuvem)
-    if "gcp_service_account" in st.secrets:
-        secret_data = st.secrets["gcp_service_account"]
-        # Se for string (formato com aspas triplas), converte para dict
-        if isinstance(secret_data, str):
-            creds_dict = json.loads(secret_data)
+    creds_dict = None
+    
+    # 1. Tenta carregar dos Secrets do Streamlit
+    if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
+        raw_secret = st.secrets["gcp_service_account"]
+        if isinstance(raw_secret, str):
+            try:
+                creds_dict = json.loads(raw_secret)
+            except Exception as json_err:
+                raise ValueError(f"O segredo 'gcp_service_account' não é um JSON válido: {json_err}")
         else:
-            creds_dict = dict(secret_data)
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    # 2. Se rodar localmente no computador com o arquivo credentials.json
+            # Caso esteja no formato TOML nativo ([gcp_service_account])
+            creds_dict = dict(raw_secret)
+            
+    # 2. Caso esteja rodando localmente com arquivo credentials.json
+    elif os.path.exists("credentials.json"):
+        with open("credentials.json", "r", encoding="utf-8") as f:
+            creds_dict = json.load(f)
     else:
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+        chaves_existentes = list(st.secrets.keys()) if hasattr(st, "secrets") else []
+        raise FileNotFoundError(
+            f"Nenhuma credencial encontrada. Chaves disponíveis em st.secrets: {chaves_existentes}. "
+            "Certifique-se de configurar o segredo 'gcp_service_account' nas configurações do Streamlit Cloud."
+        )
 
+    # Tratamento da quebra de linha da chave privada
+    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     planilha = client.open_by_url(SPREADSHEET_URL)
 
@@ -85,8 +103,8 @@ def conectar_sheets():
 try:
     ws_pedidos, ws_catalogo = conectar_sheets()
 except Exception as e:
-    st.error(f"Erro ao conectar ao Google Sheets: {e}")
-    st.info("Dica: Adicione suas credenciais no painel do Streamlit Cloud em 'App settings > Secrets' ou certifique-se de que o arquivo 'credentials.json' está presente.")
+    st.error(f"Erro detalhado na conexão: {type(e).__name__} - {e}")
+    st.info("Caso seja erro de permissão (ex.: 403 Forbidden), certifique-se de compartilhar a planilha do Google com o e-mail da sua Service Account como 'Editor'.")
     st.stop()
 
 
@@ -95,26 +113,30 @@ except Exception as e:
 def carregar_catalogo():
     if not ws_catalogo:
         return pd.DataFrame(columns=["codigo", "nome", "fornecedor"])
-    valores = ws_catalogo.get_all_values()
-    if len(valores) <= 1:
-        return pd.DataFrame(columns=["codigo", "nome", "fornecedor"])
+    try:
+        valores = ws_catalogo.get_all_values()
+        if len(valores) <= 1:
+            return pd.DataFrame(columns=["codigo", "nome", "fornecedor"])
 
-    registros = []
-    for row in valores[1:]:
-        if len(row) >= 2 and (row[0].strip() or row[1].strip()):
-            cod = row[0].strip()
-            nome = row[1].strip()
-            forn = row[5].strip() if len(row) > 5 else ""
-            registros.append({"codigo": cod, "nome": nome, "fornecedor": forn})
+        registros = []
+        for row in valores[1:]:
+            if len(row) >= 2 and (row[0].strip() or row[1].strip()):
+                cod = row[0].strip()
+                nome = row[1].strip()
+                forn = row[5].strip() if len(row) > 5 else ""
+                registros.append({"codigo": cod, "nome": nome, "fornecedor": forn})
 
-    df = pd.DataFrame(registros)
-    df["display"] = df["codigo"] + " - " + df["nome"]
-    return df
+        df = pd.DataFrame(registros)
+        df["display"] = df["codigo"] + " - " + df["nome"]
+        return df
+    except Exception as ex:
+        st.warning(f"Não foi possível carregar a lista de peças do catálogo: {ex}")
+        return pd.DataFrame(columns=["codigo", "nome", "fornecedor", "display"])
 
 
 df_catalogo = carregar_catalogo()
 
-# Inicialização do estado para a lista temporária de peças
+# Estado da sessão para acumular múltiplas peças em uma mesma ordem
 if "itens_da_ordem" not in st.session_state:
     st.session_state.itens_da_ordem = []
 
@@ -123,7 +145,7 @@ st.title("📦 Sistema de Pedidos de Compras")
 aba1, aba2 = st.tabs(["📝 Novo Pedido de Compra", "🔍 Consultar e Editar Ordem"])
 
 # ==========================================
-# ABA 1: NOVO PEDIDO
+# ABA 1: NOVO PEDIDO (VÁRIAS PEÇAS / 1 ORDEM)
 # ==========================================
 with aba1:
     st.subheader("1. Identificação da Ordem")
@@ -136,15 +158,18 @@ with aba1:
     st.markdown("---")
     st.subheader("2. Adicionar Peça / Produto")
 
-    # Busca no catálogo pré-criado
-    opcoes_catalogo = ["-- Digite ou selecione uma peça --"] + df_catalogo["display"].tolist()
+    # Dropdown de busca conectado ao catálogo da planilha
+    opcoes_catalogo = ["-- Digite ou selecione uma peça --"]
+    if not df_catalogo.empty and "display" in df_catalogo.columns:
+        opcoes_catalogo += df_catalogo["display"].tolist()
+
     peca_selecionada = st.selectbox("Pesquisar Peça no Catálogo (Aba Catálogo):", opcoes_catalogo)
 
     # Preenchimento automático ao selecionar
     cod_inicial = ""
     nome_inicial = ""
     forn_inicial = ""
-    if peca_selecionada != "-- Digite ou selecione uma peça --":
+    if peca_selecionada != "-- Digite ou selecione uma peça --" and not df_catalogo.empty:
         item_sel = df_catalogo[df_catalogo["display"] == peca_selecionada].iloc[0]
         cod_inicial = item_sel["codigo"]
         nome_inicial = item_sel["nome"]
@@ -192,9 +217,9 @@ with aba1:
                 "Observação": observacao
             }
             st.session_state.itens_da_ordem.append(novo_item)
-            st.success(f"Peça '{produto}' adicionada à fila!")
+            st.success(f"Peça '{produto}' adicionada à ordem!")
 
-    # Exibição das peças incluídas na Ordem
+    # Grade de peças acumuladas para envio
     if st.session_state.itens_da_ordem:
         st.markdown("---")
         st.subheader(f"Peças Incluídas na Ordem: {ordem_compra}")
@@ -218,7 +243,7 @@ with aba1:
                     st.error(f"Erro ao salvar na planilha: {ex}")
 
 # ==========================================
-# ABA 2: CONSULTAR E EDITAR
+# ABA 2: CONSULTAR E EDITAR POR ORDEM
 # ==========================================
 with aba2:
     st.subheader("Pesquisar por Ordem de Compra")
@@ -237,13 +262,13 @@ with aba2:
                 linhas_encontradas = []
                 for idx, row in enumerate(dados_planilha[1:], start=2):
                     if len(row) > 0 and row[0].strip().lower() == oc_pesquisa.strip().lower():
-                        # Normaliza tamanho da linha para coincidir com COLUNAS_PEDIDO
+                        # Ajusta tamanho para cobrir todas as colunas
                         row_ajustada = row + [""] * (len(COLUNAS_PEDIDO) - len(row))
                         linhas_encontradas.append({"Linha_Planilha": idx, **dict(zip(COLUNAS_PEDIDO, row_ajustada))})
 
                 if linhas_encontradas:
                     df_resultado = pd.DataFrame(linhas_encontradas)
-                    st.write(f"Foram encontradas **{len(linhas_encontradas)}** peça(s) para esta Ordem:")
+                    st.write(f"Foram encontradas **{len(linhas_encontradas)}** peça(s) vinculadas a esta Ordem:")
                     st.dataframe(df_resultado.drop(columns=["Linha_Planilha"]), use_container_width=True)
 
                     st.markdown("---")
@@ -284,6 +309,6 @@ with aba2:
                             st.success("Item atualizado com sucesso na planilha!")
                             st.rerun()
                 else:
-                    st.info(f"Nenhum registro encontrado para a ordem: '{oc_pesquisa}'.")
+                    st.info(f"Nenhum registro encontrado para a ordem '{oc_pesquisa}'.")
         except Exception as e:
             st.error(f"Erro na consulta: {e}")
