@@ -6,24 +6,30 @@ import pandas as pd
 import requests
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DE GRAVAÇÃO NA PLANILHA GOOGLE VIA WEBHOOK
+# CONFIGURAÇÃO DE PERSISTÊNCIA NA PLANILHA GOOGLE (WEBHOOK APPS SCRIPT)
 # -----------------------------------------------------------------------------
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
 
 def gravar_na_planilha_google(dados_registro):
-    """Envia o registro para o Webhook do Google Apps Script com fallback para formulário."""
+    """
+    Realiza o envio de dados para o Webhook do Google Apps Script
+    tratando adequadamente o ciclo de redirecionamento 302 do Google.
+    """
     try:
-        response = requests.post(
+        session = requests.Session()
+        # Envio estruturado como JSON bruto
+        response = session.post(
             WEBHOOK_URL,
             data=json.dumps(dados_registro),
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "text/plain;charset=utf-8"},
             allow_redirects=True,
             timeout=15
         )
         if response.status_code in [200, 302] and "ERRO:" not in response.text:
             return True, "Gravado com sucesso na planilha Google!"
         
-        resp_fallback = requests.post(
+        # Fallback estruturado como dados de formulário
+        resp_fallback = session.post(
             WEBHOOK_URL,
             data=dados_registro,
             allow_redirects=True,
@@ -34,38 +40,35 @@ def gravar_na_planilha_google(dados_registro):
             
         return False, f"Servidor retornou código {response.status_code}: {response.text}"
     except Exception as e:
-        return False, f"Falha na conexão com Google Planilhas: {str(e)}"
+        return False, f"Falha de conexão com a planilha: {str(e)}"
 
-# Configuração da página Streamlit em modo Wide
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DA APLICAÇÃO STREAMLIT (MODO WIDE)
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Dashboard Executivo - Solicitações & Ordens de Compra de Peças",
+    page_title="Dashboard Executivo - Solicitações & Ordens de Compra",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO FORÇADO (ELIMINA FUNDOS PRETOS)
+# DESIGN SYSTEM: 100% TEMA CLARO NATIVO (BLINDAGEM CONTRA FUNDOS ESCUROS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* Variáveis nativas do Streamlit forçadas para modo claro */
-    :root {
+    /* Força variáveis base do Streamlit para fundo claro */
+    :root, [data-testid="stAppViewContainer"], .stApp {
         --background-color: #f8fafc !important;
         --secondary-background-color: #ffffff !important;
         --text-color: #0f172a !important;
         --primary-color: #0284c7 !important;
-    }
-
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .stApp {
         background-color: #f8fafc !important;
         color: #0f172a !important;
     }
-    
+
+    #MainMenu, footer, header { visibility: hidden !important; }
+
     .block-container {
         padding-top: 0.5rem !important;
         padding-bottom: 1.5rem !important;
@@ -73,25 +76,25 @@ st.markdown("""
         padding-right: 1.5rem !important;
         max-width: 100% !important;
     }
-    
-    /* Textos, títulos e rótulos */
-    h1, h2, h3, h4, h5, h6, p, span, div {
+
+    /* Tipografia de alto contraste */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stWidgetLabel {
         color: #0f172a !important;
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
     }
-    
+
     label, .stWidgetLabel, [data-testid="stWidgetLabel"] p {
         font-weight: 600 !important;
         font-size: 0.85rem !important;
         color: #1e293b !important;
     }
-    
+
     .stCaption, small {
         color: #64748b !important;
         font-weight: 400 !important;
     }
 
-    /* Container do formulário e painéis */
+    /* Contêineres de Formulário e Painéis Retráteis */
     [data-testid="stForm"], [data-testid="stExpander"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
@@ -100,7 +103,7 @@ st.markdown("""
         padding: 1.25rem !important;
     }
 
-    /* FORÇANDO FUNDO BRANCO EM TODOS OS INPUTS (INCLUINDO DATA DO PEDIDO) */
+    /* Inputs, Selects, Number inputs e Textareas */
     input, select, textarea,
     div[data-baseweb="select"] > div,
     div[data-baseweb="input"],
@@ -108,60 +111,67 @@ st.markdown("""
     div[data-baseweb="base-input"] {
         background-color: #ffffff !important;
         color: #0f172a !important;
-        border-color: #cbd5e1 !important;
+        -webkit-text-fill-color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
     }
 
-    div[data-baseweb="input"] input {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-        -webkit-text-fill-color: #0f172a !important;
+    input:focus, textarea:focus, div[data-baseweb="input"]:focus-within {
+        border-color: #0284c7 !important;
+        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
     }
 
-    /* Ícone do calendário do date_input */
+    /* Blindagem do DatePicker e Calendário Pop-up */
     div[data-baseweb="input"] svg {
         fill: #0284c7 !important;
     }
 
-    /* Pop-up do calendário totalmente branco */
     div[data-baseweb="popover"],
     div[data-baseweb="popover"] > div,
     div[data-baseweb="calendar"],
     div[data-baseweb="calendar"] * {
         background-color: #ffffff !important;
         color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
     }
-    
+
     div[data-baseweb="calendar"] button {
         background-color: #ffffff !important;
         color: #0f172a !important;
         border-radius: 8px !important;
     }
-    
+
     div[data-baseweb="calendar"] button:hover {
         background-color: #f1f5f9 !important;
         color: #0284c7 !important;
     }
-    
+
     div[data-baseweb="calendar"] [aria-selected="true"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
     }
 
-    /* Botões nativos */
+    div[data-baseweb="popover"] {
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Botões da Interface */
     .stButton > button {
         border-radius: 10px !important;
         font-weight: 600 !important;
         font-size: 0.875rem !important;
         transition: all 0.2s ease !important;
     }
-    
+
     .stButton > button[kind="secondary"] {
         background-color: #ffffff !important;
         color: #475569 !important;
         border: 1px solid #cbd5e1 !important;
     }
+
     .stButton > button[kind="secondary"]:hover {
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
@@ -171,20 +181,22 @@ st.markdown("""
     .stButton > button[kind="primary"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
         border: 1px solid #0284c7 !important;
         box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2) !important;
     }
+
     .stButton > button[kind="primary"]:hover {
         background-color: #0369a1 !important;
         border-color: #0369a1 !important;
     }
 
-    /* Estilização para tabela limpa 100% branca */
+    /* Container de Tabelas Estilizadas em Fundo Claro */
     .tabela-container-clara {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 14px;
-        padding: 1rem;
+        padding: 0.5rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.03);
         overflow-x: auto;
     }
@@ -198,18 +210,20 @@ st.markdown("""
     }
 
     .tabela-customizada th {
-        background-color: #f1f5f9;
+        background-color: #f8fafc;
         color: #475569;
         font-weight: 700;
         text-transform: uppercase;
-        padding: 10px 14px;
+        font-size: 0.72rem;
+        letter-spacing: 0.05em;
+        padding: 12px 14px;
         border-bottom: 2px solid #e2e8f0;
         text-align: left;
         white-space: nowrap;
     }
 
     .tabela-customizada td {
-        padding: 10px 14px;
+        padding: 11px 14px;
         border-bottom: 1px solid #f1f5f9;
         white-space: nowrap;
         background-color: #ffffff;
@@ -219,7 +233,7 @@ st.markdown("""
         background-color: #f8fafc;
     }
 
-    /* Banner do modo de edição */
+    /* Banner Informativo de Edição */
     .edit-mode-banner {
         background-color: #fef3c7;
         border-left: 5px solid #d97706;
@@ -237,7 +251,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA CARREGAR PRODUTOS DA PLANILHA GOOGLE (Aba gid=270834817)
+# CARREGAMENTO DO CATÁLOGO DE PRODUTOS (GOOGLE SHEETS - ABA GID=270834817)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=300)
 def carregar_catalogo_produtos():
@@ -286,14 +300,14 @@ def carregar_catalogo_produtos():
 catalogo_produtos = carregar_catalogo_produtos()
 
 # -----------------------------------------------------------------------------
-# BASE DE DADOS COMPLETA (st.session_state)
+# BASE DE DADOS INTEGRADA (st.session_state)
 # -----------------------------------------------------------------------------
 if 'orders_data' not in st.session_state:
     st.session_state.orders_data = [
         { "ordemCompra": "OC-2025-001", "codProduto": "2290", "ano": "2025", "mes": "Agosto", "data": "05/08/2025", "horarioChegada": "14:30", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
         { "ordemCompra": "OC-2025-002", "codProduto": "1442", "ano": "2025", "mes": "Agosto", "data": "08/08/2025", "horarioChegada": "10:15", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-1442", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52, "valorVenda": 18.00, "observacao": "" },
         { "ordemCompra": "OC-2025-003", "codProduto": "2672", "ano": "2025", "mes": "Agosto", "data": "12/08/2025", "horarioChegada": "16:00", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade reprovada" },
+        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade avariada" },
         { "ordemCompra": "OC-2025-005", "codProduto": "902", "ano": "2025", "mes": "Agosto", "data": "18/08/2025", "horarioChegada": "11:20", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-902", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
         { "ordemCompra": "OC-2025-006", "codProduto": "534", "ano": "2025", "mes": "Agosto", "data": "20/08/2025", "horarioChegada": "13:40", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00, "valorVenda": 290.00, "observacao": "" },
         { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
@@ -339,7 +353,7 @@ if 'form_reset_counter' not in st.session_state:
     st.session_state.form_reset_counter = 0
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR (100% TEMA CLARO NATIVO)
+# BARRA DE NAVEGAÇÃO SUPERIOR
 # -----------------------------------------------------------------------------
 nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
 
@@ -370,13 +384,18 @@ if st.session_state.active_tab == "Pedido de Compras":
     st.subheader("📝 Lançamento & Gestão de Pedidos de Compra")
     st.caption("Cadastre novas ordens e sincronize em tempo real com a aba 'Ordem de Compra(Peças)'.")
 
-    # ------------------ SEÇÃO DE PESQUISA & EDIÇÃO ------------------
+    # Listas dinâmicas pré-carregadas da base
+    lista_fornecedores = sorted(list(set([d.get("fornecedor", "") for d in st.session_state.orders_data if d.get("fornecedor")])))
+    lista_categorias = sorted(list(set([d.get("categoria", "") for d in st.session_state.orders_data if d.get("categoria")])))
+    lista_solicitantes = sorted(list(set([d.get("solicitante", "") for d in st.session_state.orders_data if d.get("solicitante")])))
+
+    # ------------------ PESQUISA & EDIÇÃO ------------------
     with st.expander("🔍 Pesquisar por Ordem de Compra para Editar", expanded=(st.session_state.edit_order_id is not None)):
         col_search1, col_search2, col_search3 = st.columns([3, 1, 1])
         all_ocs = [d.get("ordemCompra", "") for d in st.session_state.orders_data if d.get("ordemCompra")]
         
         with col_search1:
-            selected_oc = st.selectbox("Selecione ou digite a Ordem de Compra:", options=["-- Selecione uma OC --"] + all_ocs)
+            selected_oc = st.selectbox("Selecione a Ordem de Compra:", options=["-- Selecione uma OC --"] + all_ocs)
         with col_search2:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
             if st.button("Carregar para Edição", use_container_width=True, type="primary"):
@@ -406,22 +425,18 @@ if st.session_state.active_tab == "Pedido de Compras":
                 </div>
             """, unsafe_allow_html=True)
 
-    # ------------------ PREPARAÇÃO DOS CAMPOS DO FORMULÁRIO ------------------
+    # ------------------ PREPARAÇÃO DOS DADOS DO FORMULÁRIO ------------------
     produtos_lista = sorted(list(catalogo_produtos.keys()))
-    
-    # Número sequencial da OC
     next_oc_num = f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
     def_oc = record_to_edit.get("ordemCompra", next_oc_num) if record_to_edit else next_oc_num
     
-    # Valores dos campos
     def_prod = record_to_edit.get("peca", produtos_lista[0] if produtos_lista else "") if record_to_edit else (produtos_lista[0] if produtos_lista else "")
     def_cod = record_to_edit.get("codProduto", catalogo_produtos.get(def_prod, "")) if record_to_edit else catalogo_produtos.get(def_prod, "")
-    def_cat = record_to_edit.get("categoria", "Multi Bebidas") if record_to_edit else "Multi Bebidas"
-    def_forn = record_to_edit.get("fornecedor", "") if record_to_edit else ""
+    def_cat = record_to_edit.get("categoria", lista_categorias[0] if lista_categorias else "Multi Bebidas") if record_to_edit else (lista_categorias[0] if lista_categorias else "Multi Bebidas")
+    def_forn = record_to_edit.get("fornecedor", lista_fornecedores[0] if lista_fornecedores else "") if record_to_edit else ""
     def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
-    def_solicitante = record_to_edit.get("solicitante", "") if record_to_edit else ""
+    def_solicitante = record_to_edit.get("solicitante", lista_solicitantes[0] if lista_solicitantes else "") if record_to_edit else ""
     
-    # Data atual preservada
     try:
         def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
     except Exception:
@@ -447,7 +462,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO 100% CLARO ------------------
+    # ------------------ FORMULÁRIO COM PRÉ-LISTAS E TEMA CLARO ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
         st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -461,17 +476,29 @@ if st.session_state.active_tab == "Pedido de Compras":
                 codigo_produto = st.text_input("Codigo do produto*", value=codigo_auto if codigo_auto else def_cod).strip()
 
         with col_f2:
-            categoria = st.selectbox("Categoria*", options=["Multi Bebidas", "Acessorios", "Hidraulica", "Snaks", "Eletrica", "Outra"], index=0 if def_cat not in ["Acessorios", "Hidraulica", "Snaks", "Eletrica"] else ["Multi Bebidas", "Acessorios", "Hidraulica", "Snaks", "Eletrica"].index(def_cat))
-            solicitante = st.text_input("Solicitante / Setor*", value=def_solicitante).upper().strip()
+            opcoes_categorias = list(set(["Multi Bebidas", "Acessorios", "Hidraulica", "Snaks", "Eletrica"] + lista_categorias))
+            categoria = st.selectbox("Categoria*", options=sorted(opcoes_categorias), index=sorted(opcoes_categorias).index(def_cat) if def_cat in opcoes_categorias else 0)
+            
+            # Solicitante com pré-lista
+            solicitante_sel = st.selectbox("Solicitante / Setor*", options=["Novo / Digitar"] + lista_solicitantes, index=(lista_solicitantes.index(def_solicitante) + 1) if def_solicitante in lista_solicitantes else 0)
+            if solicitante_sel == "Novo / Digitar":
+                solicitante = st.text_input("Nome do Solicitante*", value=def_solicitante if def_solicitante not in lista_solicitantes else "").upper().strip()
+            else:
+                solicitante = solicitante_sel
 
         with col_f3:
-            fornecedor = st.text_input("Fornecedor*", value=def_forn).upper().strip()
+            # Fornecedor com pré-lista
+            fornecedor_sel = st.selectbox("Fornecedor*", options=["Novo / Digitar"] + lista_fornecedores, index=(lista_fornecedores.index(def_forn) + 1) if def_forn in lista_fornecedores else 0)
+            if fornecedor_sel == "Novo / Digitar":
+                fornecedor = st.text_input("Nome do Fornecedor*", value=def_forn if def_forn not in lista_fornecedores else "").upper().strip()
+            else:
+                fornecedor = fornecedor_sel
+                
             cod_peca_fornecedor = st.text_input("Cod da Peça do Fornecedor", value=def_cod_forn).strip()
 
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            # Data do Pedido com fundo 100% branco e sem elementos escuros
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -528,10 +555,10 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # 1. Gravação na planilha Google
+                # Persistência via Webhook Apps Script
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
 
-                # 2. Atualização dos dados em memória
+                # Persistência no session_state
                 if record_to_edit:
                     idx = st.session_state.orders_data.index(record_to_edit)
                     st.session_state.orders_data[idx] = registro_dados
@@ -540,15 +567,14 @@ if st.session_state.active_tab == "Pedido de Compras":
                 else:
                     st.session_state.orders_data.insert(0, registro_dados)
                     if sucesso_planilha:
-                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi gravada na planilha Google Sheets com sucesso!")
+                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi gravada com sucesso na planilha Google!")
                     else:
-                        st.warning(f"⚠️ Gravado no painel, mas o Google Sheets reportou: {msg_planilha}")
+                        st.warning(f"⚠️ Salvo no painel interno. Aviso do Google Sheets: {msg_planilha}")
                 
-                # Zera as informações do form mantendo a data atual e o próximo número de OC
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA "Ordens de Compra Registradas" 100% BRANCA ------------------
+    # ------------------ TABELA COMPLETA (ORDENS DE COMPRA) ------------------
     st.markdown("---")
     st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.75rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
     
@@ -563,7 +589,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
     df_render = df_preview[cols_existentes].copy()
 
-    # Formatação visual amigável dos valores numéricos e monetários
+    # Formatação de valores monetários
     if "custoUnit" in df_render.columns:
         df_render["custoUnit"] = df_render["custoUnit"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     if "valorVenda" in df_render.columns:
@@ -571,7 +597,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     if "Custo Total (R$)" in df_render.columns:
         df_render["Custo Total (R$)"] = df_render["Custo Total (R$)"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    # Renderização HTML pura: Garante 100% fundo branco sem herdar o Canvas escuro do navegador
+    # Tabela 100% clara com HTML/CSS
     tabela_html = f"""
     <div class="tabela-container-clara">
         <table class="tabela-customizada">
@@ -603,7 +629,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Dashboard Executivo - Solicitações & Ordens de Compra de Peças</title>
+      <title>Dashboard Executivo - Solicitações & Ordens de Compra</title>
       <script src="https://cdn.tailwindcss.com"></script>
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -615,7 +641,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
         }}
         .kpi-card:hover {{
           transform: translateY(-2px);
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
         }}
       </style>
     </head>
@@ -659,15 +685,13 @@ elif st.session_state.active_tab == "Dashboard Compras":
                   <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
                   <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
                   <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
-                  <p>• <strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor exibindo os <strong>valores numéricos e em R$ diretamente nas barras/fatias</strong>.</p>
-                  <p>• <strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com pesquisa em tempo real, quantidades solicitadas/atendidas/não atendidas e valor financeiro.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Filtros Dinâmicos -->
+        <!-- Filtros Dinâmicos (Tema Claro) -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -811,7 +835,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                   <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                   Top 5 Solicitantes / Locais Internos — Agosto
                 </h3>
-                <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+                <p class="text-xs text-slate-500">Valores de peças demandadas</p>
               </div>
               <span class="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Agosto</span>
             </div>
@@ -827,7 +851,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                   <span class="w-2.5 h-2.5 rounded-full bg-cyan-600"></span>
                   Top 5 Solicitantes / Locais Internos — Setembro
                 </h3>
-                <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+                <p class="text-xs text-slate-500">Valores de peças demandadas</p>
               </div>
               <span class="text-xs font-bold bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md">Setembro</span>
             </div>
@@ -874,7 +898,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 <i data-lucide="table" class="w-4 h-4 text-blue-600"></i>
                 Resumo Detalhado por Peça Solicitada
               </h2>
-              <p class="text-xs text-slate-500">Consolidado por item, quantidades solicitadas, atendidas e custo total</p>
+              <p class="text-xs text-slate-500">Consolidado por item, quantidades e custos</p>
             </div>
 
             <div class="flex items-center gap-3">
@@ -911,7 +935,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
       </main>
 
       <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-500 border-t border-slate-200 mt-12">
-        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Integração com Google Planilhas.
+        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Integração direta com Google Planilhas.
       </footer>
 
       <script>
