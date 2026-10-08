@@ -13,24 +13,52 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS personalizada para forçar modo claro e manter estética do Tailwind
+# Estilização CSS personalizada para forçar modo claro completo (inclusive tabelas e inputs)
 st.markdown("""
 <style>
-    /* Forçar fundo claro */
+    /* Forçar fundo claro global */
     .stApp {
-        background-color: #f8fafc;
-        color: #1e293b;
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    
+    /* Forçar cores claras na barra lateral */
+    section[data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #0f172a !important;
+    }
+    
+    /* Inputs, Selectbox e Campos de Busca em Tema Claro */
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stTextInput input {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+
+    /* Forçar tema claro nas tabelas nativas do Streamlit (Glide Data Grid) */
+    div[data-testid="stDataFrame"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.75rem !important;
+        padding: 0.5rem;
+    }
+    div[data-testid="stDataFrame"] * {
+        color: #0f172a !important;
     }
     
     /* Header Personalizado */
     .header-box {
         background-color: #ffffff;
-        border-bottom: 1px solid #e2e8f0;
-        padding: 1rem 1.5rem;
+        border: 1px solid #e2e8f0;
+        padding: 1.25rem 1.5rem;
         border-radius: 1rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     
     /* Caixa de Escopo */
@@ -47,26 +75,26 @@ st.markdown("""
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 1rem;
-        padding: 1rem 1.25rem;
+        padding: 1rem 1.15rem;
         box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         margin-bottom: 1rem;
     }
     .kpi-title {
         font-size: 0.72rem;
         font-weight: 700;
-        color: #64748b;
+        color: #475569;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
     .kpi-value {
-        font-size: 1.45rem;
+        font-size: 1.4rem;
         font-weight: 800;
         margin-top: 0.35rem;
         color: #0f172a;
     }
     .kpi-sub {
         font-size: 0.72rem;
-        color: #94a3b8;
+        color: #64748b;
         margin-top: 0.2rem;
     }
     .badge-percent {
@@ -82,8 +110,38 @@ st.markdown("""
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 0.75rem;
-        padding: 1rem;
+        padding: 1.1rem;
         height: 100%;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    /* Tabela HTML customizada 100% clara */
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #ffffff;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        font-size: 0.82rem;
+    }
+    .custom-table th {
+        background-color: #f1f5f9;
+        color: #334155;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        letter-spacing: 0.05em;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .custom-table td {
+        padding: 0.75rem 1rem;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .custom-table tr:hover {
+        background-color: #f8fafc;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -142,7 +200,6 @@ def load_data():
 
 df_raw = load_data()
 
-# Função auxiliar para formatação monetária brasileira
 def format_currency(val):
     return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -182,8 +239,8 @@ st.markdown("""
         <li><strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</li>
         <li><strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</li>
         <li><strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</li>
-        <li><strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor com valores visíveis.</li>
-        <li><strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com quantidades solicitadas/atendidas/não atendidas e valor financeiro.</li>
+        <li><strong>Gráficos de Destaque com Valores em Preto:</strong> Top 5 solicitantes para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor com valores nítidos em preto.</li>
+        <li><strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada em tema totalmente claro com busca por peça.</li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
@@ -193,7 +250,6 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("### 🎛️ Filtros do Painel")
 
-# Opções de filtro
 year_options = ["Todos os Anos"] + sorted(list(df_raw["ano"].unique()))
 month_options = ["Todos os Meses"] + list(df_raw["mes"].unique())
 cat_options = ["Todas as Categorias"] + sorted(list(df_raw["categoria"].unique()))
@@ -230,7 +286,7 @@ pct_atendidas = round((total_atendidas / total_itens) * 100) if total_itens > 0 
 pct_nao_atendidas = (100 - pct_atendidas) if total_itens > 0 else 0
 
 # -----------------------------------------------------------------------------
-# EXIBIÇÃO DOS CARDS DE KPIS (6 COLUNAS)
+# EXIBIÇÃO DOS CARDS DE KPIS
 # -----------------------------------------------------------------------------
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
@@ -291,12 +347,11 @@ with col6:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# GRÁFICOS: TOP 5 AGOSTO & SETEMBRO (COM VALORES NO TOPO)
+# GRÁFICOS: TOP 5 AGOSTO & SETEMBRO (TEXTOS EM PRETO)
 # -----------------------------------------------------------------------------
 st.write("")
 col_chart1, col_chart2 = st.columns(2)
 
-# Filtragem de base para os meses de Agosto e Setembro respeitando o filtro de Ano se ativo
 df_base_year = df_raw if selected_year == "Todos os Anos" else df_raw[df_raw["ano"] == selected_year]
 
 # Agosto
@@ -313,18 +368,19 @@ with col_chart1:
     fig_ago.add_trace(go.Bar(
         x=df_agosto["solicitante"],
         y=df_agosto["qt"],
-        text=[f"{v} un" for v in df_agosto["qt"]],
+        text=[f"<b>{v} un</b>" for v in df_agosto["qt"]],
         textposition="outside",
+        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
         marker=dict(color="#0284c7")
     ))
     fig_ago.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#475569", family="Inter"),
-        margin=dict(t=30, b=20, l=10, r=10),
+        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        margin=dict(t=35, b=20, l=10, r=10),
         height=320,
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
-        xaxis=dict(showgrid=False)
+        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
+        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
     )
     st.plotly_chart(fig_ago, use_container_width=True)
 
@@ -334,23 +390,24 @@ with col_chart2:
     fig_set.add_trace(go.Bar(
         x=df_setembro["solicitante"],
         y=df_setembro["qt"],
-        text=[f"{v} un" for v in df_setembro["qt"]],
+        text=[f"<b>{v} un</b>" for v in df_setembro["qt"]],
         textposition="outside",
+        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
         marker=dict(color="#0891b2")
     ))
     fig_set.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#475569", family="Inter"),
-        margin=dict(t=30, b=20, l=10, r=10),
+        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        margin=dict(t=35, b=20, l=10, r=10),
         height=320,
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
-        xaxis=dict(showgrid=False)
+        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
+        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
     )
     st.plotly_chart(fig_set, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# GRÁFICOS: CATEGORIAS & FORNECEDORES (COM VALORES EXPLÍCITOS)
+# GRÁFICOS: CATEGORIAS & FORNECEDORES (TEXTOS EM PRETO)
 # -----------------------------------------------------------------------------
 col_chart3, col_chart4 = st.columns(2)
 
@@ -362,14 +419,21 @@ with col_chart3:
         names="categoria",
         values="qt",
         hole=0.55,
-        color_discrete_sequence=['#0284c7', '#06b6d4', '#f59e0b', '#6366f1', '#10b981']
+        color_discrete_sequence=['#38bdf8', '#22d3ee', '#fbbf24', '#a5b4fc', '#6ee7b7']
     )
-    fig_cat.update_traces(textinfo="value+percent", textposition="inside", textfont=dict(color="white", size=12))
+    # Rótulos nas fatias em PRETO
+    fig_cat.update_traces(
+        textinfo="value+percent",
+        textposition="inside",
+        textfont=dict(color="#000000", size=12, family="Inter")
+    )
     fig_cat.update_layout(
         paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
         margin=dict(t=10, b=10, l=10, r=10),
         height=320,
-        legend=dict(font=dict(color="#475569"))
+        font=dict(color="#000000", family="Inter"),
+        legend=dict(font=dict(color="#000000"))
     )
     st.plotly_chart(fig_cat, use_container_width=True)
 
@@ -380,28 +444,29 @@ with col_chart4:
     fig_sup.add_trace(go.Bar(
         x=df_sup["fornecedor"],
         y=df_sup["custoTotal"],
-        text=[format_currency(v) for v in df_sup["custoTotal"]],
+        text=[f"<b>{format_currency(v)}</b>" for v in df_sup["custoTotal"]],
         textposition="outside",
+        textfont=dict(color="#000000", size=12, family="Inter"),  # Texto dos valores em PRETO
         marker=dict(color="#f59e0b")
     ))
     fig_sup.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
-        font=dict(color="#475569", family="Inter"),
-        margin=dict(t=30, b=20, l=10, r=10),
+        font=dict(color="#000000", family="Inter"),  # Textos gerais em PRETO
+        margin=dict(t=35, b=20, l=10, r=10),
         height=320,
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
-        xaxis=dict(showgrid=False)
+        yaxis=dict(showgrid=True, gridcolor="#e2e8f0", zeroline=False, tickfont=dict(color="#000000")),
+        xaxis=dict(showgrid=False, tickfont=dict(color="#000000"))
     )
     st.plotly_chart(fig_sup, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# TABELA RESUMO POR PEÇA (COM PESQUISA EM TEMPO REAL)
+# TABELA RESUMO POR PEÇA (TEMA 100% CLARO GARANTIDO)
 # -----------------------------------------------------------------------------
 st.write("")
 st.markdown("### 📊 Resumo Detalhado por Peça Solicitada")
 
-search_term = st.text_input("🔍 Buscar peça ou categoria na tabela:", placeholder="Digite o nome da peça...")
+search_term = st.text_input("🔍 Buscar peça ou categoria na tabela:", placeholder="Digite o nome da peça ou categoria...")
 
 # Agrupamento por Peça
 df_table = df_filtered.groupby(["peca", "categoria"]).agg(
@@ -425,42 +490,61 @@ if search_term:
 # Ordenar por Custo Total
 df_table = df_table.sort_values(by="custoTotal", ascending=False)
 
-# Formatação para apresentação
-df_display = df_table.copy()
-df_display.columns = [
-    "Peça / Produto Solicitado",
-    "Categoria",
-    "Qtde Total",
-    "Atendidas",
-    "Não Atendidas",
-    "Nº Pedidos",
-    "Custo Total (R$)",
-    "Custo Unit. Médio (R$)"
-]
+# Construir tabela HTML 100% Clara (imune a temas escuros de navegadores/Streamlit)
+if len(df_table) == 0:
+    st.warning("Nenhuma peça encontrada com os filtros selecionados.")
+else:
+    table_rows = []
+    for _, row in df_table.iterrows():
+        table_rows.append(f"""
+        <tr>
+            <td style="font-weight: 600; color: #0f172a;">{row['peca']}</td>
+            <td><span style="background-color: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 6px; font-size: 11px; border: 1px solid #e2e8f0;">{row['categoria']}</span></td>
+            <td style="text-align: center; font-weight: 700; color: #334155;">{int(row['qtTotal']):,} un</td>
+            <td style="text-align: center; font-weight: 700; color: #059669;">{int(row['qtAtendida']):,} un</td>
+            <td style="text-align: center; font-weight: 700; color: #e11d48;">{int(row['qtNaoAtendida']):,} un</td>
+            <td style="text-align: center; color: #64748b;">{row['pedidosCount']}</td>
+            <td style="text-align: right; color: #475569;">{format_currency(row['custoUnitMedio'])}</td>
+            <td style="text-align: right; font-weight: 700; color: #d97706;">{format_currency(row['custoTotal'])}</td>
+        </tr>
+        """.replace(",", "."))
 
-# Formatação de Moedas e Números
-df_display["Custo Total (R$)"] = df_display["Custo Total (R$)"].apply(format_currency)
-df_display["Custo Unit. Médio (R$)"] = df_display["Custo Unit. Médio (R$)"].apply(format_currency)
-df_display["Qtde Total"] = df_display["Qtde Total"].astype(str) + " un"
-df_display["Atendidas"] = df_display["Atendidas"].astype(str) + " un"
-df_display["Não Atendidas"] = df_display["Não Atendidas"].astype(str) + " un"
-
-st.dataframe(df_display, use_container_width=True, hide_index=True)
+    table_html = f"""
+    <div style="overflow-x: auto; margin-top: 0.5rem; margin-bottom: 1.5rem;">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Peça / Produto Solicitado</th>
+                    <th style="text-align: left;">Categoria</th>
+                    <th style="text-align: center;">Qtde Total</th>
+                    <th style="text-align: center; color: #059669;">Atendidas</th>
+                    <th style="text-align: center; color: #e11d48;">Não Atendidas</th>
+                    <th style="text-align: center;">Nº Pedidos</th>
+                    <th style="text-align: right;">Custo Unit. Médio</th>
+                    <th style="text-align: right; color: #d97706;">Custo Total (R$)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(table_rows)}
+            </tbody>
+        </table>
+    </div>
+    """
+    st.markdown(table_html, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # DIAGNÓSTICOS E ALERTAS EXECUTIVOS
 # -----------------------------------------------------------------------------
-st.write("")
 st.markdown("### ✨ Diagnósticos Automáticos de Compras")
 col_diag1, col_diag2, col_diag3 = st.columns(3)
 
 with col_diag1:
     st.markdown("""
     <div class="alert-card">
-        <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.35rem;">
             ✔ Taxa Global de Atendimento
         </div>
-        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
             Mais de <strong>90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
         </p>
     </div>
@@ -469,10 +553,10 @@ with col_diag1:
 with col_diag2:
     st.markdown("""
     <div class="alert-card">
-        <div style="font-weight: 700; color: #e11d48; font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <div style="font-weight: 700; color: #e11d48; font-size: 0.85rem; margin-bottom: 0.35rem;">
             ⚠ Itens Não Atendidos / Reprovados
         </div>
-        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
             A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
         </p>
     </div>
@@ -481,10 +565,10 @@ with col_diag2:
 with col_diag3:
     st.markdown("""
     <div class="alert-card">
-        <div style="font-weight: 700; color: #0284c7; font-size: 0.85rem; margin-bottom: 0.25rem;">
+        <div style="font-weight: 700; color: #0284c7; font-size: 0.85rem; margin-bottom: 0.35rem;">
             📈 Controle da Coluna Custo
         </div>
-        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+        <p style="font-size: 0.78rem; color: #334155; line-height: 1.5; margin: 0;">
             A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong>EVOCA</strong> e <strong>PARAMOUNT</strong>, com conciliação financeira automatizada.
         </p>
     </div>
@@ -494,7 +578,7 @@ with col_diag3:
 # RODAPÉ
 # -----------------------------------------------------------------------------
 st.markdown("""
-<div style="text-align: center; color: #94a3b8; font-size: 0.75rem; border-top: 1px solid #e2e8f0; margin-top: 3rem; padding-top: 1.5rem; padding-bottom: 2rem;">
+<div style="text-align: center; color: #64748b; font-size: 0.75rem; border-top: 1px solid #e2e8f0; margin-top: 2.5rem; padding-top: 1.5rem; padding-bottom: 2rem;">
     Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
 </div>
 """, unsafe_allow_html=True)
