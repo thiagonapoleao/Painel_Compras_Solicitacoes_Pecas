@@ -45,11 +45,11 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# FORÇANDO 100% TEMA CLARO GLOBAL NO STREAMLIT (INPUTS, CALENDÁRIO E TABELA)
+# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO E HARMONIOSO (SEM VESTÍGIOS DARK)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* 1. VARIÁVEIS NATIVAS DO STREAMLIT FORÇADAS PARA TEMA CLARO */
+    /* 1. VARIÁVEIS NATIVAS DO STREAMLIT EXCLUSIVAMENTE NO TEMA CLARO */
     :root {
         --background-color: #f8fafc !important;
         --secondary-background-color: #ffffff !important;
@@ -74,7 +74,7 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* 2. TEXTOS E LABELS FORÇADOS PARA ESCURO */
+    /* 2. TEXTOS E LABELS COM ALTO CONTRASTE */
     h1, h2, h3, h4, h5, h6, p, span, div {
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -91,7 +91,7 @@ st.markdown("""
         font-weight: 400 !important;
     }
 
-    /* 3. BORDAS E FUNDO DO FORMULÁRIO */
+    /* 3. BORDAS E FUNDO DO FORMULÁRIO E EXPANDERS */
     [data-testid="stForm"], [data-testid="stExpander"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
@@ -109,7 +109,7 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    /* 5. POP-UP COMPLETO DO CALENDÁRIO (DATA DO PEDIDO) TOTALMENTE CLARO */
+    /* 5. POP-UP DO CALENDÁRIO (DATA DO PEDIDO) TOTALMENTE CLARO */
     [data-baseweb="popover"],
     [data-baseweb="popover"] > div,
     [data-baseweb="calendar"],
@@ -118,14 +118,12 @@ st.markdown("""
         color: #0f172a !important;
     }
     
-    /* Dias da semana e cabeçalho do calendário */
     [data-baseweb="calendar"] button {
         background-color: #ffffff !important;
         color: #0f172a !important;
         border-radius: 8px !important;
     }
     
-    /* Hover e seleção dos dias */
     [data-baseweb="calendar"] button:hover {
         background-color: #f1f5f9 !important;
         color: #0284c7 !important;
@@ -136,7 +134,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Bordas e sombra do calendário */
     [data-baseweb="popover"] {
         border: 1px solid #cbd5e1 !important;
         border-radius: 12px !important;
@@ -273,7 +270,6 @@ if 'orders_data' not in st.session_state:
         { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
         { "ordemCompra": "OC-2025-008", "codProduto": "405", "ano": "2025", "mes": "Agosto", "data": "25/08/2025", "horarioChegada": "10:30", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "codPecaFornecedor": "IM-405", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50, "valorVenda": 22.00, "observacao": "Estoque parcial" },
         { "ordemCompra": "OC-2025-009", "codProduto": "2617", "ano": "2025", "mes": "Agosto", "data": "28/08/2025", "horarioChegada": "17:10", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-        
         { "ordemCompra": "OC-2025-010", "codProduto": "535", "ano": "2025", "mes": "Setembro", "data": "02/09/2025", "horarioChegada": "08:45", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
         { "ordemCompra": "OC-2025-011", "codProduto": "700", "ano": "2025", "mes": "Setembro", "data": "05/09/2025", "horarioChegada": "14:15", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
         { "ordemCompra": "OC-2025-012", "codProduto": "2673", "ano": "2025", "mes": "Setembro", "data": "10/09/2025", "horarioChegada": "11:50", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-CARROSSEL", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00, "valorVenda": 480.00, "observacao": "" },
@@ -283,15 +279,12 @@ if 'orders_data' not in st.session_state:
         { "ordemCompra": "OC-2025-016", "codProduto": "305", "ano": "2025", "mes": "Setembro", "data": "21/09/2025", "horarioChegada": "14:00", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-SUP", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00, "valorVenda": 120.00, "observacao": "" },
         { "ordemCompra": "OC-2025-017", "codProduto": "649", "ano": "2025", "mes": "Setembro", "data": "23/09/2025", "horarioChegada": "10:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
         { "ordemCompra": "OC-2025-018", "codProduto": "2617", "ano": "2025", "mes": "Setembro", "data": "25/09/2025", "horarioChegada": "11:30", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-
         { "ordemCompra": "OC-2025-019", "codProduto": "105", "ano": "2025", "mes": "Outubro", "data": "10/10/2025", "horarioChegada": "13:00", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "codPecaFornecedor": "WN-PINCEL", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00, "valorVenda": 15.00, "observacao": "" },
         { "ordemCompra": "OC-2025-020", "codProduto": "410", "ano": "2025", "mes": "Outubro", "data": "15/10/2025", "horarioChegada": "15:45", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-BANANA", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05, "valorVenda": 65.00, "observacao": "" },
         { "ordemCompra": "OC-2025-021", "codProduto": "534", "ano": "2025", "mes": "Outubro", "data": "22/10/2025", "horarioChegada": "10:20", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00, "valorVenda": 310.00, "observacao": "" },
-
         { "ordemCompra": "OC-2025-022", "codProduto": "905", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "09:10", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "codPecaFornecedor": "TM-ROSA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80, "valorVenda": 210.00, "observacao": "" },
         { "ordemCompra": "OC-2025-023", "codProduto": "302", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "14:40", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-MET", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18, "valorVenda": 135.00, "observacao": "" },
         { "ordemCompra": "OC-2025-024", "codProduto": "903", "ano": "2025", "mes": "Novembro", "data": "04/11/2025", "horarioChegada": "16:15", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-SPRAY", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
-
         { "ordemCompra": "OC-2026-001", "codProduto": "880", "ano": "2026", "mes": "Março", "data": "02/03/2026", "horarioChegada": "10:30", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-880", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00, "valorVenda": 190.00, "observacao": "" },
         { "ordemCompra": "OC-2026-002", "codProduto": "881", "ano": "2026", "mes": "Março", "data": "07/03/2026", "horarioChegada": "11:20", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-881", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00, "valorVenda": 390.00, "observacao": "" },
         { "ordemCompra": "OC-2026-003", "codProduto": "882", "ano": "2026", "mes": "Abril", "data": "23/04/2026", "horarioChegada": "14:00", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-882", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00, "valorVenda": 195.00, "observacao": "" },
@@ -399,7 +392,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
     def_solicitante = record_to_edit.get("solicitante", "") if record_to_edit else ""
     
-    # Data atual preservada
+    # Preserva Data Atual para novos cadastros
     try:
         def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
     except Exception:
@@ -425,7 +418,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO COM TEMA 100% CLARO ------------------
+    # ------------------ FORMULÁRIO 100% CLARO ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
         st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -449,7 +442,6 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            # Data do Pedido com calendário totalmente ajustado para fundo branco
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -526,7 +518,7 @@ if st.session_state.active_tab == "Pedido de Compras":
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA COMPLETA DE REGISTROS (100% TEMA CLARO) ------------------
+    # ------------------ TABELA COMPLETA DE REGISTROS ------------------
     st.markdown("---")
     st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.5rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
     df_preview = pd.DataFrame(st.session_state.orders_data)
@@ -539,7 +531,6 @@ if st.session_state.active_tab == "Pedido de Compras":
     ]
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
     
-    # Exibição nativa com estilo e bordas claras
     st.dataframe(
         df_preview[cols_existentes],
         use_container_width=True,
@@ -554,7 +545,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
 
     html_code = f"""
     <!DOCTYPE html>
-    <html lang="pt-BR" class="light">
+    <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
