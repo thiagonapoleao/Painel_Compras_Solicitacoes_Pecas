@@ -54,7 +54,7 @@ def conectar_sheets():
     
     creds_dict = None
     
-    # 1. Tenta carregar dos Secrets do Streamlit
+    # 1. Carrega do Streamlit Secrets
     if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
         raw_secret = st.secrets["gcp_service_account"]
         if isinstance(raw_secret, str):
@@ -63,10 +63,9 @@ def conectar_sheets():
             except Exception as json_err:
                 raise ValueError(f"O segredo 'gcp_service_account' não é um JSON válido: {json_err}")
         else:
-            # Caso esteja no formato TOML nativo ([gcp_service_account])
             creds_dict = dict(raw_secret)
             
-    # 2. Caso esteja rodando localmente com arquivo credentials.json
+    # 2. Carrega de arquivo local caso exista
     elif os.path.exists("credentials.json"):
         with open("credentials.json", "r", encoding="utf-8") as f:
             creds_dict = json.load(f)
@@ -77,9 +76,28 @@ def conectar_sheets():
             "Certifique-se de configurar o segredo 'gcp_service_account' nas configurações do Streamlit Cloud."
         )
 
-    # Tratamento da quebra de linha da chave privada
+    # --- Sanitização Robusta da Chave Privada (Corrige 'Incorrect padding') ---
     if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        pk = creds_dict["private_key"]
+        pk = pk.replace("\\n", "\n").strip()
+        
+        header = "-----BEGIN PRIVATE KEY-----"
+        footer = "-----END PRIVATE KEY-----"
+        
+        if header in pk and footer in pk:
+            corpo = pk.split(header)[1].split(footer)[0]
+            corpo_limpo = "".join(corpo.split())
+            
+            # Recalcula padding base64 se estiver faltando múltiplos de 4
+            resto = len(corpo_limpo) % 4
+            if resto != 0:
+                corpo_limpo += "=" * (4 - resto)
+                
+            linhas_corpo = [corpo_limpo[i:i+64] for i in range(0, len(corpo_limpo), 64)]
+            pk_corrigida = f"{header}\n" + "\n".join(linhas_corpo) + f"\n{footer}\n"
+            creds_dict["private_key"] = pk_corrigida
+        else:
+            creds_dict["private_key"] = pk
 
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
@@ -262,7 +280,6 @@ with aba2:
                 linhas_encontradas = []
                 for idx, row in enumerate(dados_planilha[1:], start=2):
                     if len(row) > 0 and row[0].strip().lower() == oc_pesquisa.strip().lower():
-                        # Ajusta tamanho para cobrir todas as colunas
                         row_ajustada = row + [""] * (len(COLUNAS_PEDIDO) - len(row))
                         linhas_encontradas.append({"Linha_Planilha": idx, **dict(zip(COLUNAS_PEDIDO, row_ajustada))})
 
