@@ -43,17 +43,24 @@ COLUNAS_PEDIDO = [
 ]
 
 
-# --- Autenticação com o Google Sheets ---
+# --- Autenticação com o Google Sheets (Passo 3 Atualizado) ---
 @st.cache_resource
 def conectar_sheets():
     scope = [
-        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    # Busca credenciais dos segredos do Streamlit ou de arquivo local
+    
+    # 1. Tenta carregar do Streamlit Secrets (Nuvem)
     if "gcp_service_account" in st.secrets:
-        creds_dict = json.loads(st.secrets["gcp_service_account"])
+        secret_data = st.secrets["gcp_service_account"]
+        # Se for string (formato com aspas triplas), converte para dict
+        if isinstance(secret_data, str):
+            creds_dict = json.loads(secret_data)
+        else:
+            creds_dict = dict(secret_data)
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    # 2. Se rodar localmente no computador com o arquivo credentials.json
     else:
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 
@@ -79,7 +86,7 @@ try:
     ws_pedidos, ws_catalogo = conectar_sheets()
 except Exception as e:
     st.error(f"Erro ao conectar ao Google Sheets: {e}")
-    st.info("Dica: Adicione suas credenciais no painel do Streamlit Cloud em 'App settings > Secrets'.")
+    st.info("Dica: Adicione suas credenciais no painel do Streamlit Cloud em 'App settings > Secrets' ou certifique-se de que o arquivo 'credentials.json' está presente.")
     st.stop()
 
 
@@ -230,7 +237,7 @@ with aba2:
                 linhas_encontradas = []
                 for idx, row in enumerate(dados_planilha[1:], start=2):
                     if len(row) > 0 and row[0].strip().lower() == oc_pesquisa.strip().lower():
-                        # Ajusta o tamanho da linha para coincidir com COLUNAS_PEDIDO
+                        # Normaliza tamanho da linha para coincidir com COLUNAS_PEDIDO
                         row_ajustada = row + [""] * (len(COLUNAS_PEDIDO) - len(row))
                         linhas_encontradas.append({"Linha_Planilha": idx, **dict(zip(COLUNAS_PEDIDO, row_ajustada))})
 
