@@ -1,1405 +1,500 @@
 import streamlit as st
-import streamlit.components.v1 as components
-import json
-from datetime import datetime
 import pandas as pd
-import requests
+import plotly.express as px
+import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DE PERSISTÊNCIA NA PLANILHA GOOGLE (WEBHOOK APPS SCRIPT)
+# CONFIGURAÇÃO DA PÁGINA (Tema Claro e Layout Expandido)
 # -----------------------------------------------------------------------------
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
-
-def gravar_na_planilha_google(dados_registro):
-    """Envia o registro diretamente para a planilha Google Sheets via Webhook."""
-    try:
-        session = requests.Session()
-        response = session.post(
-            WEBHOOK_URL,
-            data=json.dumps(dados_registro),
-            headers={"Content-Type": "text/plain;charset=utf-8"},
-            allow_redirects=True,
-            timeout=15
-        )
-        if response.status_code in [200, 302] and "ERRO:" not in response.text:
-            return True, "Gravado com sucesso na planilha Google!"
-        
-        resp_fallback = session.post(
-            WEBHOOK_URL,
-            data=dados_registro,
-            allow_redirects=True,
-            timeout=15
-        )
-        if resp_fallback.status_code in [200, 302] and "ERRO:" not in resp_fallback.text:
-            return True, "Gravado com sucesso na planilha Google!"
-            
-        return False, f"Servidor retornou código {response.status_code}: {response.text}"
-    except Exception as e:
-        return False, f"Falha de conexão com a planilha: {str(e)}"
-
-# Configuração da página Streamlit em modo Wide
 st.set_page_config(
-    page_title="Gestão Integrada de Suprimentos & Compras",
+    page_title="Painel de Compras & Solicitações de Peças",
     page_icon="📦",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# -----------------------------------------------------------------------------
-# DESIGN SYSTEM: CORPORATIVO EXECUTIVO CLARO (ZERO FUNDOS PRETOS)
-# -----------------------------------------------------------------------------
+# Estilização CSS personalizada para forçar modo claro e manter estética do Tailwind
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
-    /* Reset global do Streamlit para fundo claro corporativo */
-    :root, html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
-        --background-color: #f8fafc !important;
-        --secondary-background-color: #ffffff !important;
-        --text-color: #0f172a !important;
-        --primary-color: #0284c7 !important;
-        background-color: #f8fafc !important;
-        color: #0f172a !important;
-        color-scheme: light !important;
-        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
-    }
-
-    #MainMenu, footer, header { 
-        visibility: hidden !important; 
-        display: none !important; 
-    }
-
-    .block-container {
-        padding-top: 0.75rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-        max-width: 100% !important;
-        background-color: #f8fafc !important;
-    }
-
-    /* Tipografia Corporativa */
-    h1, h2, h3, h4, h5, h6 {
-        color: #0f172a !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.02em !important;
+    /* Forçar fundo claro */
+    .stApp {
+        background-color: #f8fafc;
+        color: #1e293b;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     
-    p, span, div {
-        color: #334155 !important;
-        font-weight: 400;
-    }
-
-    label, .stWidgetLabel, [data-testid="stWidgetLabel"] p {
-        font-weight: 600 !important;
-        font-size: 0.825rem !important;
-        color: #1e293b !important;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-    }
-
-    .stCaption, small {
-        color: #64748b !important;
-        font-size: 0.8rem !important;
-    }
-
-    /* Card do Formulário e Painéis Retráteis */
-    [data-testid="stForm"], [data-testid="stExpander"], details {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02) !important;
-        padding: 1.5rem !important;
+    /* Header Personalizado */
+    .header-box {
+        background-color: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1rem 1.5rem;
+        border-radius: 1rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     
-    summary, summary * {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-        font-weight: 600 !important;
+    /* Caixa de Escopo */
+    .scope-box {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 1rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
     }
 
-    /* Campos de Entrada: Fundo Branco Puro e Bordas Acetinadas */
-    input, select, textarea,
-    div[data-baseweb="select"],
-    div[data-baseweb="select"] *,
-    div[data-baseweb="input"],
-    div[data-baseweb="input"] *,
-    div[data-baseweb="base-input"],
-    div[data-baseweb="base-input"] * {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-        -webkit-text-fill-color: #0f172a !important;
-        border-color: #cbd5e1 !important;
-        font-size: 0.9rem !important;
-    }
-
-    input, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 10px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
-    }
-
-    input:focus, textarea:focus, div[data-baseweb="input"]:focus-within {
-        border-color: #0284c7 !important;
-        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12) !important;
-    }
-
-    /* Pop-up do Calendário e DatePicker 100% Branco com Azul Safira */
-    div[data-baseweb="input"] svg {
-        fill: #0284c7 !important;
-    }
-
-    div[data-baseweb="popover"],
-    div[data-baseweb="popover"] *,
-    div[data-baseweb="calendar"],
-    div[data-baseweb="calendar"] *,
-    div[role="dialog"],
-    div[role="dialog"] * {
-        background-color: #ffffff !important;
-        color: #0f172a !important;
-        -webkit-text-fill-color: #0f172a !important;
-    }
-
-    div[data-baseweb="calendar"] button {
-        background-color: #ffffff !important;
-        color: #1e293b !important;
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-    }
-
-    div[data-baseweb="calendar"] button:hover {
-        background-color: #f0f9ff !important;
-        color: #0284c7 !important;
-    }
-
-    div[data-baseweb="calendar"] [aria-selected="true"] {
-        background-color: #0284c7 !important;
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-        font-weight: 700 !important;
-    }
-
-    div[data-baseweb="popover"] {
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 14px !important;
-        box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.12) !important;
-    }
-
-    /* Botões Corporativos */
-    .stButton > button {
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        font-size: 0.875rem !important;
-        padding: 0.5rem 1.25rem !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-
-    .stButton > button[kind="secondary"] {
-        background-color: #ffffff !important;
-        color: #475569 !important;
-        border: 1px solid #cbd5e1 !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
-    }
-
-    .stButton > button[kind="secondary"]:hover {
-        background-color: #f8fafc !important;
-        color: #0f172a !important;
-        border-color: #94a3b8 !important;
-        transform: translateY(-1px);
-    }
-
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-        border: none !important;
-        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
-    }
-
-    .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
-        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35) !important;
-        transform: translateY(-1px);
-    }
-
-    /* Container de Tabela Corporativa em Cartão Branco */
-    .corporate-table-wrapper {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04) !important;
-        padding: 0.5rem !important;
-        overflow-x: auto !important;
-    }
-
-    .corporate-table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        font-size: 0.825rem !important;
-        background-color: #ffffff !important;
-    }
-
-    .corporate-table th {
-        background-color: #f8fafc !important;
-        color: #475569 !important;
-        font-weight: 700 !important;
-        text-transform: uppercase !important;
-        font-size: 0.7rem !important;
-        letter-spacing: 0.06em !important;
-        padding: 14px 16px !important;
-        border-bottom: 2px solid #e2e8f0 !important;
-        text-align: left !important;
-        white-space: nowrap !important;
-    }
-
-    .corporate-table td {
-        padding: 12px 16px !important;
-        border-bottom: 1px solid #f1f5f9 !important;
-        white-space: nowrap !important;
-        background-color: #ffffff !important;
-        color: #1e293b !important;
-        font-weight: 500 !important;
-    }
-
-    .corporate-table tr:hover td {
-        background-color: #f8fafc !important;
-    }
-
-    .badge-category {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 9999px;
-        font-size: 0.725rem;
-        font-weight: 600;
-        background-color: #f1f5f9;
-        color: #475569;
+    /* Cards de KPI */
+    .kpi-card {
+        background-color: #ffffff;
         border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        margin-bottom: 1rem;
     }
-
-    .badge-oc {
+    .kpi-title {
+        font-size: 0.72rem;
         font-weight: 700;
-        color: #0284c7;
-        font-family: monospace;
-        font-size: 0.85rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .kpi-value {
+        font-size: 1.45rem;
+        font-weight: 800;
+        margin-top: 0.35rem;
+        color: #0f172a;
+    }
+    .kpi-sub {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        margin-top: 0.2rem;
+    }
+    .badge-percent {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.15rem 0.45rem;
+        border-radius: 0.375rem;
+        float: right;
     }
 
-    /* Banner Elegante de Edição */
-    .edit-mode-banner {
-        background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%) !important;
-        border-left: 5px solid #d97706 !important;
-        padding: 14px 20px !important;
-        border-radius: 12px !important;
-        margin-bottom: 18px !important;
-        color: #92400e !important;
-        font-weight: 600 !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        border-top: 1px solid #fde68a !important;
-        border-bottom: 1px solid #fde68a !important;
-        border-right: 1px solid #fde68a !important;
+    /* Cards Informativos de Alertas */
+    .alert-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        height: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# CARREGAMENTO DO CATÁLOGO DE PRODUTOS DA PLANILHA GOOGLE (ABA GID=270834817)
+# DADOS BRUTOS
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=300)
-def carregar_catalogo_produtos():
-    url_csv = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/export?format=csv&gid=270834817"
-    try:
-        df = pd.read_csv(url_csv)
-        col_cod = df.columns[0]
-        col_prod = df.columns[1]
+@st.cache_data
+def load_data():
+    data = [
+        {"ano": "2025", "mes": "Agosto", "data": "05/08/2025", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39},
+        {"ano": "2025", "mes": "Agosto", "data": "08/08/2025", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52},
+        {"ano": "2025", "mes": "Agosto", "data": "12/08/2025", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00},
+        {"ano": "2025", "mes": "Agosto", "data": "14/08/2025", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18},
+        {"ano": "2025", "mes": "Agosto", "data": "18/08/2025", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00},
+        {"ano": "2025", "mes": "Agosto", "data": "20/08/2025", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00},
+        {"ano": "2025", "mes": "Agosto", "data": "22/08/2025", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50},
+        {"ano": "2025", "mes": "Agosto", "data": "25/08/2025", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50},
+        {"ano": "2025", "mes": "Agosto", "data": "28/08/2025", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04},
         
-        df_clean = df[[col_cod, col_prod]].dropna(subset=[col_prod]).drop_duplicates(subset=[col_prod])
-        catalogo = {}
-        for _, row in df_clean.iterrows():
-            nome = str(row[col_prod]).strip().upper()
-            cod = str(row[col_cod]).strip() if pd.notna(row[col_cod]) else ""
-            if nome:
-                catalogo[nome] = cod
-        return catalogo
-    except Exception:
-        return {
-            "DISCO ROTAÇÃO DO MISTURADOR": "2290",
-            "BICO DE SAIDA DO SOLUVEL PHEDRA": "1442",
-            "MOTOR DE MIXER COMPLETO": "2672",
-            "TORNEIRA 3/4": "301",
-            "REMOVE GRUDE": "902",
-            "BOMBA DE AGUA 220V": "534",
-            "SPRAY COLORART PRATA LUNAR": "110",
-            "CONECTOR MACHO 8MM X1/2": "405",
-            "NUCLEO SOLUVEL SOLISTA": "2617",
-            "BOMBA DE AGUA ULKA 220V": "535",
-            "GAXETA DE SILICONE": "700",
-            "MOTOR DO CARROSSEL PINO LONGO": "2673",
-            "ANEL DO BICO CALDEIRA 70": "650",
-            "SUPORTE DE MAQUINA": "305",
-            "ANEL BICO CALDEIRA 69": "649",
-            "PINCEL DE LIMPEZA": "105",
-            "FILTRO BANANINHA C ENGATE RAPIDO": "410",
-            "PRODUTO ROSA DESENGRAXANTE": "905",
-            "TORNEIRA METALICA": "302",
-            "REMOVE GRUDE SPRAY": "903",
-            "CONTADOR VOLUMETRICO": "880",
-            "NUCLEO DA CALDEIRA": "881",
-            "CONTADOR VOLUMETRICO 1.2": "882",
-            "MOTOR DO MOINHO 110V": "2680"
-        }
+        {"ano": "2025", "mes": "Setembro", "data": "02/09/2025", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00},
+        {"ano": "2025", "mes": "Setembro", "data": "05/09/2025", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50},
+        {"ano": "2025", "mes": "Setembro", "data": "10/09/2025", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00},
+        {"ano": "2025", "mes": "Setembro", "data": "14/09/2025", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80},
+        {"ano": "2025", "mes": "Setembro", "data": "19/09/2025", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 4.39},
+        {"ano": "2025", "mes": "Setembro", "data": "19/09/2025", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00},
+        {"ano": "2025", "mes": "Setembro", "data": "21/09/2025", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00},
+        {"ano": "2025", "mes": "Setembro", "data": "23/09/2025", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50},
+        {"ano": "2025", "mes": "Setembro", "data": "25/09/2025", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04},
 
-catalogo_produtos = carregar_catalogo_produtos()
+        {"ano": "2025", "mes": "Outubro", "data": "10/10/2025", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00},
+        {"ano": "2025", "mes": "Outubro", "data": "15/10/2025", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05},
+        {"ano": "2025", "mes": "Outubro", "data": "22/10/2025", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00},
 
-# -----------------------------------------------------------------------------
-# BASE DE DADOS INTEGRADA (st.session_state)
-# -----------------------------------------------------------------------------
-if 'orders_data' not in st.session_state:
-    st.session_state.orders_data = [
-        { "ordemCompra": "OC-2025-001", "codProduto": "2290", "ano": "2025", "mes": "Agosto", "data": "05/08/2025", "horarioChegada": "14:30", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-002", "codProduto": "1442", "ano": "2025", "mes": "Agosto", "data": "08/08/2025", "horarioChegada": "10:15", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-1442", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52, "valorVenda": 18.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-003", "codProduto": "2672", "ano": "2025", "mes": "Agosto", "data": "12/08/2025", "horarioChegada": "16:00", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade reprovada" },
-        { "ordemCompra": "OC-2025-005", "codProduto": "902", "ano": "2025", "mes": "Agosto", "data": "18/08/2025", "horarioChegada": "11:20", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-902", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-006", "codProduto": "534", "ano": "2025", "mes": "Agosto", "data": "20/08/2025", "horarioChegada": "13:40", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00, "valorVenda": 290.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-008", "codProduto": "405", "ano": "2025", "mes": "Agosto", "data": "25/08/2025", "horarioChegada": "10:30", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "codPecaFornecedor": "IM-405", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50, "valorVenda": 22.00, "observacao": "Estoque parcial" },
-        { "ordemCompra": "OC-2025-009", "codProduto": "2617", "ano": "2025", "mes": "Agosto", "data": "28/08/2025", "horarioChegada": "17:10", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-010", "codProduto": "535", "ano": "2025", "mes": "Setembro", "data": "02/09/2025", "horarioChegada": "08:45", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-011", "codProduto": "700", "ano": "2025", "mes": "Setembro", "data": "05/09/2025", "horarioChegada": "14:15", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-012", "codProduto": "2673", "ano": "2025", "mes": "Setembro", "data": "10/09/2025", "horarioChegada": "11:50", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-CARROSSEL", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00, "valorVenda": 480.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-013", "codProduto": "650", "ano": "2025", "mes": "Setembro", "data": "14/09/2025", "horarioChegada": "16:20", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-014", "codProduto": "2290", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "15:10", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-015", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "09:30", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-016", "codProduto": "305", "ano": "2025", "mes": "Setembro", "data": "21/09/2025", "horarioChegada": "14:00", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-SUP", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00, "valorVenda": 120.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-017", "codProduto": "649", "ano": "2025", "mes": "Setembro", "data": "23/09/2025", "horarioChegada": "10:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-018", "codProduto": "2617", "ano": "2025", "mes": "Setembro", "data": "25/09/2025", "horarioChegada": "11:30", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-019", "codProduto": "105", "ano": "2025", "mes": "Outubro", "data": "10/10/2025", "horarioChegada": "13:00", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "codPecaFornecedor": "WN-PINCEL", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00, "valorVenda": 15.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-020", "codProduto": "410", "ano": "2025", "mes": "Outubro", "data": "15/10/2025", "horarioChegada": "15:45", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-BANANA", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05, "valorVenda": 65.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-021", "codProduto": "534", "ano": "2025", "mes": "Outubro", "data": "22/10/2025", "horarioChegada": "10:20", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00, "valorVenda": 310.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-022", "codProduto": "905", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "09:10", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "codPecaFornecedor": "TM-ROSA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80, "valorVenda": 210.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-023", "codProduto": "302", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "14:40", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-MET", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18, "valorVenda": 135.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-024", "codProduto": "903", "ano": "2025", "mes": "Novembro", "data": "04/11/2025", "horarioChegada": "16:15", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-SPRAY", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-001", "codProduto": "880", "ano": "2026", "mes": "Março", "data": "02/03/2026", "horarioChegada": "10:30", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-880", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00, "valorVenda": 190.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-002", "codProduto": "881", "ano": "2026", "mes": "Março", "data": "07/03/2026", "horarioChegada": "11:20", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-881", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00, "valorVenda": 390.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-003", "codProduto": "882", "ano": "2026", "mes": "Abril", "data": "23/04/2026", "horarioChegada": "14:00", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-882", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00, "valorVenda": 195.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-004", "codProduto": "2680", "ano": "2026", "mes": "Abril", "data": "24/04/2026", "horarioChegada": "15:30", "solicitante": "LUCAS", "peca": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-MOINHO", "qt": 2, "qtAprovada": 1, "qtNaoAprovada": 1, "custoUnit": 410.00, "valorVenda": 690.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-005", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "14/08/2026", "horarioChegada": "09:40", "solicitante": "WILLIAN NEVES", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-006", "codProduto": "535", "ano": "2026", "mes": "Agosto", "data": "17/08/2026", "horarioChegada": "10:50", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-007", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "25/08/2026", "horarioChegada": "13:10", "solicitante": "RYAN", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 7, "qtAprovada": 6, "qtNaoAprovada": 1, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-008", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "27/08/2026", "horarioChegada": "16:20", "solicitante": "VITOR", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-009", "codProduto": "534", "ano": "2026", "mes": "Setembro", "data": "11/09/2026", "horarioChegada": "09:00", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 14, "qtAprovada": 14, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-010", "codProduto": "700", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "11:15", "solicitante": "CESAR", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 20, "qtAprovada": 18, "qtNaoAprovada": 2, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-011", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "14:40", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 25, "qtAprovada": 25, "qtNaoAprovada": 0, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-012", "codProduto": "649", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "15:30", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 30, "qtAprovada": 30, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
-        { "ordemCompra": "OC-2026-013", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "16:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 30, "qtAprovada": 28, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" }
+        {"ano": "2025", "mes": "Novembro", "data": "03/11/2025", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80},
+        {"ano": "2025", "mes": "Novembro", "data": "03/11/2025", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18},
+        {"ano": "2025", "mes": "Novembro", "data": "04/11/2025", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00},
+
+        {"ano": "2026", "mes": "Março", "data": "02/03/2026", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00},
+        {"ano": "2026", "mes": "Março", "data": "07/03/2026", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00},
+        {"ano": "2026", "mes": "Abril", "data": "23/04/2026", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00},
+        {"ano": "2026", "mes": "Abril", "data": "24/04/2026", "solicitante": "LUCAS", "peca": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "qt": 2, "qtAprovada": 1, "qtNaoAprovada": 1, "custoUnit": 410.00},
+        {"ano": "2026", "mes": "Agosto", "data": "14/08/2026", "solicitante": "WILLIAN NEVES", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 195.00},
+        {"ano": "2026", "mes": "Agosto", "data": "17/08/2026", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 195.00},
+        {"ano": "2026", "mes": "Agosto", "data": "25/08/2026", "solicitante": "RYAN", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 7, "qtAprovada": 6, "qtNaoAprovada": 1, "custoUnit": 195.00},
+        {"ano": "2026", "mes": "Agosto", "data": "27/08/2026", "solicitante": "VITOR", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 195.00},
+        {"ano": "2026", "mes": "Setembro", "data": "11/09/2026", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "qt": 14, "qtAprovada": 14, "qtNaoAprovada": 0, "custoUnit": 195.00},
+        {"ano": "2026", "mes": "Setembro", "data": "15/09/2026", "solicitante": "CESAR", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "qt": 20, "qtAprovada": 18, "qtNaoAprovada": 2, "custoUnit": 18.50},
+        {"ano": "2026", "mes": "Setembro", "data": "15/09/2026", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 25, "qtAprovada": 25, "qtNaoAprovada": 0, "custoUnit": 9.80},
+        {"ano": "2026", "mes": "Setembro", "data": "23/09/2026", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 30, "qtNaoAprovada": 0, "custoUnit": 9.50},
+        {"ano": "2026", "mes": "Setembro", "data": "23/09/2026", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "qt": 30, "qtAprovada": 28, "qtNaoAprovada": 2, "custoUnit": 9.80}
     ]
+    df = pd.DataFrame(data)
+    df["custoTotal"] = df["qtAprovada"] * df["custoUnit"]
+    return df
 
-if 'active_tab' not in st.session_state:
-    st.session_state.active_tab = "Dashboard Compras"
+df_raw = load_data()
 
-if 'edit_order_id' not in st.session_state:
-    st.session_state.edit_order_id = None
-
-if 'form_reset_counter' not in st.session_state:
-    st.session_state.form_reset_counter = 0
+# Função auxiliar para formatação monetária brasileira
+def format_currency(val):
+    return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR (CORPORATIVA EXECUTIVA)
+# HEADER SUPERIOR
 # -----------------------------------------------------------------------------
-nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
-
-with nav_col1:
-    st.markdown("""
-        <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
-            <div style="background: linear-gradient(135deg, #0284c7, #0369a1); padding: 8px 12px; border-radius: 12px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
-                <span style="font-size: 1.25rem;">📦</span>
-            </div>
-            <div>
-                <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; display: block; line-height: 1.2;">Portal Integrado de Suprimentos</span>
-                <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">Gestão Operacional & Ordens de Compra</span>
-            </div>
+st.markdown("""
+<div class="header-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0;">
+                📦 Painel de Compras & Solicitações de Peças
+            </h1>
+            <p style="font-size: 0.85rem; color: #64748b; margin: 0.25rem 0 0 0;">
+                Controle Operacional: Ordens de Compra, Custos Reais e Status de Atendimento
+            </p>
         </div>
+        <div>
+            <span style="background-color: #d1fae5; color: #065f46; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 9999px; border: 1px solid #6ee7b7;">
+                ● Cálculos em Tempo Real
+            </span>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# ESCOPO / ESPECIFICAÇÃO DO PROJETO
+# -----------------------------------------------------------------------------
+st.markdown("""
+<div class="scope-box">
+    <h3 style="font-size: 0.85rem; font-weight: 800; color: #1e3a8a; text-transform: uppercase; margin: 0 0 0.5rem 0;">
+        📋 Especificação & Requisitos da Solicitação
+    </h3>
+    <ul style="font-size: 0.78rem; color: #334155; margin: 0; padding-left: 1.2rem; line-height: 1.6;">
+        <li><strong>Base de Dados Analisada:</strong> Foco exclusivo na aba de <em>Solicitações de Compra de Peças</em> e ordens de reposição de estoque.</li>
+        <li><strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</li>
+        <li><strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</li>
+        <li><strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</li>
+        <li><strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor com valores visíveis.</li>
+        <li><strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com quantidades solicitadas/atendidas/não atendidas e valor financeiro.</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# BARRA LATERAL / FILTROS DINÂMICOS
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("### 🎛️ Filtros do Painel")
+
+# Opções de filtro
+year_options = ["Todos os Anos"] + sorted(list(df_raw["ano"].unique()))
+month_options = ["Todos os Meses"] + list(df_raw["mes"].unique())
+cat_options = ["Todas as Categorias"] + sorted(list(df_raw["categoria"].unique()))
+req_options = ["Todos os Solicitantes"] + sorted(list(df_raw["solicitante"].unique()))
+
+selected_year = st.sidebar.selectbox("Ano", year_options)
+selected_month = st.sidebar.selectbox("Mês", month_options)
+selected_cat = st.sidebar.selectbox("Categoria de Peças", cat_options)
+selected_req = st.sidebar.selectbox("Solicitante / Setor", req_options)
+
+# Aplicar Filtros
+df_filtered = df_raw.copy()
+
+if selected_year != "Todos os Anos":
+    df_filtered = df_filtered[df_filtered["ano"] == selected_year]
+if selected_month != "Todos os Meses":
+    df_filtered = df_filtered[df_filtered["mes"] == selected_month]
+if selected_cat != "Todas as Categorias":
+    df_filtered = df_filtered[df_filtered["categoria"] == selected_cat]
+if selected_req != "Todos os Solicitantes":
+    df_filtered = df_filtered[df_filtered["solicitante"] == selected_req]
+
+# -----------------------------------------------------------------------------
+# CÁLCULO DAS MÉTRICAS / KPIS
+# -----------------------------------------------------------------------------
+total_custo = df_filtered["custoTotal"].sum()
+total_pedidos = len(df_filtered)
+total_itens = df_filtered["qt"].sum()
+total_atendidas = df_filtered["qtAprovada"].sum()
+total_nao_atendidas = df_filtered["qtNaoAprovada"].sum()
+avg_cost = (total_custo / total_pedidos) if total_pedidos > 0 else 0
+
+pct_atendidas = round((total_atendidas / total_itens) * 100) if total_itens > 0 else 0
+pct_nao_atendidas = (100 - pct_atendidas) if total_itens > 0 else 0
+
+# -----------------------------------------------------------------------------
+# EXIBIÇÃO DOS CARDS DE KPIS (6 COLUNAS)
+# -----------------------------------------------------------------------------
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+with col1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-title">Valor Compras (Custo)</div>
+        <div class="kpi-value" style="color: #d97706;">{format_currency(total_custo)}</div>
+        <div class="kpi-sub">Soma da coluna Custo</div>
+    </div>
     """, unsafe_allow_html=True)
 
-with nav_col2:
-    if st.button("📊 Dashboard Compras", use_container_width=True, type="primary" if st.session_state.active_tab == "Dashboard Compras" else "secondary"):
-        st.session_state.active_tab = "Dashboard Compras"
-        st.rerun()
-
-with nav_col3:
-    if st.button("📝 Pedido de Compras", use_container_width=True, type="primary" if st.session_state.active_tab == "Pedido de Compras" else "secondary"):
-        st.session_state.active_tab = "Pedido de Compras"
-        st.rerun()
-
-st.markdown("<hr style='margin-top: 0.75rem; margin-bottom: 1.5rem; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# ABA 1: FORMULÁRIO DE CADASTRO E EDIÇÃO ("Pedido de Compras")
-# -----------------------------------------------------------------------------
-if st.session_state.active_tab == "Pedido de Compras":
-    st.subheader("📝 Lançamento & Gestão de Pedidos de Compra")
-    st.caption("Cadastre novas ordens e sincronize em tempo real com a aba 'Ordem de Compra(Peças)'.")
-
-    # Listas dinâmicas a partir da base existente
-    lista_fornecedores = sorted(list(set([d.get("fornecedor", "") for d in st.session_state.orders_data if d.get("fornecedor")])))
-    lista_categorias = sorted(list(set([d.get("categoria", "") for d in st.session_state.orders_data if d.get("categoria")])))
-    lista_solicitantes = sorted(list(set([d.get("solicitante", "") for d in st.session_state.orders_data if d.get("solicitante")])))
-
-    # ------------------ PESQUISA & EDIÇÃO ------------------
-    with st.expander("🔍 Pesquisar por Ordem de Compra para Editar", expanded=(st.session_state.edit_order_id is not None)):
-        col_search1, col_search2, col_search3 = st.columns([3, 1, 1])
-        all_ocs = [d.get("ordemCompra", "") for d in st.session_state.orders_data if d.get("ordemCompra")]
-        
-        with col_search1:
-            selected_oc = st.selectbox("Selecione a Ordem de Compra:", options=["-- Selecione uma OC --"] + all_ocs)
-        with col_search2:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("Carregar para Edição", use_container_width=True, type="primary"):
-                if selected_oc != "-- Selecione uma OC --":
-                    st.session_state.edit_order_id = selected_oc
-                    st.rerun()
-                else:
-                    st.warning("Selecione uma Ordem de Compra válida.")
-        with col_search3:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            if st.session_state.edit_order_id:
-                if st.button("Cancelar Edição", use_container_width=True):
-                    st.session_state.edit_order_id = None
-                    st.rerun()
-
-    record_to_edit = None
-    if st.session_state.edit_order_id:
-        for item in st.session_state.orders_data:
-            if item.get("ordemCompra") == st.session_state.edit_order_id:
-                record_to_edit = item
-                break
-        if record_to_edit:
-            st.markdown(f"""
-                <div class="edit-mode-banner">
-                    <span>✏️ Editando Ordem de Compra: <strong>{record_to_edit.get('ordemCompra')}</strong></span>
-                    <span>Modifique os campos e clique em Salvar Alterações</span>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # ------------------ PREPARAÇÃO DOS DADOS DO FORMULÁRIO ------------------
-    produtos_lista = sorted(list(catalogo_produtos.keys()))
-    next_oc_num = f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
-    def_oc = record_to_edit.get("ordemCompra", next_oc_num) if record_to_edit else next_oc_num
-    
-    def_prod = record_to_edit.get("peca", produtos_lista[0] if produtos_lista else "") if record_to_edit else (produtos_lista[0] if produtos_lista else "")
-    def_cod = record_to_edit.get("codProduto", catalogo_produtos.get(def_prod, "")) if record_to_edit else catalogo_produtos.get(def_prod, "")
-    def_cat = record_to_edit.get("categoria", lista_categorias[0] if lista_categorias else "Multi Bebidas") if record_to_edit else (lista_categorias[0] if lista_categorias else "Multi Bebidas")
-    def_forn = record_to_edit.get("fornecedor", lista_fornecedores[0] if lista_fornecedores else "") if record_to_edit else ""
-    def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
-    def_solicitante = record_to_edit.get("solicitante", lista_solicitantes[0] if lista_solicitantes else "") if record_to_edit else ""
-    
-    try:
-        def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
-    except Exception:
-        def_data = datetime.today().date()
-        
-    def_hora = record_to_edit.get("horarioChegada", "") if record_to_edit else ""
-    def_valor_compra = float(record_to_edit.get("custoUnit", 0.0)) if record_to_edit else 0.0
-    def_valor_venda = float(record_to_edit.get("valorVenda", 0.0)) if record_to_edit else 0.0
-    def_qt_sol = int(record_to_edit.get("qt", 1)) if record_to_edit else 1
-    def_qt_apr = int(record_to_edit.get("qtAprovada", 0)) if record_to_edit else 0
-    def_obs = record_to_edit.get("observacao", "") if record_to_edit else ""
-
-    col_p1, col_p2 = st.columns([3, 1])
-    with col_p1:
-        reset_key = f"prod_select_{st.session_state.form_reset_counter}"
-        produto_selecionado = st.selectbox(
-            "Produto (Coluna B da planilha)*",
-            options=produtos_lista + ["Outro (Digitar Manualmente)"],
-            index=produtos_lista.index(def_prod) if def_prod in produtos_lista else 0,
-            key=reset_key
-        )
-    with col_p2:
-        codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
-        st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
-
-    # ------------------ FORMULÁRIO EXECUTIVO CLARO ------------------
-    with st.form("form_pedido_completo", clear_on_submit=False):
-        st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
-        col_f1, col_f2, col_f3 = st.columns(3)
-        with col_f1:
-            ordem_compra = st.text_input("Ordem de Compra*", value=def_oc)
-            if produto_selecionado == "Outro (Digitar Manualmente)":
-                produto_final = st.text_input("Nome do Produto (Manual)*", value=def_prod).upper().strip()
-                codigo_produto = st.text_input("Codigo do produto*", value=def_cod).strip()
-            else:
-                produto_final = produto_selecionado
-                codigo_produto = st.text_input("Codigo do produto*", value=codigo_auto if codigo_auto else def_cod).strip()
-
-        with col_f2:
-            opcoes_categorias = list(set(["Multi Bebidas", "Acessorios", "Hidraulica", "Snaks", "Eletrica"] + lista_categorias))
-            categoria = st.selectbox("Categoria*", options=sorted(opcoes_categorias), index=sorted(opcoes_categorias).index(def_cat) if def_cat in opcoes_categorias else 0)
-            
-            # Solicitante com pré-lista
-            solicitante_sel = st.selectbox("Solicitante / Setor*", options=["Novo / Digitar"] + lista_solicitantes, index=(lista_solicitantes.index(def_solicitante) + 1) if def_solicitante in lista_solicitantes else 0)
-            if solicitante_sel == "Novo / Digitar":
-                solicitante = st.text_input("Nome do Solicitante*", value=def_solicitante if def_solicitante not in lista_solicitantes else "").upper().strip()
-            else:
-                solicitante = solicitante_sel
-
-        with col_f3:
-            # Fornecedor com pré-lista
-            fornecedor_sel = st.selectbox("Fornecedor*", options=["Novo / Digitar"] + lista_fornecedores, index=(lista_fornecedores.index(def_forn) + 1) if def_forn in lista_fornecedores else 0)
-            if fornecedor_sel == "Novo / Digitar":
-                fornecedor = st.text_input("Nome do Fornecedor*", value=def_forn if def_forn not in lista_fornecedores else "").upper().strip()
-            else:
-                fornecedor = fornecedor_sel
-                
-            cod_peca_fornecedor = st.text_input("Cod da Peça do Fornecedor", value=def_cod_forn).strip()
-
-        st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
-        col_t1, col_t2 = st.columns(2)
-        with col_t1:
-            data_pedido = st.date_input("Data do Pedido*", value=def_data)
-        with col_t2:
-            horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
-
-        st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>🔢 Quantidades & Custos</h5>", unsafe_allow_html=True)
-        col_q1, col_q2, col_q3, col_q4 = st.columns(4)
-        with col_q1:
-            qt_solicitada = st.number_input("Qt Solicitada*", min_value=1, value=def_qt_sol, step=1)
-        with col_q2:
-            qt_aprovada = st.number_input("Qt Aprovada*", min_value=0, value=def_qt_apr, step=1)
-        with col_q3:
-            valor_compra = st.number_input("Valor de Compra (Custo Unit. R$)*", min_value=0.00, value=def_valor_compra, step=0.50, format="%.2f")
-        with col_q4:
-            valor_venda = st.number_input("Valor de Venda (R$)", min_value=0.00, value=def_valor_venda, step=0.50, format="%.2f")
-
-        qt_nao_aprovada = max(0, qt_solicitada - qt_aprovada)
-        st.markdown(f"<p style='font-size: 0.8rem; color: #64748b; margin-top: 4px;'>ℹ️ <strong>Qt Não Aprovada calculada:</strong> {qt_nao_aprovada} un | <strong>Custo Total Previsto:</strong> R$ {(qt_aprovada * valor_compra):,.2f}</p>", unsafe_allow_html=True)
-
-        observacao = st.text_area("Observação", value=def_obs, placeholder="Detalhes adicionais, motivo de recusa, etc.", height=70)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        btn_label = "💾 Salvar Alterações na Ordem" if record_to_edit else "💾 Gravar Pedido no Banco de Dados e na Planilha"
-        btn_salvar = st.form_submit_button(btn_label, use_container_width=True, type="primary")
-
-        if btn_salvar:
-            if not ordem_compra or not produto_final or not fornecedor or not solicitante:
-                st.error("Por favor, preencha todos os campos obrigatórios marcados com (*).")
-            elif qt_aprovada > qt_solicitada:
-                st.error("A Quantidade Aprovada não pode ser maior que a Quantidade Solicitada.")
-            else:
-                meses_pt = {
-                    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-                    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-                    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-                }
-
-                registro_dados = {
-                    "ordemCompra": ordem_compra,
-                    "codProduto": codigo_produto,
-                    "peca": produto_final,
-                    "categoria": categoria,
-                    "ano": str(data_pedido.year),
-                    "mes": meses_pt.get(data_pedido.month, "Indefinido"),
-                    "data": data_pedido.strftime("%d/%m/%Y"),
-                    "horarioChegada": horario_chegada,
-                    "custoUnit": float(valor_compra),
-                    "valorVenda": float(valor_venda),
-                    "qt": int(qt_solicitada),
-                    "qtAprovada": int(qt_aprovada),
-                    "qtNaoAprovada": int(qt_nao_aprovada),
-                    "fornecedor": fornecedor,
-                    "codPecaFornecedor": cod_peca_fornecedor,
-                    "solicitante": solicitante,
-                    "observacao": observacao
-                }
-
-                # 1. Envio para a planilha Google Sheets
-                sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
-
-                # 2. Atualização dos dados em memória
-                if record_to_edit:
-                    idx = st.session_state.orders_data.index(record_to_edit)
-                    st.session_state.orders_data[idx] = registro_dados
-                    st.session_state.edit_order_id = None
-                    st.success(f"✅ Ordem de Compra **{ordem_compra}** alterada com sucesso!")
-                else:
-                    st.session_state.orders_data.insert(0, registro_dados)
-                    if sucesso_planilha:
-                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi gravada na planilha Google Sheets com sucesso!")
-                    else:
-                        st.warning(f"⚠️ Gravado no painel interno. Aviso da planilha: {msg_planilha}")
-                
-                # Zera campos de valores/quantidades mantendo data atual e próxima OC
-                st.session_state.form_reset_counter += 1
-                st.rerun()
-
-    # ------------------ TABELA EXECUTIVA (100% FUNDO CLARO) ------------------
-    st.markdown("---")
-    st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.75rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
-    
-    df_preview = pd.DataFrame(st.session_state.orders_data)
-    df_preview["Custo Total (R$)"] = df_preview["qtAprovada"] * df_preview["custoUnit"]
-    
-    colunas_visiveis = [
-        'ordemCompra', 'codProduto', 'peca', 'categoria', 'data', 'horarioChegada',
-        'custoUnit', 'qt', 'qtAprovada', 'qtNaoAprovada', 'valorVenda',
-        'fornecedor', 'codPecaFornecedor', 'solicitante', 'Custo Total (R$)', 'observacao'
-    ]
-    cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
-    df_render = df_preview[cols_existentes].copy()
-
-    # Formatação visual refinada dos valores
-    if "custoUnit" in df_render.columns:
-        df_render["custoUnit"] = df_render["custoUnit"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    if "valorVenda" in df_render.columns:
-        df_render["valorVenda"] = df_render["valorVenda"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    if "Custo Total (R$)" in df_render.columns:
-        df_render["Custo Total (R$)"] = df_render["Custo Total (R$)"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    # Tabela Executiva Renderizada em HTML Puro (Zero Preto / Zero Escuro)
-    tabela_html = f"""
-    <div class="corporate-table-wrapper">
-        <table class="corporate-table">
-            <thead>
-                <tr>
-                    {"".join(f"<th>{col}</th>" for col in df_render.columns)}
-                </tr>
-            </thead>
-            <tbody>
-                {"".join(
-                    "<tr>" + "".join(
-                        f"<td><span class='badge-oc'>{val}</span></td>" if col == 'ordemCompra' else
-                        f"<td><span class='badge-category'>{val}</span></td>" if col == 'categoria' else
-                        f"<td>{val}</td>"
-                        for col, val in zip(df_render.columns, row)
-                    ) + "</tr>"
-                    for row in df_render.values
-                )}
-            </tbody>
-        </table>
+with col2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-title">Total de Pedidos</div>
+        <div class="kpi-value">{total_pedidos}</div>
+        <div class="kpi-sub">Ordens registradas</div>
     </div>
-    """
-    st.markdown(tabela_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-title">Qtde Solicitada</div>
+        <div class="kpi-value">{total_itens:,} un</div>
+        <div class="kpi-sub">Total de peças pedidas</div>
+    </div>
+    """.replace(",", "."), unsafe_allow_html=True)
+
+with col4:
+    st.markdown(f"""
+    <div class="kpi-card" style="border-color: #a7f3d0;">
+        <span class="badge-percent" style="background-color: #d1fae5; color: #065f46;">{pct_atendidas}%</span>
+        <div class="kpi-title" style="color: #059669;">Peças Atendidas</div>
+        <div class="kpi-value" style="color: #059669;">{total_atendidas:,} un</div>
+        <div class="kpi-sub">Aprovadas / Compradas</div>
+    </div>
+    """.replace(",", "."), unsafe_allow_html=True)
+
+with col5:
+    st.markdown(f"""
+    <div class="kpi-card" style="border-color: #fecdd3;">
+        <span class="badge-percent" style="background-color: #ffe4e6; color: #9f1239;">{pct_nao_atendidas}%</span>
+        <div class="kpi-title" style="color: #e11d48;">Não Atendidas</div>
+        <div class="kpi-value" style="color: #e11d48;">{total_nao_atendidas:,} un</div>
+        <div class="kpi-sub">Reprovadas / Pendentes</div>
+    </div>
+    """.replace(",", "."), unsafe_allow_html=True)
+
+with col6:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-title">Custo Médio / Pedido</div>
+        <div class="kpi-value">{format_currency(avg_cost)}</div>
+        <div class="kpi-sub">Média por pedido</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# ABA 2: PAINEL EXECUTIVO ("Dashboard Compras" - 100% TEMA CLARO)
+# GRÁFICOS: TOP 5 AGOSTO & SETEMBRO (COM VALORES NO TOPO)
 # -----------------------------------------------------------------------------
-elif st.session_state.active_tab == "Dashboard Compras":
-    json_orders_data = json.dumps(st.session_state.orders_data, ensure_ascii=False)
+st.write("")
+col_chart1, col_chart2 = st.columns(2)
 
-    html_code = f"""
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Dashboard Executivo - Solicitações & Ordens de Compra</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-      <script src="https://unpkg.com/lucide@latest"></script>
-      <style>
-        body {{ 
-          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-          background-color: #f8fafc; 
-          color: #0f172a; 
-        }}
-        .kpi-card {{
-          background-color: #ffffff;
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }}
-        .kpi-card:hover {{
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
-        }}
-      </style>
-    </head>
-    <body class="bg-slate-50 text-slate-900 min-h-screen">
+# Filtragem de base para os meses de Agosto e Setembro respeitando o filtro de Ano se ativo
+df_base_year = df_raw if selected_year == "Todos os Anos" else df_raw[df_raw["ano"] == selected_year]
 
-      <header class="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20">
-              <i data-lucide="package-search" class="w-6 h-6"></i>
-            </div>
-            <div>
-              <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel Executivo de Compras & Peças</h1>
-              <p class="text-xs text-slate-500">Controle Operacional: Ordens de Compra, Custos Reais e Atendimento</p>
-            </div>
-          </div>
-          
-          <div class="flex items-center gap-3">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Cálculos em Tempo Real
-            </span>
-          </div>
+# Agosto
+df_agosto = df_base_year[df_base_year["mes"] == "Agosto"].groupby("solicitante")["qt"].sum().reset_index()
+df_agosto = df_agosto.sort_values(by="qt", ascending=False).head(5)
+
+# Setembro
+df_setembro = df_base_year[df_base_year["mes"] == "Setembro"].groupby("solicitante")["qt"].sum().reset_index()
+df_setembro = df_setembro.sort_values(by="qt", ascending=False).head(5)
+
+with col_chart1:
+    st.markdown("##### 🔹 Top 5 Solicitantes / Locais Internos — Agosto")
+    fig_ago = go.Figure()
+    fig_ago.add_trace(go.Bar(
+        x=df_agosto["solicitante"],
+        y=df_agosto["qt"],
+        text=[f"{v} un" for v in df_agosto["qt"]],
+        textposition="outside",
+        marker=dict(color="#0284c7")
+    ))
+    fig_ago.update_layout(
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#475569", family="Inter"),
+        margin=dict(t=30, b=20, l=10, r=10),
+        height=320,
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
+        xaxis=dict(showgrid=False)
+    )
+    st.plotly_chart(fig_ago, use_container_width=True)
+
+with col_chart2:
+    st.markdown("##### 🔹 Top 5 Solicitantes / Locais Internos — Setembro")
+    fig_set = go.Figure()
+    fig_set.add_trace(go.Bar(
+        x=df_setembro["solicitante"],
+        y=df_setembro["qt"],
+        text=[f"{v} un" for v in df_setembro["qt"]],
+        textposition="outside",
+        marker=dict(color="#0891b2")
+    ))
+    fig_set.update_layout(
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#475569", family="Inter"),
+        margin=dict(t=30, b=20, l=10, r=10),
+        height=320,
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
+        xaxis=dict(showgrid=False)
+    )
+    st.plotly_chart(fig_set, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# GRÁFICOS: CATEGORIAS & FORNECEDORES (COM VALORES EXPLÍCITOS)
+# -----------------------------------------------------------------------------
+col_chart3, col_chart4 = st.columns(2)
+
+with col_chart3:
+    st.markdown("##### 🥧 Distribuição por Categoria de Peças")
+    df_cat = df_filtered.groupby("categoria")["qt"].sum().reset_index()
+    fig_cat = px.pie(
+        df_cat,
+        names="categoria",
+        values="qt",
+        hole=0.55,
+        color_discrete_sequence=['#0284c7', '#06b6d4', '#f59e0b', '#6366f1', '#10b981']
+    )
+    fig_cat.update_traces(textinfo="value+percent", textposition="inside", textfont=dict(color="white", size=12))
+    fig_cat.update_layout(
+        paper_bgcolor="#ffffff",
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=320,
+        legend=dict(font=dict(color="#475569"))
+    )
+    st.plotly_chart(fig_cat, use_container_width=True)
+
+with col_chart4:
+    st.markdown("##### 🏢 Soma de Custo por Fornecedor (R$)")
+    df_sup = df_filtered.groupby("fornecedor")["custoTotal"].sum().reset_index()
+    fig_sup = go.Figure()
+    fig_sup.add_trace(go.Bar(
+        x=df_sup["fornecedor"],
+        y=df_sup["custoTotal"],
+        text=[format_currency(v) for v in df_sup["custoTotal"]],
+        textposition="outside",
+        marker=dict(color="#f59e0b")
+    ))
+    fig_sup.update_layout(
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(color="#475569", family="Inter"),
+        margin=dict(t=30, b=20, l=10, r=10),
+        height=320,
+        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
+        xaxis=dict(showgrid=False)
+    )
+    st.plotly_chart(fig_sup, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# TABELA RESUMO POR PEÇA (COM PESQUISA EM TEMPO REAL)
+# -----------------------------------------------------------------------------
+st.write("")
+st.markdown("### 📊 Resumo Detalhado por Peça Solicitada")
+
+search_term = st.text_input("🔍 Buscar peça ou categoria na tabela:", placeholder="Digite o nome da peça...")
+
+# Agrupamento por Peça
+df_table = df_filtered.groupby(["peca", "categoria"]).agg(
+    qtTotal=("qt", "sum"),
+    qtAtendida=("qtAprovada", "sum"),
+    qtNaoAtendida=("qtNaoAprovada", "sum"),
+    pedidosCount=("peca", "count"),
+    custoTotal=("custoTotal", "sum")
+).reset_index()
+
+df_table["custoUnitMedio"] = df_table.apply(
+    lambda row: (row["custoTotal"] / row["qtAtendida"]) if row["qtAtendida"] > 0 else 0, axis=1
+)
+
+# Filtro de texto da tabela
+if search_term:
+    mask = df_table["peca"].str.contains(search_term, case=False, na=False) | \
+           df_table["categoria"].str.contains(search_term, case=False, na=False)
+    df_table = df_table[mask]
+
+# Ordenar por Custo Total
+df_table = df_table.sort_values(by="custoTotal", ascending=False)
+
+# Formatação para apresentação
+df_display = df_table.copy()
+df_display.columns = [
+    "Peça / Produto Solicitado",
+    "Categoria",
+    "Qtde Total",
+    "Atendidas",
+    "Não Atendidas",
+    "Nº Pedidos",
+    "Custo Total (R$)",
+    "Custo Unit. Médio (R$)"
+]
+
+# Formatação de Moedas e Números
+df_display["Custo Total (R$)"] = df_display["Custo Total (R$)"].apply(format_currency)
+df_display["Custo Unit. Médio (R$)"] = df_display["Custo Unit. Médio (R$)"].apply(format_currency)
+df_display["Qtde Total"] = df_display["Qtde Total"].astype(str) + " un"
+df_display["Atendidas"] = df_display["Atendidas"].astype(str) + " un"
+df_display["Não Atendidas"] = df_display["Não Atendidas"].astype(str) + " un"
+
+st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+# -----------------------------------------------------------------------------
+# DIAGNÓSTICOS E ALERTAS EXECUTIVOS
+# -----------------------------------------------------------------------------
+st.write("")
+st.markdown("### ✨ Diagnósticos Automáticos de Compras")
+col_diag1, col_diag2, col_diag3 = st.columns(3)
+
+with col_diag1:
+    st.markdown("""
+    <div class="alert-card">
+        <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.25rem;">
+            ✔ Taxa Global de Atendimento
         </div>
-      </header>
-
-      <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-        <section class="bg-gradient-to-r from-blue-50/90 to-sky-50/70 border border-blue-200/80 rounded-2xl p-5 shadow-sm">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex items-start gap-3">
-              <div class="p-2.5 rounded-xl bg-blue-600 text-white mt-0.5 shadow-md shadow-blue-500/20">
-                <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-              </div>
-              <div>
-                <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  Especificação & Requisitos da Solicitação
-                  <span class="text-[10px] normal-case bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-300 font-semibold">Parâmetros Ativos</span>
-                </h2>
-                <div class="text-xs text-slate-600 mt-2 space-y-1.5 leading-relaxed">
-                  <p>• <strong>Base de Dados Analisada:</strong> Foco exclusivo na aba de <em>Solicitações de Compra de Peças</em> e ordens de reposição de estoque.</p>
-                  <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
-                  <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
-                  <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Filtros Dinâmicos -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <i data-lucide="sliders" class="w-4 h-4 text-blue-600"></i>
-              <span>Filtros do Painel de Solicitações</span>
-            </div>
-            <span id="activeFilterBadge" class="text-xs font-semibold text-slate-500">Filtrando: Todos os registros</span>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Ano</label>
-              <select id="filterYear" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                <option value="ALL">Todos os Anos</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Mês</label>
-              <select id="filterMonth" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                <option value="ALL">Todos os Meses</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Categoria de Peças</label>
-              <select id="filterCategory" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                <option value="ALL">Todas as Categorias</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Solicitante / Setor</label>
-              <select id="filterRequester" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                <option value="ALL">Todos os Solicitantes</option>
-              </select>
-            </div>
-
-            <div class="flex items-end">
-              <button id="resetFilters" class="w-full py-2 px-4 rounded-xl border border-slate-300 bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition flex items-center justify-center gap-1.5 shadow-sm">
-                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                Limpar Filtros
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- CARDS DE KPIS EXECUTIVOS -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Valor Compras (Custo)</span>
-              <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-                <i data-lucide="badge-dollar-sign" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3">
-              <span id="kpiTotalCost" class="text-xl font-bold tracking-tight text-amber-600">R$ 0,00</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Soma da coluna Custo</p>
-            </div>
-          </div>
-
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total de Pedidos</span>
-              <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3">
-              <span id="kpiTotalRequests" class="text-xl font-bold tracking-tight text-slate-800">0</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Ordens registradas</p>
-            </div>
-          </div>
-
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Qtde Solicitada</span>
-              <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                <i data-lucide="boxes" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3">
-              <span id="kpiItemsQty" class="text-xl font-bold tracking-tight text-slate-800">0 un</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Total de peças pedidas</p>
-            </div>
-          </div>
-
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between ring-1 ring-emerald-500/20">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Peças Atendidas</span>
-              <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3 flex items-baseline justify-between">
-              <div>
-                <span id="kpiApprovedQty" class="text-xl font-bold tracking-tight text-emerald-600">0 un</span>
-                <p class="text-[11px] text-slate-400 mt-0.5">Aprovadas / Compradas</p>
-              </div>
-              <span id="kpiApprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">0%</span>
-            </div>
-          </div>
-
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between ring-1 ring-rose-500/20">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Não Atendidas</span>
-              <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600">
-                <i data-lucide="x-circle" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3 flex items-baseline justify-between">
-              <div>
-                <span id="kpiUnapprovedQty" class="text-xl font-bold tracking-tight text-rose-600">0 un</span>
-                <p class="text-[11px] text-slate-400 mt-0.5">Reprovadas / Pendentes</p>
-              </div>
-              <span id="kpiUnapprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">0%</span>
-            </div>
-          </div>
-
-          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Custo Médio / Pedido</span>
-              <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
-                <i data-lucide="calculator" class="w-4 h-4"></i>
-              </span>
-            </div>
-            <div class="mt-3">
-              <span id="kpiAvgCost" class="text-xl font-bold tracking-tight text-slate-800">R$ 0,00</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Média por pedido</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Gráficos Principais -->
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                  Top 5 Solicitantes / Locais Internos — Agosto
-                </h3>
-                <p class="text-xs text-slate-500">Valores de peças demandadas</p>
-              </div>
-              <span class="text-xs font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200">Agosto</span>
-            </div>
-            <div class="relative h-64">
-              <canvas id="chartTopAgosto"></canvas>
-            </div>
-          </div>
-
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full bg-cyan-600"></span>
-                  Top 5 Solicitantes / Locais Internos — Setembro
-                </h3>
-                <p class="text-xs text-slate-500">Valores de peças demandadas</p>
-              </div>
-              <span class="text-xs font-bold bg-cyan-50 text-cyan-700 px-2.5 py-1 rounded-md border border-cyan-200">Setembro</span>
-            </div>
-            <div class="relative h-64">
-              <canvas id="chartTopSetembro"></canvas>
-            </div>
-          </div>
-        </section>
-
-        <!-- Distribuição por Categoria e Fornecedor -->
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="font-bold text-base text-slate-900">Distribuição por Categoria de Peças</h3>
-                <p class="text-xs text-slate-500">Quantidades totais exibidas em cada fatia</p>
-              </div>
-              <i data-lucide="pie-chart" class="w-5 h-5 text-slate-400"></i>
-            </div>
-            <div class="relative h-64">
-              <canvas id="chartCategoryDist"></canvas>
-            </div>
-          </div>
-
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="font-bold text-base text-slate-900">Soma de Custo por Fornecedor (R$)</h3>
-                <p class="text-xs text-slate-500">Valor exato em reais destacado sobre as barras</p>
-              </div>
-              <i data-lucide="building-2" class="w-5 h-5 text-slate-400"></i>
-            </div>
-            <div class="relative h-64">
-              <canvas id="chartSupplierCost"></canvas>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tabela Resumo Detalhado por Peça -->
-        <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-200">
-            <div>
-              <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i data-lucide="table" class="w-4 h-4 text-blue-600"></i>
-                Resumo Detalhado por Peça Solicitada
-              </h2>
-              <p class="text-xs text-slate-500">Consolidado por item, quantidades e custos</p>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <div class="relative">
-                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-                <input type="text" id="tableSearch" placeholder="Buscar peça..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 sm:w-64 shadow-sm">
-              </div>
-              <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200">
-                0 itens
-              </span>
-            </div>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs text-slate-700">
-              <thead class="bg-slate-100 uppercase font-bold text-slate-600">
-                <tr>
-                  <th class="py-3 px-4 rounded-l-lg">Peça / Produto Solicitado</th>
-                  <th class="py-3 px-4">Categoria</th>
-                  <th class="py-3 px-4 text-center">Qtde Total</th>
-                  <th class="py-3 px-4 text-center text-emerald-600">Atendidas</th>
-                  <th class="py-3 px-4 text-center text-rose-600">Não Atendidas</th>
-                  <th class="py-3 px-4 text-center">Nº Pedidos</th>
-                  <th class="py-3 px-4 text-right">Custo Unit. Médio</th>
-                  <th class="py-3 px-4 text-right rounded-r-lg">Custo Total (R$)</th>
-                </tr>
-              </thead>
-              <tbody id="tableBody" class="divide-y divide-slate-100">
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-      </main>
-
-      <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-500 border-t border-slate-200 mt-12">
-        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Integração direta com Google Planilhas.
-      </footer>
-
-      <script>
-        lucide.createIcons();
-        Chart.register(ChartDataLabels);
-
-        const rawOrdersData = {json_orders_data};
-
-        rawOrdersData.forEach(item => {{
-          item.custoTotal = item.qtAprovada * item.custoUnit;
-        }});
-
-        const filterYear = document.getElementById('filterYear');
-        const filterMonth = document.getElementById('filterMonth');
-        const filterCategory = document.getElementById('filterCategory');
-        const filterRequester = document.getElementById('filterRequester');
-        const resetFiltersBtn = document.getElementById('resetFilters');
-        const activeFilterBadge = document.getElementById('activeFilterBadge');
-
-        const kpiTotalCost = document.getElementById('kpiTotalCost');
-        const kpiTotalRequests = document.getElementById('kpiTotalRequests');
-        const kpiItemsQty = document.getElementById('kpiItemsQty');
-        const kpiApprovedQty = document.getElementById('kpiApprovedQty');
-        const kpiApprovedPercent = document.getElementById('kpiApprovedPercent');
-        const kpiUnapprovedQty = document.getElementById('kpiUnapprovedQty');
-        const kpiUnapprovedPercent = document.getElementById('kpiUnapprovedPercent');
-        const kpiAvgCost = document.getElementById('kpiAvgCost');
-
-        const tableBody = document.getElementById('tableBody');
-        const tableSearch = document.getElementById('tableSearch');
-        const tableCountBadge = document.getElementById('tableCountBadge');
-
-        function formatCurrency(val) {{
-          return val.toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
-        }}
-
-        function populateDropdowns() {{
-          const years = [...new Set(rawOrdersData.map(d => d.ano))].sort();
-          const months = [...new Set(rawOrdersData.map(d => d.mes))];
-          const categories = [...new Set(rawOrdersData.map(d => d.categoria))].sort();
-          const requesters = [...new Set(rawOrdersData.map(d => d.solicitante))].sort();
-
-          years.forEach(y => {{
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y;
-            filterYear.appendChild(opt);
-          }});
-
-          months.forEach(m => {{
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            filterMonth.appendChild(opt);
-          }});
-
-          categories.forEach(c => {{
-            const opt = document.createElement('option');
-            opt.value = c;
-            opt.textContent = c;
-            filterCategory.appendChild(opt);
-          }});
-
-          requesters.forEach(r => {{
-            const opt = document.createElement('option');
-            opt.value = r;
-            opt.textContent = r;
-            filterRequester.appendChild(opt);
-          }});
-        }}
-
-        populateDropdowns();
-
-        function getChartTheme() {{
-          const textColor = '#475569';
-          const labelColor = '#0f172a';
-          const gridColor = '#f1f5f9';
-
-          return {{
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
-            plugins: {{
-              legend: {{ display: false }},
-              tooltip: {{
-                backgroundColor: '#ffffff',
-                titleColor: '#0f172a',
-                bodyColor: '#334155',
-                borderColor: '#e2e8f0',
-                borderWidth: 1,
-                padding: 10
-              }},
-              datalabels: {{
-                anchor: 'end',
-                align: 'top',
-                offset: 2,
-                color: labelColor,
-                font: {{ family: 'Plus Jakarta Sans', weight: 'bold', size: 11 }},
-                formatter: function(value) {{
-                  if (value === 0 || value === null || value === undefined) return '';
-                  return typeof value === 'number' && value >= 1000 ? value.toLocaleString('pt-BR') : value;
-                }}
-              }}
-            }},
-            scales: {{
-              x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Plus Jakarta Sans', size: 10 }} }} }},
-              y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Plus Jakarta Sans', size: 10 }} }}, beginAtZero: true }}
-            }}
-          }};
-        }}
-
-        const ctxAgosto = document.getElementById('chartTopAgosto').getContext('2d');
-        const ctxSetembro = document.getElementById('chartTopSetembro').getContext('2d');
-        const ctxCategory = document.getElementById('chartCategoryDist').getContext('2d');
-        const ctxSupplier = document.getElementById('chartSupplierCost').getContext('2d');
-
-        let chartAgosto = new Chart(ctxAgosto, {{
-          type: 'bar',
-          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
-          options: {{
-            ...getChartTheme(),
-            plugins: {{
-              ...getChartTheme().plugins,
-              datalabels: {{
-                anchor: 'end',
-                align: 'top',
-                color: '#0284c7',
-                font: {{ weight: 'bold', size: 11 }},
-                formatter: (val) => val ? `${{val}} un` : ''
-              }}
-            }}
-          }}
-        }});
-
-        let chartSetembro = new Chart(ctxSetembro, {{
-          type: 'bar',
-          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
-          options: {{
-            ...getChartTheme(),
-            plugins: {{
-              ...getChartTheme().plugins,
-              datalabels: {{
-                anchor: 'end',
-                align: 'top',
-                color: '#0891b2',
-                font: {{ weight: 'bold', size: 11 }},
-                formatter: (val) => val ? `${{val}} un` : ''
-              }}
-            }}
-          }}
-        }});
-
-        let chartCategory = new Chart(ctxCategory, {{
-          type: 'doughnut',
-          data: {{
-            labels: [],
-            datasets: [{{
-              data: [],
-              backgroundColor: [
-                'rgba(2, 132, 199, 0.85)',
-                'rgba(6, 182, 212, 0.85)',
-                'rgba(245, 158, 11, 0.85)',
-                'rgba(99, 102, 241, 0.85)',
-                'rgba(16, 185, 129, 0.85)'
-              ],
-              borderWidth: 2,
-              borderColor: '#ffffff'
-            }}]
-          }},
-          options: {{
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '62%',
-            layout: {{ padding: 12 }},
-            plugins: {{
-              legend: {{
-                position: 'right',
-                labels: {{ boxWidth: 12, color: '#475569', font: {{ family: 'Plus Jakarta Sans', size: 11 }} }}
-              }},
-              datalabels: {{
-                color: '#ffffff',
-                font: {{ weight: 'bold', size: 11 }},
-                formatter: (val, ctx) => {{
-                  if (val === 0) return '';
-                  const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                  const percentage = Math.round((val / sum) * 100);
-                  return `${{val}}\\n(${{percentage}}%)`;
-                }},
-                textAlign: 'center'
-              }}
-            }}
-          }}
-        }});
-
-        let chartSupplier = new Chart(ctxSupplier, {{
-          type: 'bar',
-          data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
-          options: {{
-            ...getChartTheme(),
-            plugins: {{
-              ...getChartTheme().plugins,
-              datalabels: {{
-                anchor: 'end',
-                align: 'top',
-                color: '#d97706',
-                font: {{ weight: 'bold', size: 11 }},
-                formatter: (val) => val ? formatCurrency(val) : ''
-              }}
-            }}
-          }}
-        }});
-
-        function updateDashboard() {{
-          const yearVal = filterYear.value;
-          const monthVal = filterMonth.value;
-          const catVal = filterCategory.value;
-          const reqVal = filterRequester.value;
-          const searchVal = tableSearch.value.trim().toLowerCase();
-
-          const filtered = rawOrdersData.filter(item => {{
-            const matchYear = (yearVal === 'ALL' || item.ano === yearVal);
-            const matchMonth = (monthVal === 'ALL' || item.mes === monthVal);
-            const matchCat = (catVal === 'ALL' || item.categoria === catVal);
-            const matchReq = (reqVal === 'ALL' || item.solicitante === reqVal);
-            return matchYear && matchMonth && matchCat && matchReq;
-          }});
-
-          activeFilterBadge.innerText = `Filtros: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
-
-          const totalCusto = filtered.reduce((acc, cur) => acc + cur.custoTotal, 0);
-          const totalItens = filtered.reduce((acc, cur) => acc + cur.qt, 0);
-          const totalAtendidas = filtered.reduce((acc, cur) => acc + cur.qtAprovada, 0);
-          const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + cur.qtNaoAprovada, 0);
-          const totalPedidos = filtered.length;
-          const avgCost = totalPedidos > 0 ? (totalCusto / totalPedidos) : 0;
-
-          const pctAtendidas = totalItens > 0 ? Math.round((totalAtendidas / totalItens) * 100) : 0;
-          const pctNaoAtendidas = totalItens > 0 ? (100 - pctAtendidas) : 0;
-
-          kpiTotalCost.innerText = formatCurrency(totalCusto);
-          kpiTotalRequests.innerText = totalPedidos;
-          kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
-          
-          kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
-          kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
-          kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
-          kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
-
-          kpiAvgCost.innerText = formatCurrency(avgCost);
-
-          const agostoItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Agosto');
-          const setembroItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Setembro');
-
-          function getTop5(items) {{
-            const counts = {{}};
-            items.forEach(d => {{
-              counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt;
-            }});
-            return Object.entries(counts)
-              .map(([name, qt]) => ({{ name, qt }}))
-              .sort((a, b) => b.qt - a.qt)
-              .slice(0, 5);
-          }}
-
-          const topAgosto = getTop5(agostoItems);
-          chartAgosto.data.labels = topAgosto.map(d => d.name);
-          chartAgosto.data.datasets[0].data = topAgosto.map(d => d.qt);
-          chartAgosto.update();
-
-          const topSetembro = getTop5(setembroItems);
-          chartSetembro.data.labels = topSetembro.map(d => d.name);
-          chartSetembro.data.datasets[0].data = topSetembro.map(d => d.qt);
-          chartSetembro.update();
-
-          const catCounts = {{}};
-          filtered.forEach(d => {{
-            catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt;
-          }});
-          chartCategory.data.labels = Object.keys(catCounts);
-          chartCategory.data.datasets[0].data = Object.values(catCounts);
-          chartCategory.update();
-
-          const supplierCosts = {{}};
-          filtered.forEach(d => {{
-            supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal;
-          }});
-          chartSupplier.data.labels = Object.keys(supplierCosts);
-          chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
-          chartSupplier.update();
-
-          renderTable(filtered, searchVal);
-        }}
-
-        function renderTable(dataList, searchTerm) {{
-          const grouped = {{}};
-
-          dataList.forEach(item => {{
-            if (!grouped[item.peca]) {{
-              grouped[item.peca] = {{
-                peca: item.peca,
-                categoria: item.categoria,
-                qtTotal: 0,
-                qtAtendida: 0,
-                qtNaoAtendida: 0,
-                pedidosCount: 0,
-                custoTotal: 0
-              }};
-            }}
-            grouped[item.peca].qtTotal += item.qt;
-            grouped[item.peca].qtAtendida += item.qtAprovada;
-            grouped[item.peca].qtNaoAtendida += item.qtNaoAprovada;
-            grouped[item.peca].pedidosCount += 1;
-            grouped[item.peca].custoTotal += item.custoTotal;
-          }});
-
-          let itemsArray = Object.values(grouped);
-
-          if (searchTerm) {{
-            itemsArray = itemsArray.filter(i => 
-              i.peca.toLowerCase().includes(searchTerm) || 
-              i.categoria.toLowerCase().includes(searchTerm)
-            );
-          }}
-
-          itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
-          tableCountBadge.innerText = `${{itemsArray.length}} peças`;
-
-          if (itemsArray.length === 0) {{
-            tableBody.innerHTML = `
-              <tr>
-                <td colspan="8" class="text-center py-8 text-slate-400">
-                  Nenhuma peça encontrada com os filtros selecionados.
-                </td>
-              </tr>
-            `;
-            return;
-          }}
-
-          tableBody.innerHTML = itemsArray.map(item => {{
-            const unitAvg = item.qtAtendida > 0 ? (item.custoTotal / item.qtAtendida) : 0;
-            return `
-              <tr class="hover:bg-slate-50 transition">
-                <td class="py-3 px-4 font-semibold text-slate-800">
-                  ${{item.peca}}
-                </td>
-                <td class="py-3 px-4">
-                  <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    ${{item.categoria}}
-                  </span>
-                </td>
-                <td class="py-3 px-4 text-center font-bold text-slate-700">
-                  ${{item.qtTotal.toLocaleString('pt-BR')}} un
-                </td>
-                <td class="py-3 px-4 text-center font-semibold text-emerald-600">
-                  ${{item.qtAtendida.toLocaleString('pt-BR')}} un
-                </td>
-                <td class="py-3 px-4 text-center font-semibold text-rose-500">
-                  ${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un
-                </td>
-                <td class="py-3 px-4 text-center text-slate-500">
-                  ${{item.pedidosCount}}
-                </td>
-                <td class="py-3 px-4 text-right text-slate-500">
-                  ${{formatCurrency(unitAvg)}}
-                </td>
-                <td class="py-3 px-4 text-right font-bold text-amber-600">
-                  ${{formatCurrency(item.custoTotal)}}
-                </td>
-              </tr>
-            `;
-          }}).join('');
-        }}
-
-        [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {{
-          select.addEventListener('change', updateDashboard);
-        }});
-
-        tableSearch.addEventListener('input', () => {{
-          updateDashboard();
-        }});
-
-        resetFiltersBtn.addEventListener('click', () => {{
-          filterYear.value = 'ALL';
-          filterMonth.value = 'ALL';    
-          filterCategory.value = 'ALL';
-          filterRequester.value = 'ALL';
-          tableSearch.value = '';
-          updateDashboard();
-        }});
-
-        updateDashboard();
-      </script>
-    </body>
-    </html>
-    """
-
-    components.html(html_code, height=2150, scrolling=True)
+        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+            Mais de <strong>90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_diag2:
+    st.markdown("""
+    <div class="alert-card">
+        <div style="font-weight: 700; color: #e11d48; font-size: 0.85rem; margin-bottom: 0.25rem;">
+            ⚠ Itens Não Atendidos / Reprovados
+        </div>
+        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+            A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_diag3:
+    st.markdown("""
+    <div class="alert-card">
+        <div style="font-weight: 700; color: #0284c7; font-size: 0.85rem; margin-bottom: 0.25rem;">
+            📈 Controle da Coluna Custo
+        </div>
+        <p style="font-size: 0.78rem; color: #475569; line-height: 1.5; margin: 0;">
+            A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong>EVOCA</strong> e <strong>PARAMOUNT</strong>, com conciliação financeira automatizada.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# RODAPÉ
+# -----------------------------------------------------------------------------
+st.markdown("""
+<div style="text-align: center; color: #94a3b8; font-size: 0.75rem; border-top: 1px solid #e2e8f0; margin-top: 3rem; padding-top: 1.5rem; padding-bottom: 2rem;">
+    Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
+</div>
+""", unsafe_allow_html=True)
