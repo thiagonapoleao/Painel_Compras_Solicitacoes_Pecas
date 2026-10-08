@@ -12,12 +12,11 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5
 
 def gravar_na_planilha_google(dados_registro):
     """
-    Realiza o envio de dados para o Webhook do Google Apps Script
-    tratando adequadamente o ciclo de redirecionamento 302 do Google.
+    Envia o registro diretamente para o Webhook do Google Apps Script
+    tratando adequadamente o redirecionamento (302) do Google.
     """
     try:
         session = requests.Session()
-        # Envio estruturado como JSON bruto
         response = session.post(
             WEBHOOK_URL,
             data=json.dumps(dados_registro),
@@ -28,7 +27,6 @@ def gravar_na_planilha_google(dados_registro):
         if response.status_code in [200, 302] and "ERRO:" not in response.text:
             return True, "Gravado com sucesso na planilha Google!"
         
-        # Fallback estruturado como dados de formulário
         resp_fallback = session.post(
             WEBHOOK_URL,
             data=dados_registro,
@@ -42,9 +40,7 @@ def gravar_na_planilha_google(dados_registro):
     except Exception as e:
         return False, f"Falha de conexão com a planilha: {str(e)}"
 
-# -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA APLICAÇÃO STREAMLIT (MODO WIDE)
-# -----------------------------------------------------------------------------
+# Configuração da página Streamlit em modo Wide
 st.set_page_config(
     page_title="Dashboard Executivo - Solicitações & Ordens de Compra",
     page_icon="📦",
@@ -53,21 +49,25 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# DESIGN SYSTEM: 100% TEMA CLARO NATIVO (BLINDAGEM CONTRA FUNDOS ESCUROS)
+# BLINDAGEM COMPLETA CONTRA TEMA ESCURO (FORÇANDO 100% TEMA CLARO)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* Força variáveis base do Streamlit para fundo claro */
-    :root, [data-testid="stAppViewContainer"], .stApp {
+    /* 1. Raiz global e reset de variáveis do Streamlit */
+    :root, html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
         --background-color: #f8fafc !important;
         --secondary-background-color: #ffffff !important;
         --text-color: #0f172a !important;
         --primary-color: #0284c7 !important;
         background-color: #f8fafc !important;
         color: #0f172a !important;
+        color-scheme: light !important;
     }
 
-    #MainMenu, footer, header { visibility: hidden !important; }
+    #MainMenu, footer, header { 
+        visibility: hidden !important; 
+        display: none !important; 
+    }
 
     .block-container {
         padding-top: 0.5rem !important;
@@ -75,10 +75,11 @@ st.markdown("""
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
         max-width: 100% !important;
+        background-color: #f8fafc !important;
     }
 
-    /* Tipografia de alto contraste */
-    h1, h2, h3, h4, h5, h6, p, span, div, label, .stWidgetLabel {
+    /* 2. Todos os textos, títulos e labels forçados para escuro */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .stWidgetLabel, [data-testid="stWidgetLabel"] * {
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
     }
@@ -94,24 +95,35 @@ st.markdown("""
         font-weight: 400 !important;
     }
 
-    /* Contêineres de Formulário e Painéis Retráteis */
-    [data-testid="stForm"], [data-testid="stExpander"] {
+    /* 3. Containers de formulário e expanders - fundo branco e borda suave */
+    [data-testid="stForm"], [data-testid="stExpander"], details {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         border-radius: 14px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
         padding: 1.25rem !important;
     }
+    
+    summary, summary * {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+    }
 
-    /* Inputs, Selects, Number inputs e Textareas */
+    /* 4. Inputs, selects, textareas e campos numéricos 100% brancos */
     input, select, textarea,
-    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"],
+    div[data-baseweb="select"] *,
     div[data-baseweb="input"],
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="base-input"] {
+    div[data-baseweb="input"] *,
+    div[data-baseweb="base-input"],
+    div[data-baseweb="base-input"] * {
         background-color: #ffffff !important;
         color: #0f172a !important;
         -webkit-text-fill-color: #0f172a !important;
+        border-color: #cbd5e1 !important;
+    }
+
+    input, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
         border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
     }
@@ -121,15 +133,17 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
     }
 
-    /* Blindagem do DatePicker e Calendário Pop-up */
+    /* 5. DatePicker e pop-up do calendário totalmente forçados para fundo branco */
     div[data-baseweb="input"] svg {
         fill: #0284c7 !important;
     }
 
     div[data-baseweb="popover"],
-    div[data-baseweb="popover"] > div,
+    div[data-baseweb="popover"] *,
     div[data-baseweb="calendar"],
-    div[data-baseweb="calendar"] * {
+    div[data-baseweb="calendar"] *,
+    div[role="dialog"],
+    div[role="dialog"] * {
         background-color: #ffffff !important;
         color: #0f172a !important;
         -webkit-text-fill-color: #0f172a !important;
@@ -158,7 +172,7 @@ st.markdown("""
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
     }
 
-    /* Botões da Interface */
+    /* 6. Botões nativos em tons claros e azul corporativo */
     .stButton > button {
         border-radius: 10px !important;
         font-weight: 600 !important;
@@ -191,61 +205,62 @@ st.markdown("""
         border-color: #0369a1 !important;
     }
 
-    /* Container de Tabelas Estilizadas em Fundo Claro */
+    /* 7. Estilo limpo e 100% branco para tabelas */
     .tabela-container-clara {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 0.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        overflow-x: auto;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        padding: 0.5rem !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+        overflow-x: auto !important;
     }
 
     .tabela-customizada {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8rem;
-        color: #1e293b;
-        background-color: #ffffff;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 0.8rem !important;
+        color: #1e293b !important;
+        background-color: #ffffff !important;
     }
 
     .tabela-customizada th {
-        background-color: #f8fafc;
-        color: #475569;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.72rem;
-        letter-spacing: 0.05em;
-        padding: 12px 14px;
-        border-bottom: 2px solid #e2e8f0;
-        text-align: left;
-        white-space: nowrap;
+        background-color: #f8fafc !important;
+        color: #475569 !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        font-size: 0.72rem !important;
+        letter-spacing: 0.05em !important;
+        padding: 12px 14px !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
     }
 
     .tabela-customizada td {
-        padding: 11px 14px;
-        border-bottom: 1px solid #f1f5f9;
-        white-space: nowrap;
-        background-color: #ffffff;
+        padding: 11px 14px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        white-space: nowrap !important;
+        background-color: #ffffff !important;
+        color: #1e293b !important;
     }
 
     .tabela-customizada tr:hover td {
-        background-color: #f8fafc;
+        background-color: #f8fafc !important;
     }
 
-    /* Banner Informativo de Edição */
+    /* 8. Banner de edição */
     .edit-mode-banner {
-        background-color: #fef3c7;
-        border-left: 5px solid #d97706;
-        padding: 12px 18px;
-        border-radius: 10px;
-        margin-bottom: 15px;
+        background-color: #fef3c7 !important;
+        border-left: 5px solid #d97706 !important;
+        padding: 12px 18px !important;
+        border-radius: 10px !important;
+        margin-bottom: 15px !important;
         color: #92400e !important;
-        font-weight: 600;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border: 1px solid #fde68a;
+        font-weight: 600 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        border: 1px solid #fde68a !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -384,7 +399,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     st.subheader("📝 Lançamento & Gestão de Pedidos de Compra")
     st.caption("Cadastre novas ordens e sincronize em tempo real com a aba 'Ordem de Compra(Peças)'.")
 
-    # Listas dinâmicas pré-carregadas da base
+    # Pré-listas dinâmicas
     lista_fornecedores = sorted(list(set([d.get("fornecedor", "") for d in st.session_state.orders_data if d.get("fornecedor")])))
     lista_categorias = sorted(list(set([d.get("categoria", "") for d in st.session_state.orders_data if d.get("categoria")])))
     lista_solicitantes = sorted(list(set([d.get("solicitante", "") for d in st.session_state.orders_data if d.get("solicitante")])))
@@ -462,7 +477,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO COM PRÉ-LISTAS E TEMA CLARO ------------------
+    # ------------------ FORMULÁRIO COM TEMA 100% CLARO ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
         st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -499,6 +514,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
+            # Data do Pedido com calendário totalmente ajustado para fundo branco
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -555,10 +571,10 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # Persistência via Webhook Apps Script
+                # 1. Gravação na planilha Google
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
 
-                # Persistência no session_state
+                # 2. Atualização dos dados em memória
                 if record_to_edit:
                     idx = st.session_state.orders_data.index(record_to_edit)
                     st.session_state.orders_data[idx] = registro_dados
@@ -567,14 +583,15 @@ if st.session_state.active_tab == "Pedido de Compras":
                 else:
                     st.session_state.orders_data.insert(0, registro_dados)
                     if sucesso_planilha:
-                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi gravada com sucesso na planilha Google!")
+                        st.success(f"🎉 **Sucesso!** A Ordem de Compra **{ordem_compra}** foi gravada na planilha Google Sheets com sucesso!")
                     else:
-                        st.warning(f"⚠️ Salvo no painel interno. Aviso do Google Sheets: {msg_planilha}")
+                        st.warning(f"⚠️ Gravado no painel interno. Aviso da planilha: {msg_planilha}")
                 
+                # Zera as informações do form mantendo a data atual e o próximo número de OC
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA COMPLETA (ORDENS DE COMPRA) ------------------
+    # ------------------ TABELA COMPLETA (ORDENS DE COMPRA) 100% BRANCA ------------------
     st.markdown("---")
     st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.75rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
     
@@ -685,13 +702,15 @@ elif st.session_state.active_tab == "Dashboard Compras":
                   <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
                   <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
                   <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
+                  <p>• <strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor exibindo os <strong>valores numéricos e em R$ diretamente nas barras/fatias</strong>.</p>
+                  <p>• <strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com pesquisa em tempo real, quantidades solicitadas/atendidas/não atendidas e valor financeiro.</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- Filtros Dinâmicos (Tema Claro) -->
+        <!-- Filtros Dinâmicos -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
