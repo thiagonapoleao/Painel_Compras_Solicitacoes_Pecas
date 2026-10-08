@@ -1,331 +1,334 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import json
-import os
 
-# --- Configurações da Página (Design Corporativo Claro) ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Portal de Compras - Suprimentos",
+    page_title="Gestão de Pedidos de Compras",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS para tema corporativo claro
+# --- ESTILIZAÇÃO CORPORATIVA MODERNA (TEMA CLARO) ---
 st.markdown("""
-    <style>
+<style>
+    /* Estilo geral e tipografia */
     .main {
         background-color: #F8FAFC;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     }
-    .stButton>button {
-        border-radius: 6px;
-        font-weight: 600;
+    
+    /* Cartões / Containers */
+    .corp-card {
+        background-color: #FFFFFF;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        border: 1px solid #E2E8F0;
+        margin-bottom: 24px;
     }
-    div[data-testid="stMetricValue"] {
+    
+    .corp-header {
         font-size: 24px;
-        color: #1E3A8A;
+        font-weight: 600;
+        color: #1E293B;
+        margin-bottom: 8px;
     }
-    </style>
+    
+    .corp-subtitle {
+        font-size: 14px;
+        color: #64748B;
+        margin-bottom: 20px;
+    }
+    
+    /* Botões estilizados */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    /* Barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #FFFFFF;
+        border-right: 1px solid #E2E8F0;
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# Parâmetros da Planilha
+# --- CONEXÃO COM O GOOGLE SHEETS ---
+# URL da Planilha
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/edit"
-GID_PEDIDOS = 643448898
-GID_CATALOGO = 270834817
+SHEET_PEDIDOS_GID = 643448898
+SHEET_PECAS_GID = 270834817
 
-COLUNAS_PEDIDO = [
-    "Ordem de Compra", "Código do produto", "Produto", "Categoria",
-    "Data do Pedido", "Horário de Chegada do Pedido", "Valor de Compra",
-    "Qt Solicitada", "Qt Aprovada", "Qt Não Aprovada", "Valor de Venda",
-    "Fornecedor", "Cod da Peça do Fornecedor", "Observação"
-]
-
-
-# --- Autenticação com o Google Sheets ---
 @st.cache_resource
-def conectar_sheets():
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-    
-    creds_dict = None
-    
-    # 1. Carrega do Streamlit Secrets
-    if hasattr(st, "secrets") and "gcp_service_account" in st.secrets:
-        raw_secret = st.secrets["gcp_service_account"]
-        if isinstance(raw_secret, str):
-            try:
-                creds_dict = json.loads(raw_secret)
-            except Exception as json_err:
-                raise ValueError(f"O segredo 'gcp_service_account' não é um JSON válido: {json_err}")
-        else:
-            creds_dict = dict(raw_secret)
-            
-    # 2. Carrega de arquivo local caso exista
-    elif os.path.exists("credentials.json"):
-        with open("credentials.json", "r", encoding="utf-8") as f:
-            creds_dict = json.load(f)
-    else:
-        chaves_existentes = list(st.secrets.keys()) if hasattr(st, "secrets") else []
-        raise FileNotFoundError(
-            f"Nenhuma credencial encontrada. Chaves disponíveis em st.secrets: {chaves_existentes}. "
-            "Certifique-se de configurar o segredo 'gcp_service_account' nas configurações do Streamlit Cloud."
-        )
-
-    # --- Sanitização Robusta da Chave Privada (Corrige 'Incorrect padding') ---
-    if "private_key" in creds_dict and isinstance(creds_dict["private_key"], str):
-        pk = creds_dict["private_key"]
-        pk = pk.replace("\\n", "\n").strip()
-        
-        header = "-----BEGIN PRIVATE KEY-----"
-        footer = "-----END PRIVATE KEY-----"
-        
-        if header in pk and footer in pk:
-            corpo = pk.split(header)[1].split(footer)[0]
-            corpo_limpo = "".join(corpo.split())
-            
-            # Recalcula padding base64 se estiver faltando múltiplos de 4
-            resto = len(corpo_limpo) % 4
-            if resto != 0:
-                corpo_limpo += "=" * (4 - resto)
-                
-            linhas_corpo = [corpo_limpo[i:i+64] for i in range(0, len(corpo_limpo), 64)]
-            pk_corrigida = f"{header}\n" + "\n".join(linhas_corpo) + f"\n{footer}\n"
-            creds_dict["private_key"] = pk_corrigida
-        else:
-            creds_dict["private_key"] = pk
-
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    planilha = client.open_by_url(SPREADSHEET_URL)
-
-    ws_pedidos = None
-    ws_catalogo = None
-
-    for sheet in planilha.worksheets():
-        if sheet.id == GID_PEDIDOS:
-            ws_pedidos = sheet
-        elif sheet.id == GID_CATALOGO:
-            ws_catalogo = sheet
-
-    if not ws_pedidos:
-        ws_pedidos = planilha.sheet1
-
-    return ws_pedidos, ws_catalogo
-
-
-try:
-    ws_pedidos, ws_catalogo = conectar_sheets()
-except Exception as e:
-    st.error(f"Erro detalhado na conexão: {type(e).__name__} - {e}")
-    st.info("Caso seja erro de permissão (ex.: 403 Forbidden), certifique-se de compartilhar a planilha do Google com o e-mail da sua Service Account como 'Editor'.")
-    st.stop()
-
-
-# --- Carregamento de Peças do Catálogo (Colunas A, B e F) ---
-@st.cache_data(ttl=600)
-def carregar_catalogo():
-    if not ws_catalogo:
-        return pd.DataFrame(columns=["codigo", "nome", "fornecedor"])
+def get_gspread_client():
+    """Autentica com as credenciais da Conta de Serviço."""
+    # Pode usar st.secrets["gcp_service_account"] ou arquivo 'credentials.json' local
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     try:
-        valores = ws_catalogo.get_all_values()
-        if len(valores) <= 1:
-            return pd.DataFrame(columns=["codigo", "nome", "fornecedor"])
+        # Se configurado em .streamlit/secrets.toml
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    except Exception:
+        # Fallback para arquivo local
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    return gspread.authorize(creds)
 
-        registros = []
-        for row in valores[1:]:
-            if len(row) >= 2 and (row[0].strip() or row[1].strip()):
-                cod = row[0].strip()
-                nome = row[1].strip()
-                forn = row[5].strip() if len(row) > 5 else ""
-                registros.append({"codigo": cod, "nome": nome, "fornecedor": forn})
+@st.cache_data(ttl=600)
+def load_pecas_reference():
+    """Carrega tabela de referência de peças (Colunas A, B e F)."""
+    try:
+        client = get_gspread_client()
+        sh = client.open_by_url(SPREADSHEET_URL)
+        worksheet = next((ws for ws in sh.worksheets() if ws.id == SHEET_PECAS_GID), sh.sheet1)
+        
+        data = worksheet.get_all_values()
+        if not data:
+            return pd.DataFrame(columns=["Código", "Produto", "Fornecedor"])
+        
+        headers = data[0]
+        rows = data[1:]
+        
+        df = pd.DataFrame(rows)
+        # Seleciona A (índice 0), B (índice 1) e F (índice 5 se houver)
+        col_cod = df[0] if 0 in df.columns else ""
+        col_nome = df[1] if 1 in df.columns else ""
+        col_forn = df[5] if 5 in df.columns else ""
+        
+        ref_df = pd.DataFrame({
+            "Código": col_cod,
+            "Produto": col_nome,
+            "Fornecedor": col_forn
+        }).dropna(subset=["Código", "Produto"])
+        
+        # Filtra linhas vazias
+        ref_df = ref_df[(ref_df["Código"] != "") | (ref_df["Produto"] != "")]
+        ref_df["Display"] = ref_df["Código"].astype(str) + " - " + ref_df["Produto"].astype(str)
+        return ref_df
+    except Exception as e:
+        st.error(f"Erro ao carregar peças: {e}")
+        return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Display"])
 
-        df = pd.DataFrame(registros)
-        df["display"] = df["codigo"] + " - " + df["nome"]
-        return df
-    except Exception as ex:
-        st.warning(f"Não foi possível carregar a lista de peças do catálogo: {ex}")
-        return pd.DataFrame(columns=["codigo", "nome", "fornecedor", "display"])
+def get_pedidos_worksheet():
+    """Abre a aba de Pedidos de Compras."""
+    client = get_gspread_client()
+    sh = client.open_by_url(SPREADSHEET_URL)
+    worksheet = next((ws for ws in sh.worksheets() if ws.id == SHEET_PEDIDOS_GID), None)
+    if not worksheet:
+        worksheet = sh.get_worksheet(0)
+    return worksheet
 
+# --- INTERFACE PRINCIPAL ---
+menu = st.sidebar.radio(
+    "Navegação",
+    ["➕ Novo Pedido de Compra", "🔍 Consultar e Editar Ordens"],
+    index=0
+)
 
-df_catalogo = carregar_catalogo()
+ref_pecas = load_pecas_reference()
 
-# Estado da sessão para acumular múltiplas peças em uma mesma ordem
-if "itens_da_ordem" not in st.session_state:
-    st.session_state.itens_da_ordem = []
+# ========================================================
+# ABA 1: NOVO PEDIDO DE COMPRA (MÚLTIPLAS PEÇAS)
+# ========================================================
+if menu == "➕ Novo Pedido de Compra":
+    st.markdown('<div class="corp-header">Novo Pedido de Compras</div>', unsafe_allow_html=True)
+    st.markdown('<div class="corp-subtitle">Cadastre uma ou mais peças para uma mesma Ordem de Compra.</div>', unsafe_allow_html=True)
+    
+    # 1. Informações Gerais da Ordem de Compra
+    with st.container():
+        st.markdown('<div class="corp-card">', unsafe_allow_html=True)
+        st.markdown("### 📋 Dados Gerais da Ordem")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            ordem_compra = st.text_input("Ordem de Compra *", placeholder="Ex: OC-2026-001")
+        with col2:
+            data_pedido = st.date_input("Data do Pedido", value=datetime.date.today())
+        with col3:
+            horario_chegada = st.time_input("Horário de Chegada do Pedido", value=datetime.datetime.now().time())
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Interface Principal ---
-st.title("📦 Sistema de Pedidos de Compras")
-aba1, aba2 = st.tabs(["📝 Novo Pedido de Compra", "🔍 Consultar e Editar Ordem"])
+    # Inicializa carrinho de peças na sessão
+    if "itens_pedido" not in st.session_state:
+        st.session_state.itens_pedido = []
 
-# ==========================================
-# ABA 1: NOVO PEDIDO (VÁRIAS PEÇAS / 1 ORDEM)
-# ==========================================
-with aba1:
-    st.subheader("1. Identificação da Ordem")
-    col_oc1, col_oc2 = st.columns(2)
-    with col_oc1:
-        ordem_compra = st.text_input("Ordem de Compra *", placeholder="Ex: OC-2026-001")
-    with col_oc2:
-        data_pedido = st.text_input("Data do Pedido", value=datetime.now().strftime("%d/%m/%Y"), disabled=True)
-
-    st.markdown("---")
-    st.subheader("2. Adicionar Peça / Produto")
-
-    # Dropdown de busca conectado ao catálogo da planilha
-    opcoes_catalogo = ["-- Digite ou selecione uma peça --"]
-    if not df_catalogo.empty and "display" in df_catalogo.columns:
-        opcoes_catalogo += df_catalogo["display"].tolist()
-
-    peca_selecionada = st.selectbox("Pesquisar Peça no Catálogo (Aba Catálogo):", opcoes_catalogo)
-
-    # Preenchimento automático ao selecionar
-    cod_inicial = ""
-    nome_inicial = ""
-    forn_inicial = ""
-    if peca_selecionada != "-- Digite ou selecione uma peça --" and not df_catalogo.empty:
-        item_sel = df_catalogo[df_catalogo["display"] == peca_selecionada].iloc[0]
-        cod_inicial = item_sel["codigo"]
-        nome_inicial = item_sel["nome"]
-        forn_inicial = item_sel["fornecedor"]
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        cod_prod = st.text_input("Código do Produto", value=cod_inicial)
-        categoria = st.text_input("Categoria")
-        qt_solicitada = st.number_input("Qt Solicitada", min_value=0, step=1, value=1)
-        vlr_venda = st.text_input("Valor de Venda (R$)")
-
-    with col2:
-        produto = st.text_input("Produto *", value=nome_inicial)
-        fornecedor = st.text_input("Fornecedor", value=forn_inicial)
-        qt_aprovada = st.number_input("Qt Aprovada", min_value=0, step=1, value=0)
-        vlr_compra = st.text_input("Valor de Compra (R$)")
-
-    with col3:
-        cod_fornecedor = st.text_input("Cod da Peça do Fornecedor")
-        hora_chegada = st.text_input("Horário de Chegada do Pedido", placeholder="Ex: 14:00")
-        qt_nao_aprovada = st.number_input("Qt Não Aprovada", min_value=0, step=1, value=0)
-        observacao = st.text_input("Observação")
-
-    if st.button("➕ Adicionar Peça à Ordem Atual"):
-        if not ordem_compra.strip():
-            st.warning("Preencha o campo 'Ordem de Compra' antes de inserir itens.")
-        elif not produto.strip():
-            st.warning("O nome do 'Produto' é obrigatório.")
-        else:
-            novo_item = {
-                "Ordem de Compra": ordem_compra,
-                "Código do produto": cod_prod,
-                "Produto": produto,
-                "Categoria": categoria,
-                "Data do Pedido": data_pedido,
-                "Horário de Chegada do Pedido": hora_chegada,
-                "Valor de Compra": vlr_compra,
-                "Qt Solicitada": qt_solicitada,
-                "Qt Aprovada": qt_aprovada,
-                "Qt Não Aprovada": qt_nao_aprovada,
-                "Valor de Venda": vlr_venda,
-                "Fornecedor": fornecedor,
-                "Cod da Peça do Fornecedor": cod_fornecedor,
-                "Observação": observacao
-            }
-            st.session_state.itens_da_ordem.append(novo_item)
-            st.success(f"Peça '{produto}' adicionada à ordem!")
-
-    # Grade de peças acumuladas para envio
-    if st.session_state.itens_da_ordem:
-        st.markdown("---")
-        st.subheader(f"Peças Incluídas na Ordem: {ordem_compra}")
-        df_itens = pd.DataFrame(st.session_state.itens_da_ordem)
-        st.dataframe(df_itens, use_container_width=True)
-
-        col_b1, col_b2 = st.columns([1, 4])
-        with col_b1:
-            if st.button("🗑 Limpar Peças"):
-                st.session_state.itens_da_ordem = []
-                st.rerun()
-
-        with col_b2:
-            if st.button("💾 Gravar Ordem Completa na Planilha", type="primary"):
-                try:
-                    linhas = [[item.get(col, "") for col in COLUNAS_PEDIDO] for item in st.session_state.itens_da_ordem]
-                    ws_pedidos.append_rows(linhas)
-                    st.success(f"Ordem {ordem_compra} gravada com sucesso com {len(linhas)} peça(s)!")
-                    st.session_state.itens_da_ordem = []
-                except Exception as ex:
-                    st.error(f"Erro ao salvar na planilha: {ex}")
-
-# ==========================================
-# ABA 2: CONSULTAR E EDITAR POR ORDEM
-# ==========================================
-with aba2:
-    st.subheader("Pesquisar por Ordem de Compra")
-    col_pesq1, col_pesq2 = st.columns([3, 1])
-    with col_pesq1:
-        oc_pesquisa = st.text_input("Informe a Ordem de Compra:", placeholder="Ex: OC-2026-001")
-    with col_pesq2:
-        st.write("")
-        st.write("")
-        btn_pesquisar = st.button("🔍 Buscar Registros")
-
-    if oc_pesquisa:
-        try:
-            dados_planilha = ws_pedidos.get_all_values()
-            if len(dados_planilha) > 1:
-                linhas_encontradas = []
-                for idx, row in enumerate(dados_planilha[1:], start=2):
-                    if len(row) > 0 and row[0].strip().lower() == oc_pesquisa.strip().lower():
-                        row_ajustada = row + [""] * (len(COLUNAS_PEDIDO) - len(row))
-                        linhas_encontradas.append({"Linha_Planilha": idx, **dict(zip(COLUNAS_PEDIDO, row_ajustada))})
-
-                if linhas_encontradas:
-                    df_resultado = pd.DataFrame(linhas_encontradas)
-                    st.write(f"Foram encontradas **{len(linhas_encontradas)}** peça(s) vinculadas a esta Ordem:")
-                    st.dataframe(df_resultado.drop(columns=["Linha_Planilha"]), use_container_width=True)
-
-                    st.markdown("---")
-                    st.subheader("Editar Peça da Ordem")
-                    
-                    opcoes_linhas = {f"Linha {d['Linha_Planilha']} - {d['Produto']}": d['Linha_Planilha'] for d in linhas_encontradas}
-                    linha_escolhida = st.selectbox("Selecione qual peça deseja editar:", list(opcoes_linhas.keys()))
-                    linha_id = opcoes_linhas[linha_escolhida]
-                    
-                    dados_atuais = next(d for d in linhas_encontradas if d["Linha_Planilha"] == linha_id)
-
-                    with st.form("form_edicao"):
-                        c1, c2, c3 = st.columns(3)
-                        with c1:
-                            e_oc = st.text_input("Ordem de Compra", value=dados_atuais["Ordem de Compra"])
-                            e_cod = st.text_input("Código do Produto", value=dados_atuais["Código do produto"])
-                            e_prod = st.text_input("Produto", value=dados_atuais["Produto"])
-                            e_cat = st.text_input("Categoria", value=dados_atuais["Categoria"])
-                            e_dt = st.text_input("Data do Pedido", value=dados_atuais["Data do Pedido"])
-                        with c2:
-                            e_hr = st.text_input("Horário de Chegada", value=dados_atuais["Horário de Chegada do Pedido"])
-                            e_vc = st.text_input("Valor de Compra", value=dados_atuais["Valor de Compra"])
-                            e_qs = st.text_input("Qt Solicitada", value=str(dados_atuais["Qt Solicitada"]))
-                            e_qa = st.text_input("Qt Aprovada", value=str(dados_atuais["Qt Aprovada"]))
-                            e_qn = st.text_input("Qt Não Aprovada", value=str(dados_atuais["Qt Não Aprovada"]))
-                        with c3:
-                            e_vv = st.text_input("Valor de Venda", value=dados_atuais["Valor de Venda"])
-                            e_forn = st.text_input("Fornecedor", value=dados_atuais["Fornecedor"])
-                            e_cod_f = st.text_input("Cod Peça Fornecedor", value=dados_atuais["Cod da Peça do Fornecedor"])
-                            e_obs = st.text_input("Observação", value=dados_atuais["Observação"])
-
-                        if st.form_submit_button("💾 Salvar Alterações na Planilha"):
-                            novos_dados = [
-                                e_oc, e_cod, e_prod, e_cat, e_dt, e_hr,
-                                e_vc, e_qs, e_qa, e_qn, e_vv, e_forn, e_cod_f, e_obs
-                            ]
-                            ws_pedidos.update(range_name=f"A{linha_id}:N{linha_id}", values=[novos_dados])
-                            st.success("Item atualizado com sucesso na planilha!")
-                            st.rerun()
+    # 2. Adicionar Itens na Ordem de Compra
+    with st.container():
+        st.markdown('<div class="corp-card">', unsafe_allow_html=True)
+        st.markdown("### 📦 Adicionar Peça / Item")
+        
+        # Pesquisa de peças com autocompletar
+        opcoes_pecas = [""] + list(ref_pecas["Display"].values) if not ref_pecas.empty else [""]
+        peca_selecionada = st.selectbox(
+            "Pesquisar Peça por Código ou Nome (Tabela de Referência):",
+            opcoes_pecas,
+            index=0
+        )
+        
+        # Auto-preenche código, nome e fornecedor se selecionado
+        default_cod = ""
+        default_nome = ""
+        default_forn = ""
+        if peca_selecionada:
+            item_match = ref_pecas[ref_pecas["Display"] == peca_selecionada].iloc[0]
+            default_cod = item_match["Código"]
+            default_nome = item_match["Produto"]
+            default_forn = item_match["Fornecedor"]
+            
+        c_p1, c_p2, c_p3 = st.columns(3)
+        with c_p1:
+            cod_prod = st.text_input("Código do Produto *", value=default_cod)
+            categoria = st.text_input("Categoria", placeholder="Ex: Pneumáticos, Elétrica, Fixação")
+            fornecedor = st.text_input("Fornecedor", value=default_forn)
+        with c_p2:
+            produto_nome = st.text_input("Produto *", value=default_nome)
+            qt_solicitada = st.number_input("Qt Solicitada", min_value=0.0, step=1.0, value=1.0)
+            qt_aprovada = st.number_input("Qt Aprovada", min_value=0.0, step=1.0, value=0.0)
+            qt_nao_aprovada = st.number_input("Qt Não Aprovada", min_value=0.0, step=1.0, value=0.0)
+        with c_p3:
+            cod_peca_forn = st.text_input("Cód. da Peça do Fornecedor")
+            valor_compra = st.number_input("Valor de Compra (R$)", min_value=0.0, step=0.01, format="%.2f")
+            valor_venda = st.number_input("Valor de Venda (R$)", min_value=0.0, step=0.01, format="%.2f")
+            obs = st.text_input("Observação")
+            
+        col_btn_add, _ = st.columns([1, 4])
+        with col_btn_add:
+            if st.button("➕ Inserir Item no Pedido", use_container_width=True):
+                if not cod_prod or not produto_nome:
+                    st.warning("Código e Nome do Produto são obrigatórios.")
                 else:
-                    st.info(f"Nenhum registro encontrado para a ordem '{oc_pesquisa}'.")
-        except Exception as e:
-            st.error(f"Erro na consulta: {e}")
+                    item = {
+                        "Ordem de Compra": ordem_compra,
+                        "Código do produto": cod_prod,
+                        "Produto": produto_nome,
+                        "Categoria": categoria,
+                        "Data do Pedido": data_pedido.strftime("%d/%m/%Y"),
+                        "Horário de Chegada do Pedido": horario_chegada.strftime("%H:%M:%S"),
+                        "Valor de Compra": valor_compra,
+                        "Qt Solicitada": qt_solicitada,
+                        "Qt Aprovada": qt_aprovada,
+                        "Qt Não Aprovada": qt_nao_aprovada,
+                        "Valor de Venda": valor_venda,
+                        "Fornecedor": fornecedor,
+                        "Cod da Peça do Fornecedor": cod_peca_forn,
+                        "Observação": obs
+                    }
+                    st.session_state.itens_pedido.append(item)
+                    st.success(f"Peça '{produto_nome}' adicionada ao pedido!")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 3. Tabela de Peças Adicionadas e Submissão Final
+    if st.session_state.itens_pedido:
+        st.markdown('<div class="corp-card">', unsafe_allow_html=True)
+        st.markdown("### 🛒 Peças Incluídas nesta Ordem")
+        df_carrinho = pd.DataFrame(st.session_state.itens_pedido)
+        st.dataframe(df_carrinho, use_container_width=True)
+        
+        c_sub1, c_sub2, _ = st.columns([2, 1, 3])
+        with c_sub1:
+            if st.button("💾 Finalizar e Enviar para Planilha", type="primary", use_container_width=True):
+                if not ordem_compra.strip():
+                    st.error("Informe o número da Ordem de Compra antes de salvar.")
+                else:
+                    try:
+                        ws = get_pedidos_worksheet()
+                        # Atualiza caso a Ordem de Compra tenha sido informada depois
+                        for it in st.session_state.itens_pedido:
+                            it["Ordem de Compra"] = ordem_compra
+                        
+                        linhas = [list(it.values()) for it in st.session_state.itens_pedido]
+                        ws.append_rows(linhas)
+                        st.success(f"{len(linhas)} itens cadastrados com sucesso na planilha!")
+                        st.session_state.itens_pedido = []
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao salvar na planilha: {e}")
+        with c_sub2:
+            if st.button("🗑️ Limpar Lista", use_container_width=True):
+                st.session_state.itens_pedido = []
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ========================================================
+# ABA 2: CONSULTAR E EDITAR ORDENS DE COMPRA
+# ========================================================
+elif menu == "🔍 Consultar e Editar Ordens":
+    st.markdown('<div class="corp-header">Pesquisa e Edição de Pedidos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="corp-subtitle">Consulte itens por Ordem de Compra e altere seus dados diretamente.</div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="corp-card">', unsafe_allow_html=True)
+        oc_busca = st.text_input("Digite o número da Ordem de Compra para pesquisar:")
+        buscar = st.button("Pesquisar", type="primary")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    if buscar or ("oc_pesquisada" in st.session_state and st.session_state.oc_pesquisada == oc_busca):
+        if oc_busca:
+            st.session_state.oc_pesquisada = oc_busca
+            try:
+                ws = get_pedidos_worksheet()
+                todos_dados = ws.get_all_values()
+                if not todos_dados:
+                    st.info("A planilha está vazia.")
+                else:
+                    cabecalhos = todos_dados[0]
+                    linhas = todos_dados[1:]
+                    df_todos = pd.DataFrame(linhas, columns=cabecalhos)
+                    
+                    # Procura coluna da Ordem de Compra
+                    col_oc = next((c for c in cabecalhos if "ordem" in c.lower()), cabecalhos[0])
+                    itens_filtrados = df_todos[df_todos[col_oc].str.strip() == oc_busca.strip()]
+                    
+                    if itens_filtrados.empty:
+                        st.warning(f"Nenhum pedido encontrado para a Ordem: {oc_busca}")
+                    else:
+                        st.markdown('<div class="corp-card">', unsafe_allow_html=True)
+                        st.markdown(f"### Itens da Ordem: **{oc_busca}** ({len(itens_filtrados)} encontrado(s))")
+                        
+                        # Adiciona índice da planilha para referência de edição
+                        itens_filtrados["Linha Planilha"] = itens_filtrados.index + 2
+                        st.dataframe(itens_filtrados, use_container_width=True)
+                        
+                        st.markdown("---")
+                        st.markdown("#### ✏️ Editar Registro")
+                        
+                        opcoes_edicao = [
+                            f"Linha {row['Linha Planilha']} - {row.get('Produto', '')}" 
+                            for _, row in itens_filtrados.iterrows()
+                        ]
+                        item_selecionado = st.selectbox("Selecione o item para editar:", opcoes_edicao)
+                        num_linha = int(item_selecionado.split(" ")[1])
+                        
+                        dados_linha = df_todos.loc[num_linha - 2].to_dict()
+                        
+                        # Formulário de edição
+                        with st.form("form_edicao"):
+                            e_c1, e_c2, e_c3 = st.columns(3)
+                            campos_atualizados = {}
+                            
+                            for idx, col in enumerate(cabecalhos):
+                                valor_atual = dados_linha.get(col, "")
+                                if idx % 3 == 0:
+                                    col_dest = e_c1
+                                elif idx % 3 == 1:
+                                    col_dest = e_c2
+                                else:
+                                    col_dest = e_c3
+                                
+                                with col_dest:
+                                    campos_atualizados[col] = st.text_input(f"{col}", value=str(valor_atual))
+                            
+                            btn_salvar = st.form_submit_button("💾 Salvar Alterações na Planilha")
+                            if btn_salvar:
+                                novos_valores = [campos_atualizados[c] for c in cabecalhos]
+                                ws.update(f"A{num_linha}:{chr(65+len(cabecalhos)-1)}{num_linha}", [novos_valores])
+                                st.success(f"Linha {num_linha} atualizada com sucesso!")
+                                st.rerun()
+                                
+                        st.markdown('</div>', unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Erro ao buscar/atualizar dados: {e}")
