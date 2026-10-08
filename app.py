@@ -45,11 +45,11 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO E HARMONIOSO (SEM VESTÍGIOS DARK)
+# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO FORÇADO (ELIMINA FUNDOS PRETOS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* 1. VARIÁVEIS NATIVAS DO STREAMLIT EXCLUSIVAMENTE NO TEMA CLARO */
+    /* Variáveis nativas do Streamlit forçadas para modo claro */
     :root {
         --background-color: #f8fafc !important;
         --secondary-background-color: #ffffff !important;
@@ -74,7 +74,7 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* 2. TEXTOS E LABELS COM ALTO CONTRASTE */
+    /* Textos, títulos e rótulos */
     h1, h2, h3, h4, h5, h6, p, span, div {
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -91,7 +91,7 @@ st.markdown("""
         font-weight: 400 !important;
     }
 
-    /* 3. BORDAS E FUNDO DO FORMULÁRIO E EXPANDERS */
+    /* Container do formulário e painéis */
     [data-testid="stForm"], [data-testid="stExpander"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
@@ -100,53 +100,56 @@ st.markdown("""
         padding: 1.25rem !important;
     }
 
-    /* 4. CAMPOS DE ENTRADA (INPUT, SELECT, NUMBER, TEXTAREA) */
-    input, select, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
+    /* FORÇANDO FUNDO BRANCO EM TODOS OS INPUTS (INCLUINDO DATA DO PEDIDO) */
+    input, select, textarea,
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"],
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"] {
         background-color: #ffffff !important;
         color: #0f172a !important;
-        border: 1px solid #cbd5e1 !important;
+        border-color: #cbd5e1 !important;
         border-radius: 10px !important;
-        box-shadow: none !important;
     }
 
-    /* 5. POP-UP DO CALENDÁRIO (DATA DO PEDIDO) TOTALMENTE CLARO */
-    [data-baseweb="popover"],
-    [data-baseweb="popover"] > div,
-    [data-baseweb="calendar"],
-    [data-baseweb="calendar"] * {
+    div[data-baseweb="input"] input {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    /* Ícone do calendário do date_input */
+    div[data-baseweb="input"] svg {
+        fill: #0284c7 !important;
+    }
+
+    /* Pop-up do calendário totalmente branco */
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] > div,
+    div[data-baseweb="calendar"],
+    div[data-baseweb="calendar"] * {
         background-color: #ffffff !important;
         color: #0f172a !important;
     }
     
-    [data-baseweb="calendar"] button {
+    div[data-baseweb="calendar"] button {
         background-color: #ffffff !important;
         color: #0f172a !important;
         border-radius: 8px !important;
     }
     
-    [data-baseweb="calendar"] button:hover {
+    div[data-baseweb="calendar"] button:hover {
         background-color: #f1f5f9 !important;
         color: #0284c7 !important;
     }
     
-    [data-baseweb="calendar"] [aria-selected="true"] {
+    div[data-baseweb="calendar"] [aria-selected="true"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
 
-    [data-baseweb="popover"] {
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    /* Foco nos campos */
-    input:focus, textarea:focus, div[data-baseweb="input"]:focus-within {
-        border-color: #0284c7 !important;
-        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
-    }
-
-    /* 6. BOTÕES NATIVOS */
+    /* Botões nativos */
     .stButton > button {
         border-radius: 10px !important;
         font-weight: 600 !important;
@@ -176,21 +179,47 @@ st.markdown("""
         border-color: #0369a1 !important;
     }
 
-    /* 7. TABELA DO STREAMLIT TOTALMENTE CLARA */
-    [data-testid="stDataFrame"],
-    [data-testid="stDataFrame"] > div,
-    [data-testid="stDataFrame"] iframe {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
-    }
-    
-    [data-testid="stDataFrame"] canvas {
-        filter: none !important;
+    /* Estilização para tabela limpa 100% branca */
+    .tabela-container-clara {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        overflow-x: auto;
     }
 
-    /* 8. BANNER MODO EDIÇÃO */
+    .tabela-customizada {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        color: #1e293b;
+        background-color: #ffffff;
+    }
+
+    .tabela-customizada th {
+        background-color: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 10px 14px;
+        border-bottom: 2px solid #e2e8f0;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .tabela-customizada td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        white-space: nowrap;
+        background-color: #ffffff;
+    }
+
+    .tabela-customizada tr:hover td {
+        background-color: #f8fafc;
+    }
+
+    /* Banner do modo de edição */
     .edit-mode-banner {
         background-color: #fef3c7;
         border-left: 5px solid #d97706;
@@ -392,7 +421,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     def_cod_forn = record_to_edit.get("codPecaFornecedor", "") if record_to_edit else ""
     def_solicitante = record_to_edit.get("solicitante", "") if record_to_edit else ""
     
-    # Preserva Data Atual para novos cadastros
+    # Data atual preservada
     try:
         def_data = datetime.strptime(record_to_edit.get("data"), "%d/%m/%Y").date() if record_to_edit and "data" in record_to_edit else datetime.today().date()
     except Exception:
@@ -442,6 +471,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
+            # Data do Pedido com fundo 100% branco e sem elementos escuros
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -518,9 +548,10 @@ if st.session_state.active_tab == "Pedido de Compras":
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA COMPLETA DE REGISTROS ------------------
+    # ------------------ TABELA "Ordens de Compra Registradas" 100% BRANCA ------------------
     st.markdown("---")
-    st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.5rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.75rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
+    
     df_preview = pd.DataFrame(st.session_state.orders_data)
     df_preview["Custo Total (R$)"] = df_preview["qtAprovada"] * df_preview["custoUnit"]
     
@@ -530,12 +561,35 @@ if st.session_state.active_tab == "Pedido de Compras":
         'fornecedor', 'codPecaFornecedor', 'solicitante', 'Custo Total (R$)', 'observacao'
     ]
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
-    
-    st.dataframe(
-        df_preview[cols_existentes],
-        use_container_width=True,
-        hide_index=True
-    )
+    df_render = df_preview[cols_existentes].copy()
+
+    # Formatação visual amigável dos valores numéricos e monetários
+    if "custoUnit" in df_render.columns:
+        df_render["custoUnit"] = df_render["custoUnit"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    if "valorVenda" in df_render.columns:
+        df_render["valorVenda"] = df_render["valorVenda"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    if "Custo Total (R$)" in df_render.columns:
+        df_render["Custo Total (R$)"] = df_render["Custo Total (R$)"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    # Renderização HTML pura: Garante 100% fundo branco sem herdar o Canvas escuro do navegador
+    tabela_html = f"""
+    <div class="tabela-container-clara">
+        <table class="tabela-customizada">
+            <thead>
+                <tr>
+                    {"".join(f"<th>{col}</th>" for col in df_render.columns)}
+                </tr>
+            </thead>
+            <tbody>
+                {"".join(
+                    "<tr>" + "".join(f"<td>{val}</td>" for val in row) + "</tr>"
+                    for row in df_render.values
+                )}
+            </tbody>
+        </table>
+    </div>
+    """
+    st.markdown(tabela_html, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ABA 2: PAINEL EXECUTIVO ("Dashboard Compras" - 100% TEMA CLARO)
