@@ -8,428 +8,369 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Portal de Compras | Gestão Corporativa",
+    page_title="Gestão de Pedidos de Compras",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS PERSONALIZADO: DESIGN MODERNO CORPORATIVO LIGHT ---
+# --- CSS MODERNO CORPORATIVO LIGHT ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     html, body, [data-testid="stAppViewContainer"], .main {
         background-color: #F8FAFC !important;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: 'Inter', -apple-system, sans-serif !important;
         color: #0F172A !important;
     }
 
-    /* Ocultar elementos desnecessários do Streamlit */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+    #MainMenu, footer, header {visibility: hidden;}
     [data-testid="stSidebar"] {display: none;}
 
-    /* Barra Superior / Navbar */
-    .top-navbar {
+    /* Topbar */
+    .top-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         background: #FFFFFF;
-        padding: 14px 28px;
+        padding: 16px 24px;
         border-radius: 12px;
         border: 1px solid #E2E8F0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-        margin-bottom: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-
-    .brand-title {
+    .top-header h1 {
         font-size: 20px;
         font-weight: 700;
-        color: #1E293B;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        margin: 0;
+        color: #0F172A;
+    }
+    .top-header span {
+        font-size: 13px;
+        color: #64748B;
     }
 
-    .brand-badge {
-        font-size: 11px;
-        font-weight: 600;
-        color: #2563EB;
-        background: #EFF6FF;
-        padding: 3px 8px;
-        border-radius: 20px;
-        border: 1px solid #DBEAFE;
-    }
-
-    /* Cartões Corporativos */
+    /* Cards e Containers */
     .saas-card {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
         border-radius: 12px;
         padding: 24px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
 
-    .card-heading {
-        font-size: 16px;
+    .card-title {
+        font-size: 15px;
         font-weight: 600;
         color: #1E293B;
         margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
         border-bottom: 1px solid #F1F5F9;
-        padding-bottom: 10px;
+        padding-bottom: 8px;
+    }
+
+    /* Abas superiores estilizadas */
+    button[data-baseweb="tab"] {
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        color: #64748B !important;
+        padding: 10px 20px !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #2563EB !important;
+        border-bottom-color: #2563EB !important;
     }
 
     /* Inputs e Controles */
-    .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stSelectbox [data-baseweb="select"] {
+    .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input {
         border-radius: 8px !important;
         border: 1px solid #CBD5E1 !important;
         background-color: #FFFFFF !important;
-        color: #0F172A !important;
         font-size: 14px !important;
-    }
-
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: #2563EB !important;
-        box-shadow: 0 0 0 1px #2563EB !important;
+        color: #0F172A !important;
     }
 
     /* Botões */
     .stButton button {
         border-radius: 8px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
         font-size: 14px !important;
-        padding: 8px 16px !important;
-        transition: all 0.15s ease-in-out !important;
+        padding: 8px 18px !important;
     }
-
     .stButton button[kind="primary"] {
         background-color: #2563EB !important;
         border: 1px solid #1D4ED8 !important;
         color: #FFFFFF !important;
-        box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2) !important;
     }
-
     .stButton button[kind="primary"]:hover {
         background-color: #1D4ED8 !important;
-    }
-
-    /* Radio do Menu Superior (Estilizado como segmented tabs) */
-    div[data-testid="stRadio"] > div {
-        display: flex;
-        flex-direction: row;
-        background: #F1F5F9;
-        padding: 4px;
-        border-radius: 10px;
-        gap: 6px;
-    }
-
-    div[data-testid="stRadio"] label {
-        background: transparent;
-        padding: 8px 16px !important;
-        border-radius: 8px !important;
-        border: none !important;
-        font-weight: 500 !important;
-        font-size: 14px !important;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    /* Contador Badge */
-    .counter-badge {
-        display: inline-block;
-        background: #EFF6FF;
-        color: #1D4ED8;
-        font-weight: 600;
-        font-size: 12px;
-        padding: 2px 10px;
-        border-radius: 12px;
-        border: 1px solid #BFDBFE;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# URL da Planilha e Abas
+# --- CONSTANTES E PLANILHA ---
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/edit"
 ABA_PEDIDOS_NOME = "Ordem de Compra(Peças)"
 ABA_PECAS_NOME = "Base de Dados"
+CREDENTIALS_FILE = "credentials.json"
 
-# --- AUTENTICAÇÃO COM GOOGLE SHEETS ---
+# --- CONEXÃO COM GOOGLE SHEETS ---
 @st.cache_resource
 def get_gspread_client():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # 1. Tentar st.secrets
+    # Tentativa 1: secrets.toml
     if "gcp_service_account" in st.secrets:
         try:
-            creds_info = dict(st.secrets["gcp_service_account"])
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                dict(st.secrets["gcp_service_account"]), scope
+            )
             return gspread.authorize(creds)
         except Exception:
             pass
 
-    # 2. Tentar credentials.json local
-    caminho_cred = "credentials.json"
-    if os.path.exists(caminho_cred):
+    # Tentativa 2: credentials.json local
+    if os.path.exists(CREDENTIALS_FILE):
         try:
-            with open(caminho_cred, "r", encoding="utf-8") as f:
-                conteudo = f.read().strip()
-                if conteudo:
-                    creds_dict = json.loads(conteudo)
-                    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            with open(CREDENTIALS_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    data = json.loads(content)
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(data, scope)
                     return gspread.authorize(creds)
-        except Exception as e:
-            st.error(f"Erro no arquivo credentials.json: {e}")
+        except Exception:
             return None
 
     return None
 
-# --- CARREGAR BASE DE REFERÊNCIA ---
-@st.cache_data(ttl=300)
-def load_pecas_reference():
-    client = get_gspread_client()
-    if not client:
-        return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Display"])
-    try:
-        sh = client.open_by_url(SPREADSHEET_URL)
-        ws = next((w for w in sh.worksheets() if str(w.id) == "270834817" or w.title == ABA_PECAS_NOME), sh.sheet1)
-        valores = ws.get_all_values()
-        if len(valores) <= 1:
-            return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Display"])
-        
-        df = pd.DataFrame(valores[1:])
-        cod = df[0].astype(str).str.strip() if 0 in df.columns else ""
-        nome = df[1].astype(str).str.strip() if 1 in df.columns else ""
-        forn = df[5].astype(str).str.strip() if 5 in df.columns else ""
-        
-        ref_df = pd.DataFrame({"Código": cod, "Produto": nome, "Fornecedor": forn})
-        ref_df = ref_df[(ref_df["Código"] != "") | (ref_df["Produto"] != "")]
-        ref_df["Display"] = ref_df["Código"] + " - " + ref_df["Produto"]
-        return ref_df
-    except Exception as e:
-        st.error(f"Erro ao carregar peças: {e}")
-        return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Display"])
-
-def get_pedidos_worksheet():
+def get_worksheet(title_or_id):
     client = get_gspread_client()
     if not client:
         return None
-    sh = client.open_by_url(SPREADSHEET_URL)
-    for w in sh.worksheets():
-        if str(w.id) == "643448898" or w.title == ABA_PEDIDOS_NOME:
-            return w
-    return sh.sheet1
+    try:
+        sh = client.open_by_url(SPREADSHEET_URL)
+        for ws in sh.worksheets():
+            if str(ws.id) == str(title_or_id) or ws.title == str(title_or_id):
+                return ws
+        return sh.sheet1
+    except Exception as e:
+        st.error(f"Erro de conexão com o Google Sheets: {e}")
+        return None
 
-# --- HEADER SUPERIOR COM LOGO E MENU INTEGRADO ---
-header_col1, header_col2 = st.columns([1, 1.4])
-
-with header_col1:
-    st.markdown("""
-        <div style="padding-top: 8px;">
-            <span style="font-size: 22px; font-weight: 700; color: #0F172A;">📦 Sistema de Compras</span>
-            <span class="brand-badge">Enterprise</span>
-        </div>
-    """, unsafe_allow_html=True)
-
-with header_col2:
-    aba_selecionada = st.radio(
-        label="Navegação",
-        options=["➕ Novo Pedido de Compra", "🔍 Pesquisar / Editar Ordem"],
-        index=0,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-
-st.markdown("<hr style='margin-top: 6px; margin-bottom: 24px; border: 0; border-top: 1px solid #E2E8F0;'>", unsafe_allow_html=True)
-
-# Verificação inicial de credenciais
-client_google = get_gspread_client()
-if not client_google:
-    st.info("💡 **Atenção:** Coloque o arquivo de autenticação `credentials.json` na mesma pasta da aplicação para salvar diretamente na planilha do Google.")
-
-ref_pecas = load_pecas_reference()
-
-# ========================================================
-# VIEW 1: NOVO PEDIDO DE COMPRA
-# ========================================================
-if aba_selecionada == "➕ Novo Pedido de Compra":
-    
-    # Seção 1: Identificação da Ordem
-    st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-heading">🏷️ Dados Principais da Ordem</div>', unsafe_allow_html=True)
-    
-    col_oc1, col_oc2, col_oc3 = st.columns([1.5, 1, 1])
-    with col_oc1:
-        ordem_compra = st.text_input("Ordem de Compra *", placeholder="Ex: OC-2026-001")
-    with col_oc2:
-        data_pedido = st.date_input("Data do Pedido", value=datetime.date.today())
-    with col_oc3:
-        horario_chegada = st.time_input("Horário de Chegada", value=datetime.datetime.now().time())
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if "carrinho" not in st.session_state:
-        st.session_state.carrinho = []
-
-    # Seção 2: Adição de Itens / Peças
-    st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-heading">🔧 Seleção de Peças e Quantidades</div>', unsafe_allow_html=True)
-
-    # Busca inteligente com autocompletar
-    opcoes = [""] + list(ref_pecas["Display"].values) if not ref_pecas.empty else [""]
-    peca_sel = st.selectbox("🔎 Pesquisar Peça na Tabela de Referência:", opcoes, index=0)
-
-    val_cod = ""
-    val_nome = ""
-    val_forn = ""
-    if peca_sel:
-        filtro = ref_pecas[ref_pecas["Display"] == peca_sel].iloc[0]
-        val_cod = filtro["Código"]
-        val_nome = filtro["Produto"]
-        val_forn = filtro["Fornecedor"]
-
-    c_item1, c_item2, c_item3 = st.columns(3)
-    with c_item1:
-        cod_produto = st.text_input("Código do Produto *", value=val_cod)
-        categoria = st.text_input("Categoria", placeholder="Ex: Multi Bebidas, Peças, Elétrica")
-        fornecedor = st.text_input("Fornecedor", value=val_forn)
-
-    with c_item2:
-        produto_nome = st.text_input("Produto *", value=val_nome)
-        q_solic = st.number_input("Qt Solicitada", min_value=0.0, step=1.0, value=1.0)
-        q_aprov = st.number_input("Qt Aprovada", min_value=0.0, step=1.0, value=0.0)
-        q_nao_aprov = st.number_input("Qt Não Aprovada", min_value=0.0, step=1.0, value=0.0)
-
-    with c_item3:
-        cod_peca_forn = st.text_input("Cód da Peça do Fornecedor")
-        vlr_compra = st.number_input("Valor de Compra (R$)", min_value=0.0, step=0.01, format="%.2f")
-        vlr_venda = st.number_input("Valor de Venda (R$)", min_value=0.0, step=0.01, format="%.2f")
-        obs = st.text_input("Observação")
-
-    btn_add = st.button("➕ Inserir Peça no Pedido", type="secondary")
-    if btn_add:
-        if not cod_produto or not produto_nome:
-            st.error("Informe o Código e o Nome do Produto antes de adicionar.")
-        else:
-            st.session_state.carrinho.append({
-                "Ordem de Compra": ordem_compra,
-                "Codigo do Produto": cod_produto,
-                "Produto": produto_nome,
-                "Categoria": categoria,
-                "Data do pedido": data_pedido.strftime("%d/%m/%Y"),
-                "Horário de chegada": horario_chegada.strftime("%H:%M:%S"),
-                "Valor de Compra": f"R$ {vlr_compra:.2f}",
-                "Qt Solicitada": q_solic,
-                "QT Aprovada": q_aprov,
-                "Qt Não Aprovada": q_nao_aprov,
-                "Valor de Venda": f"R$ {vlr_venda:.2f}",
-                "Fornecedor": fornecedor,
-                "Cod da Peça do Fornecedor": cod_peca_forn,
-                "Observações": obs
-            })
-            st.success(f"Item '{produto_nome}' adicionado com sucesso!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Seção 3: Itens no Carrinho / Envio
-    if st.session_state.carrinho:
-        st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-        st.markdown(f'<div class="card-heading">📋 Itens Inclusos nesta Ordem <span class="counter-badge">{len(st.session_state.carrinho)} item(s)</span></div>', unsafe_allow_html=True)
+@st.cache_data(ttl=300)
+def carregar_base_pecas():
+    ws = get_worksheet(ABA_PECAS_NOME)
+    if not ws:
+        return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Rotulo"])
+    try:
+        linhas = ws.get_all_values()
+        if len(linhas) <= 1:
+            return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Rotulo"])
         
-        df_carrinho = pd.DataFrame(st.session_state.carrinho)
-        st.dataframe(df_carrinho, use_container_width=True)
+        df = pd.DataFrame(linhas[1:])
+        cod = df[0].astype(str).str.strip() if 0 in df.columns else ""
+        nome = df[1].astype(str).str.strip() if 1 in df.columns else ""
+        forn = df[5].astype(str).str.strip() if 5 in df.columns else ""
 
-        col_save, col_clear, _ = st.columns([1.5, 1, 3])
-        with col_save:
-            if st.button("💾 Gravar Todos na Planilha", type="primary", use_container_width=True):
-                if not ordem_compra.strip():
-                    st.error("Preencha o campo 'Ordem de Compra' antes de salvar.")
+        res = pd.DataFrame({"Código": cod, "Produto": nome, "Fornecedor": forn})
+        res = res[(res["Código"] != "") | (res["Produto"] != "")]
+        res["Rotulo"] = res["Código"] + " — " + res["Produto"]
+        return res
+    except Exception:
+        return pd.DataFrame(columns=["Código", "Produto", "Fornecedor", "Rotulo"])
+
+# --- BANNER SUPERIOR ---
+st.markdown("""
+<div class="top-header">
+    <div>
+        <h1>📦 Central de Compras</h1>
+        <span>Gestão de Suprimentos & Ordens de Compra</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Verificação de credenciais
+client_ok = get_gspread_client()
+if not client_ok:
+    st.warning("⚠️ **Autenticação pendente:** Adicione o arquivo `credentials.json` na raiz da pasta do projeto para sincronizar com o Google Sheets.")
+
+base_pecas = carregar_base_pecas()
+
+# --- NAVEGAÇÃO PRINCIPAL NO TOPO ---
+tab_novo, tab_consulta = st.tabs(["➕ Novo Pedido de Compra", "🔍 Pesquisar / Editar Ordem"])
+
+# ========================================================
+# ABA 1: NOVO PEDIDO DE COMPRA
+# ========================================================
+with tab_novo:
+    # 1. Cabeçalho da Ordem
+    st.markdown('<div class="saas-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">1. Dados Gerais da Ordem</div>', unsafe_allow_html=True)
+    c_oc1, c_oc2, c_oc3 = st.columns([1.5, 1, 1])
+    with c_oc1:
+        ordem_num = st.text_input("Ordem de Compra *", placeholder="Ex: OC-2026-001")
+    with c_oc2:
+        data_ped = st.date_input("Data do Pedido", value=datetime.date.today())
+    with c_oc3:
+        hora_ped = st.time_input("Horário de Chegada", value=datetime.datetime.now().time())
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Inicialização do carrinho
+    if "carrinho_itens" not in st.session_state:
+        st.session_state.carrinho_itens = []
+
+    # 2. Formulário de Peça
+    st.markdown('<div class="saas-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">2. Inclusão de Peça / Item</div>', unsafe_allow_html=True)
+
+    lista_opcoes = [""] + list(base_pecas["Rotulo"].values) if not base_pecas.empty else [""]
+    peca_busca = st.selectbox("Pesquisar na Base de Peças:", lista_opcoes, index=0)
+
+    # Defaults baseados na busca
+    p_cod, p_nome, p_forn = "", "", ""
+    if peca_busca:
+        match = base_pecas[base_pecas["Rotulo"] == peca_busca].iloc[0]
+        p_cod, p_nome, p_forn = match["Código"], match["Produto"], match["Fornecedor"]
+
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        in_cod = st.text_input("Código do Produto *", value=p_cod)
+        in_cat = st.text_input("Categoria", placeholder="Ex: Multi Bebidas, Elétrica")
+        in_forn = st.text_input("Fornecedor", value=p_forn)
+
+    with f2:
+        in_nome = st.text_input("Produto *", value=p_nome)
+        in_q_solic = st.number_input("Qt Solicitada", min_value=0.0, step=1.0, value=1.0)
+        in_q_aprov = st.number_input("Qt Aprovada", min_value=0.0, step=1.0, value=0.0)
+        in_q_nao_aprov = st.number_input("Qt Não Aprovada", min_value=0.0, step=1.0, value=0.0)
+
+    with f3:
+        in_cod_forn = st.text_input("Cod da Peça do Fornecedor")
+        in_vlr_compra = st.number_input("Valor de Compra (R$)", min_value=0.0, step=0.01, format="%.2f")
+        in_vlr_venda = st.number_input("Valor de Venda (R$)", min_value=0.0, step=0.01, format="%.2f")
+        in_obs = st.text_input("Observação")
+
+    if st.button("➕ Adicionar Peça", type="secondary"):
+        if not in_cod.strip() or not in_nome.strip():
+            st.error("Preencha o Código e o Nome do Produto antes de adicionar.")
+        else:
+            st.session_state.carrinho_itens.append({
+                "Ordem de Compra": ordem_num,
+                "Codigo do Produto": in_cod,
+                "Produto": in_nome,
+                "Categoria": in_cat,
+                "Data do pedido": data_ped.strftime("%d/%m/%Y"),
+                "Horário de chegada": hora_ped.strftime("%H:%M:%S"),
+                "Valor de Compra": f"R$ {in_vlr_compra:.2f}",
+                "Qt Solicitada": in_q_solic,
+                "QT Aprovada": in_q_aprov,
+                "Qt Não Aprovada": in_q_nao_aprov,
+                "Valor de Venda": f"R$ {in_vlr_venda:.2f}",
+                "Fornecedor": in_forn,
+                "Cod da Peça do Fornecedor": in_cod_forn,
+                "Observações": in_obs
+            })
+            st.success(f"Item '{in_nome}' inserido com sucesso!")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 3. Lista de Peças e Gravação
+    if st.session_state.carrinho_itens:
+        st.markdown('<div class="saas-card">', unsafe_allow_html=True)
+        st.markdown(f'<div class="card-title">3. Peças Adicionadas ({len(st.session_state.carrinho_itens)})</div>', unsafe_allow_html=True)
+        
+        df_itens = pd.DataFrame(st.session_state.carrinho_itens)
+        st.dataframe(df_itens, use_container_width=True, hide_index=True)
+
+        btn_c1, btn_c2, _ = st.columns([1.5, 1, 3])
+        with btn_c1:
+            if st.button("💾 Enviar Pedido para a Planilha", type="primary", use_container_width=True):
+                if not ordem_num.strip():
+                    st.error("Informe a Ordem de Compra antes de enviar.")
                 else:
-                    ws = get_pedidos_worksheet()
-                    if ws:
+                    ws_pedidos = get_worksheet(ABA_PEDIDOS_NOME)
+                    if ws_pedidos:
                         try:
-                            for it in st.session_state.carrinho:
-                                it["Ordem de Compra"] = ordem_compra
-                            linhas = [list(it.values()) for it in st.session_state.carrinho]
-                            ws.append_rows(linhas)
-                            st.success(f"{len(linhas)} registro(s) enviados para a planilha!")
-                            st.session_state.carrinho = []
+                            for it in st.session_state.carrinho_itens:
+                                it["Ordem de Compra"] = ordem_num
+                            dados_envio = [list(it.values()) for it in st.session_state.carrinho_itens]
+                            ws_pedidos.append_rows(dados_envio)
+                            st.success("Pedido gravado com sucesso na planilha!")
+                            st.session_state.carrinho_itens = []
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao salvar na planilha: {e}")
-        with col_clear:
-            if st.button("🗑️ Limpar Lista", use_container_width=True):
-                st.session_state.carrinho = []
+        with btn_c2:
+            if st.button("🗑️ Limpar Todos", use_container_width=True):
+                st.session_state.carrinho_itens = []
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ========================================================
-# VIEW 2: PESQUISAR E EDITAR
+# ABA 2: PESQUISAR E EDITAR ORDEM
 # ========================================================
-elif aba_selecionada == "🔍 Pesquisar / Editar Ordem":
+with tab_consulta:
     st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-heading">🔍 Buscar Pedidos Cadastrados</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">Localizar Ordem de Compra</div>', unsafe_allow_html=True)
     
-    col_b1, col_b2 = st.columns([3, 1])
-    with col_b1:
-        oc_pesquisa = st.text_input("Digite o número da Ordem de Compra:", placeholder="Ex: OC-2026-001")
-    with col_b2:
+    sc1, sc2 = st.columns([3, 1])
+    with sc1:
+        busca_oc = st.text_input("Número da Ordem de Compra:", placeholder="Digite o número exato, ex: OC-2026-001")
+    with sc2:
         st.write("")
         st.write("")
-        btn_buscar = st.button("Buscar Ordem", type="primary", use_container_width=True)
+        btn_busca = st.button("🔍 Buscar", type="primary", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if btn_buscar or ("oc_atual" in st.session_state and st.session_state.oc_atual == oc_pesquisa):
-        if oc_pesquisa:
-            st.session_state.oc_atual = oc_pesquisa
-            ws = get_pedidos_worksheet()
+    if btn_busca or ("filtro_oc" in st.session_state and st.session_state.filtro_oc == busca_oc):
+        if busca_oc.strip():
+            st.session_state.filtro_oc = busca_oc
+            ws = get_worksheet(ABA_PEDIDOS_NOME)
             if ws:
-                valores = ws.get_all_values()
-                if not valores:
-                    st.info("A planilha de pedidos está sem registros.")
+                todas_linhas = ws.get_all_values()
+                if len(todas_linhas) <= 1:
+                    st.info("Nenhum registro encontrado na planilha.")
                 else:
-                    cabecalhos = valores[0]
-                    dados = valores[1:]
-                    df = pd.DataFrame(dados, columns=cabecalhos)
-                    
-                    col_oc = cabecalhos[0]
-                    filtrados = df[df[col_oc].astype(str).str.strip() == oc_pesquisa.strip()]
+                    headers = todas_linhas[0]
+                    rows = todas_linhas[1:]
+                    df_base = pd.DataFrame(rows, columns=headers)
+
+                    col_ordem = headers[0]
+                    filtrados = df_base[df_base[col_ordem].astype(str).str.strip() == busca_oc.strip()]
 
                     if filtrados.empty:
-                        st.warning(f"Nenhum pedido encontrado para a Ordem '{oc_pesquisa}'.")
+                        st.warning(f"Nenhum pedido encontrado para '{busca_oc}'.")
                     else:
                         st.markdown('<div class="saas-card">', unsafe_allow_html=True)
-                        st.markdown(f'<div class="card-heading">Resultados Encontrados ({len(filtrados)})</div>', unsafe_allow_html=True)
-                        filtrados["Linha_Planilha"] = filtrados.index + 2
-                        st.dataframe(filtrados, use_container_width=True)
-
-                        st.markdown("---")
-                        st.markdown('<div class="card-heading">✏️ Editar Item Selecionado</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="card-title">Itens Encontrados ({len(filtrados)})</div>', unsafe_allow_html=True)
                         
-                        opcoes_itens = [
-                            f"Linha {row['Linha_Planilha']} | {row.get('Produto', '')}"
-                            for _, row in filtrados.iterrows()
+                        filtrados["Linha Planilha"] = filtrados.index + 2
+                        st.dataframe(filtrados, use_container_width=True, hide_index=True)
+
+                        st.markdown('<div class="card-title" style="margin-top: 20px;">Editar Registro</div>', unsafe_allow_html=True)
+                        opcoes_edicao = [
+                            f"Linha {r['Linha Planilha']} — {r.get('Produto', '')}"
+                            for _, r in filtrados.iterrows()
                         ]
-                        item_escolhido = st.selectbox("Selecione qual item deseja alterar:", opcoes_itens)
-                        linha_num = int(item_escolhido.split(" ")[1])
-                        registro = df.loc[linha_num - 2].to_dict()
+                        selecionado = st.selectbox("Escolha o item para alteração:", opcoes_edicao)
+                        num_linha = int(selecionado.split(" ")[1])
+                        dados_atuais = df_base.loc[num_linha - 2].to_dict()
 
                         with st.form("form_edicao"):
-                            cols_edit = st.columns(3)
+                            cols = st.columns(3)
                             campos_novos = {}
-                            for idx, c in enumerate(cabecalhos):
-                                with cols_edit[idx % 3]:
-                                    campos_novos[c] = st.text_input(f"{c}", value=str(registro.get(c, "")))
-                            
-                            salvar_edicao = st.form_submit_button("💾 Salvar Alterações na Planilha")
-                            if salvar_edicao:
+                            for i, h in enumerate(headers):
+                                with cols[i % 3]:
+                                    campos_novos[h] = st.text_input(f"{h}", value=str(dados_atuais.get(h, "")))
+
+                            if st.form_submit_button("💾 Salvar Alterações", type="primary"):
                                 try:
-                                    dados_atualizados = [campos_novos[c] for c in cabecalhos]
-                                    col_fim = chr(65 + len(cabecalhos) - 1)
-                                    ws.update(f"A{linha_num}:{col_fim}{linha_num}", [dados_atualizados])
-                                    st.success(f"Linha {linha_num} atualizada com sucesso na planilha!")
+                                    linha_editada = [campos_novos[h] for h in headers]
+                                    fim_col = chr(65 + len(headers) - 1)
+                                    ws.update(f"A{num_linha}:{fim_col}{num_linha}", [linha_editada])
+                                    st.success(f"Linha {num_linha} atualizada com sucesso!")
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Erro ao salvar edição: {e}")
