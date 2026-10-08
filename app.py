@@ -11,12 +11,8 @@ import requests
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
 
 def gravar_na_planilha_google(dados_registro):
-    """
-    Envia o registro para o Webhook do Google Apps Script com tratamento
-    de redirecionamento (302) e fallback em formato de formulário direto.
-    """
+    """Envia o registro para o Webhook do Google Apps Script com fallback para formulário."""
     try:
-        # 1. Tentativa via payload JSON
         response = requests.post(
             WEBHOOK_URL,
             data=json.dumps(dados_registro),
@@ -27,7 +23,6 @@ def gravar_na_planilha_google(dados_registro):
         if response.status_code in [200, 302] and "ERRO:" not in response.text:
             return True, "Gravado com sucesso na planilha Google!"
         
-        # 2. Fallback via parâmetros normais caso o Apps Script bloqueie o JSON
         resp_fallback = requests.post(
             WEBHOOK_URL,
             data=dados_registro,
@@ -50,7 +45,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO COM ALTO CONTRASTE VISUAL
+# ESTILIZAÇÃO CSS: 100% TEMA CLARO NATIVO E HARMONIOSO
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -59,7 +54,7 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Layout limpo e claro */
+    /* Fundo geral e texto principal */
     .stApp {
         background-color: #f8fafc !important;
         color: #0f172a !important;
@@ -67,57 +62,122 @@ st.markdown("""
     
     .block-container {
         padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
+        padding-bottom: 1.5rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
         max-width: 100% !important;
     }
     
-    /* Força cor escura em todos os títulos, textos e labels */
-    h1, h2, h3, h4, h5, h6, label, p, span, div, .stWidgetLabel, [data-testid="stMarkdownContainer"] p {
+    /* Títulos e Textos */
+    h1, h2, h3, h4, h5, h6, p, span, div {
         color: #0f172a !important;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }
     
-    label, .stWidgetLabel {
+    label, .stWidgetLabel, [data-testid="stWidgetLabel"] p {
         font-weight: 600 !important;
-        font-size: 0.875rem !important;
+        font-size: 0.85rem !important;
         color: #1e293b !important;
     }
     
     .stCaption, small {
-        color: #475569 !important;
+        color: #64748b !important;
         font-weight: 400 !important;
     }
-    
-    /* Campos de entrada: bordas nítidas e fundo branco */
-    input, select, textarea, div[data-baseweb="select"] {
+
+    /* Bordas e fundo do formulário e de expanders */
+    [data-testid="stForm"], [data-testid="stExpander"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+        padding: 1.25rem !important;
+    }
+
+    /* Campos de Entrada: Input, Select, Date, Textarea */
+    input, select, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
         background-color: #ffffff !important;
         color: #0f172a !important;
-        border-color: #cbd5e1 !important;
-        border-radius: 8px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+    }
+
+    /* Date picker (Data do Pedido) coerente com tema claro */
+    div[data-baseweb="calendar"] {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important;
+    }
+    div[data-baseweb="calendar"] * {
+        color: #0f172a !important;
+    }
+
+    /* Foco nos campos */
+    input:focus, textarea:focus, div[data-baseweb="input"]:focus-within {
+        border-color: #0284c7 !important;
+        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+    }
+
+    /* Botões Padrão no Tema Claro */
+    .stButton > button {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.875rem !important;
+        transition: all 0.2s ease !important;
     }
     
-    /* Tabela do Streamlit com bordas limpas */
+    /* Botão Secundário (Navegação inativa) */
+    .stButton > button[kind="secondary"] {
+        background-color: #ffffff !important;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+        border-color: #94a3b8 !important;
+    }
+
+    /* Botão Primário (Navegação ativa / Salvar) */
+    .stButton > button[kind="primary"] {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border: 1px solid #0284c7 !important;
+        box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2) !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background-color: #0369a1 !important;
+        border-color: #0369a1 !important;
+    }
+
+    /* Tabela do Streamlit: Fundo branco e borda limpa */
     [data-testid="stDataFrame"] {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border-radius: 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+        overflow: hidden;
     }
-    
+    [data-testid="stDataFrame"] div {
+        color: #0f172a !important;
+    }
+
     /* Banner do modo de edição */
     .edit-mode-banner {
         background-color: #fef3c7;
         border-left: 5px solid #d97706;
         padding: 12px 18px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 15px;
         color: #92400e !important;
         font-weight: 600;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        border: 1px solid #fde68a;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -229,7 +289,7 @@ if 'form_reset_counter' not in st.session_state:
     st.session_state.form_reset_counter = 0
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR (100% TEMA CLARO NATIVO)
+# BARRA DE NAVEGAÇÃO SUPERIOR
 # -----------------------------------------------------------------------------
 nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
 
@@ -237,7 +297,7 @@ with nav_col1:
     st.markdown("""
         <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
             <span style="font-size: 1.4rem;">📦</span>
-            <span style="font-size: 1.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
+            <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -251,7 +311,7 @@ with nav_col3:
         st.session_state.active_tab = "Pedido de Compras"
         st.rerun()
 
-st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ABA 1: FORMULÁRIO DE CADASTRO E EDIÇÃO ("Pedido de Compras")
@@ -337,9 +397,9 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO PRINCIPAL ------------------
+    # ------------------ FORMULÁRIO PRINCIPAL COM BORDAS E CAMPOS CLAROS ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
-        st.markdown("##### 📦 Dados da Ordem e Peça")
+        st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
             ordem_compra = st.text_input("Ordem de Compra*", value=def_oc)
@@ -358,14 +418,15 @@ if st.session_state.active_tab == "Pedido de Compras":
             fornecedor = st.text_input("Fornecedor*", value=def_forn).upper().strip()
             cod_peca_fornecedor = st.text_input("Cod da Peça do Fornecedor", value=def_cod_forn).strip()
 
-        st.markdown("##### 📅 Prazos e Horários")
+        st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
+            # Campo Data do Pedido com fundo claro e calendário harmonioso
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
 
-        st.markdown("##### 🔢 Quantidades & Custos")
+        st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>🔢 Quantidades & Custos</h5>", unsafe_allow_html=True)
         col_q1, col_q2, col_q3, col_q4 = st.columns(4)
         with col_q1:
             qt_solicitada = st.number_input("Qt Solicitada*", min_value=1, value=def_qt_sol, step=1)
@@ -377,7 +438,7 @@ if st.session_state.active_tab == "Pedido de Compras":
             valor_venda = st.number_input("Valor de Venda (R$)", min_value=0.00, value=def_valor_venda, step=0.50, format="%.2f")
 
         qt_nao_aprovada = max(0, qt_solicitada - qt_aprovada)
-        st.caption(f"ℹ️ **Qt Não Aprovada calculada:** {qt_nao_aprovada} un | **Custo Total Previsto:** R$ {(qt_aprovada * valor_compra):,.2f}")
+        st.markdown(f"<p style='font-size: 0.8rem; color: #64748b; margin-top: 4px;'>ℹ️ <strong>Qt Não Aprovada calculada:</strong> {qt_nao_aprovada} un | <strong>Custo Total Previsto:</strong> R$ {(qt_aprovada * valor_compra):,.2f}</p>", unsafe_allow_html=True)
 
         observacao = st.text_area("Observação", value=def_obs, placeholder="Detalhes adicionais, motivo de recusa, etc.", height=70)
 
@@ -437,9 +498,9 @@ if st.session_state.active_tab == "Pedido de Compras":
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA COMPLETA DE REGISTROS ------------------
+    # ------------------ TABELA COMPLETA DE REGISTROS (100% TEMA CLARO) ------------------
     st.markdown("---")
-    st.markdown("#### 📋 Ordens de Compra Registradas")
+    st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.5rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
     df_preview = pd.DataFrame(st.session_state.orders_data)
     df_preview["Custo Total (R$)"] = df_preview["qtAprovada"] * df_preview["custoUnit"]
     
@@ -527,7 +588,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Filtros Dinâmicos (Tema Claro) -->
+        <!-- Filtros Dinâmicos -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -575,7 +636,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- CARDS DE KPIS (Tema Claro) -->
+        <!-- CARDS DE KPIS -->
         <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between">
