@@ -1,18 +1,40 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import json
-from datetime import datetime, time
+from datetime import datetime
 import pandas as pd
+import requests
+
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DE GRAVAÇÃO NA PLANILHA GOOGLE VIA WEBHOOK
+# -----------------------------------------------------------------------------
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
+
+def gravar_na_planilha_google(dados_registro):
+    """Envia o novo registro diretamente para a planilha Google Sheets via Apps Script"""
+    try:
+        response = requests.post(
+            WEBHOOK_URL,
+            data=json.dumps(dados_registro),
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        if response.status_code == 200:
+            return True, "Gravado com sucesso na planilha Google!"
+        else:
+            return False, f"Falha na comunicação (HTTP {response.status_code})"
+    except Exception as e:
+        return False, f"Erro ao enviar para o Google Planilhas: {str(e)}"
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
-    page_title="Gestão de Solicitações & Ordens de Compra",
+    page_title="Dashboard Executivo - Solicitações & Ordens de Compra de Peças",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS com Tema Claro por padrão e suporte a Dark Mode
+# Estilização CSS com Tema Claro por padrão
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -26,7 +48,6 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Card de destaque */
     .edit-mode-banner {
         background-color: #fef3c7;
         border-left: 5px solid #d97706;
@@ -45,17 +66,11 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA CARREGAR PRODUTOS DA PLANILHA GOOGLE (Aba gid=270834817)
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def carregar_catalogo_produtos():
-    """
-    Lê a aba Base de Dados (gid=270834817) da planilha informada.
-    Coluna A: Código do Produto
-    Coluna B: Descrição / Produto
-    """
     url_csv = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/export?format=csv&gid=270834817"
     try:
         df = pd.read_csv(url_csv)
-        # Identifica colunas A e B independente do cabeçalho exato
         col_cod = df.columns[0]
         col_prod = df.columns[1]
         
@@ -68,47 +83,81 @@ def carregar_catalogo_produtos():
                 catalogo[nome] = cod
         return catalogo
     except Exception:
-        # Fallback offline caso não haja acesso à internet
         return {
             "DISCO ROTAÇÃO DO MISTURADOR": "2290",
             "BICO DE SAIDA DO SOLUVEL PHEDRA": "1442",
             "MOTOR DE MIXER COMPLETO": "2672",
-            "NUCLEO SOLUVEL SOLISTA": "2617",
-            "BOMBA DE AGUA 220V": "534",
-            "BOMBA DE AGUA ULKA 220V": "535",
-            "GAXETA DE SILICONE": "700",
             "TORNEIRA 3/4": "301",
             "REMOVE GRUDE": "902",
+            "BOMBA DE AGUA 220V": "534",
             "SPRAY COLORART PRATA LUNAR": "110",
             "CONECTOR MACHO 8MM X1/2": "405",
+            "NUCLEO SOLUVEL SOLISTA": "2617",
+            "BOMBA DE AGUA ULKA 220V": "535",
+            "GAXETA DE SILICONE": "700",
+            "MOTOR DO CARROSSEL PINO LONGO": "2673",
             "ANEL DO BICO CALDEIRA 70": "650",
+            "SUPORTE DE MAQUINA": "305",
             "ANEL BICO CALDEIRA 69": "649",
+            "PINCEL DE LIMPEZA": "105",
+            "FILTRO BANANINHA C ENGATE RAPIDO": "410",
+            "PRODUTO ROSA DESENGRAXANTE": "905",
+            "TORNEIRA METALICA": "302",
+            "REMOVE GRUDE SPRAY": "903",
             "CONTADOR VOLUMETRICO": "880",
-            "NUCLEO DA CALDEIRA": "881"
+            "NUCLEO DA CALDEIRA": "881",
+            "CONTADOR VOLUMETRICO 1.2": "882",
+            "MOTOR DO MOINHO 110V": "2680"
         }
 
 catalogo_produtos = carregar_catalogo_produtos()
 
 # -----------------------------------------------------------------------------
-# BASE DE DADOS EM MEMÓRIA (st.session_state) COM NOVOS CAMPOS
+# BASE DE DADOS COMPLETA PRESERVADA (st.session_state)
 # -----------------------------------------------------------------------------
 if 'orders_data' not in st.session_state:
     st.session_state.orders_data = [
-        { "ordemCompra": "OC-2025-001", "codProduto": "2290", "ano": "2025", "mes": "Agosto", "data": "05/08/2025", "horarioChegada": "14:30", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "Reposição padrão" },
-        { "ordemCompra": "OC-2025-002", "codProduto": "1442", "ano": "2025", "mes": "Agosto", "data": "08/08/2025", "horarioChegada": "10:15", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-1442", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52, "valorVenda": 19.90, "observacao": "" },
-        { "ordemCompra": "OC-2025-003", "codProduto": "2672", "ano": "2025", "mes": "Agosto", "data": "12/08/2025", "horarioChegada": "16:00", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 580.00, "observacao": "Manutenção preventiva" },
-        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 135.00, "observacao": "1 item avariado" },
-        { "ordemCompra": "OC-2025-005", "codProduto": "902", "ano": "2025", "mes": "Agosto", "data": "18/08/2025", "horarioChegada": "11:20", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-902", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00, "valorVenda": 110.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-001", "codProduto": "2290", "ano": "2025", "mes": "Agosto", "data": "05/08/2025", "horarioChegada": "14:30", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-002", "codProduto": "1442", "ano": "2025", "mes": "Agosto", "data": "08/08/2025", "horarioChegada": "10:15", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-1442", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52, "valorVenda": 18.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-003", "codProduto": "2672", "ano": "2025", "mes": "Agosto", "data": "12/08/2025", "horarioChegada": "16:00", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade reprovada" },
+        { "ordemCompra": "OC-2025-005", "codProduto": "902", "ano": "2025", "mes": "Agosto", "data": "18/08/2025", "horarioChegada": "11:20", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-902", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
         { "ordemCompra": "OC-2025-006", "codProduto": "534", "ano": "2025", "mes": "Agosto", "data": "20/08/2025", "horarioChegada": "13:40", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00, "valorVenda": 290.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 45.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-008", "codProduto": "405", "ano": "2025", "mes": "Agosto", "data": "25/08/2025", "horarioChegada": "10:30", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "codPecaFornecedor": "IM-405", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50, "valorVenda": 22.00, "observacao": "Falta de estoque no fornecedor" },
-        { "ordemCompra": "OC-2025-009", "codProduto": "2617", "ano": "2025", "mes": "Agosto", "data": "28/08/2025", "horarioChegada": "17:10", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 160.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-010", "codProduto": "535", "ano": "2025", "mes": "Setembro", "data": "02/09/2025", "horarioChegada": "08:45", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "Urgente" },
-        { "ordemCompra": "OC-2025-011", "codProduto": "700", "ano": "2025", "mes": "Setembro", "data": "05/09/2025", "horarioChegada": "14:15", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50, "valorVenda": 38.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-012", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "10/09/2025", "horarioChegada": "11:50", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-CARROSSEL", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00, "valorVenda": 480.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-013", "codProduto": "650", "ano": "2025", "mes": "Setembro", "data": "14/09/2025", "horarioChegada": "16:20", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 22.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-008", "codProduto": "405", "ano": "2025", "mes": "Agosto", "data": "25/08/2025", "horarioChegada": "10:30", "solicitante": "FLAVIO", "peca": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "codPecaFornecedor": "IM-405", "qt": 30, "qtAprovada": 25, "qtNaoAprovada": 5, "custoUnit": 10.50, "valorVenda": 22.00, "observacao": "Estoque parcial" },
+        { "ordemCompra": "OC-2025-009", "codProduto": "2617", "ano": "2025", "mes": "Agosto", "data": "28/08/2025", "horarioChegada": "17:10", "solicitante": "NAPOLEAO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
+        
+        { "ordemCompra": "OC-2025-010", "codProduto": "535", "ano": "2025", "mes": "Setembro", "data": "02/09/2025", "horarioChegada": "08:45", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 18, "qtAprovada": 18, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-011", "codProduto": "700", "ano": "2025", "mes": "Setembro", "data": "05/09/2025", "horarioChegada": "14:15", "solicitante": "SAMANTHA", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 25, "qtAprovada": 22, "qtNaoAprovada": 3, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-012", "codProduto": "2673", "ano": "2025", "mes": "Setembro", "data": "10/09/2025", "horarioChegada": "11:50", "solicitante": "ALAN", "peca": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-CARROSSEL", "qt": 3, "qtAprovada": 3, "qtNaoAprovada": 0, "custoUnit": 280.00, "valorVenda": 480.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-013", "codProduto": "650", "ano": "2025", "mes": "Setembro", "data": "14/09/2025", "horarioChegada": "16:20", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 40, "qtAprovada": 38, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
         { "ordemCompra": "OC-2025-014", "codProduto": "2290", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "15:10", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-015", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "09:30", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 580.00, "observacao": "" }
+        { "ordemCompra": "OC-2025-015", "codProduto": "2672", "ano": "2025", "mes": "Setembro", "data": "19/09/2025", "horarioChegada": "09:30", "solicitante": "THIAGO", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 6, "qtAprovada": 6, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-016", "codProduto": "305", "ano": "2025", "mes": "Setembro", "data": "21/09/2025", "horarioChegada": "14:00", "solicitante": "DANI", "peca": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-SUP", "qt": 10, "qtAprovada": 8, "qtNaoAprovada": 2, "custoUnit": 65.00, "valorVenda": 120.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-017", "codProduto": "649", "ano": "2025", "mes": "Setembro", "data": "23/09/2025", "horarioChegada": "10:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 35, "qtAprovada": 35, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-018", "codProduto": "2617", "ano": "2025", "mes": "Setembro", "data": "25/09/2025", "horarioChegada": "11:30", "solicitante": "THIAGO", "peca": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2617", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 91.04, "valorVenda": 165.00, "observacao": "" },
+
+        { "ordemCompra": "OC-2025-019", "codProduto": "105", "ano": "2025", "mes": "Outubro", "data": "10/10/2025", "horarioChegada": "13:00", "solicitante": "WILLIAN NEVES", "peca": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "codPecaFornecedor": "WN-PINCEL", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 7.00, "valorVenda": 15.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-020", "codProduto": "410", "ano": "2025", "mes": "Outubro", "data": "15/10/2025", "horarioChegada": "15:45", "solicitante": "FLAVIO", "peca": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-BANANA", "qt": 30, "qtAprovada": 27, "qtNaoAprovada": 3, "custoUnit": 34.05, "valorVenda": 65.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-021", "codProduto": "534", "ano": "2025", "mes": "Outubro", "data": "22/10/2025", "horarioChegada": "10:20", "solicitante": "SAMANTHA", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 185.00, "valorVenda": 310.00, "observacao": "" },
+
+        { "ordemCompra": "OC-2025-022", "codProduto": "905", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "09:10", "solicitante": "FLAVIO", "peca": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "codPecaFornecedor": "TM-ROSA", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 125.80, "valorVenda": 210.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-023", "codProduto": "302", "ano": "2025", "mes": "Novembro", "data": "03/11/2025", "horarioChegada": "14:40", "solicitante": "NAPOLEAO", "peca": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-MET", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 75.18, "valorVenda": 135.00, "observacao": "" },
+        { "ordemCompra": "OC-2025-024", "codProduto": "903", "ano": "2025", "mes": "Novembro", "data": "04/11/2025", "horarioChegada": "16:15", "solicitante": "FABIO", "peca": "REMOVE GRUDE SPRAY", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-SPRAY", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
+
+        { "ordemCompra": "OC-2026-001", "codProduto": "880", "ano": "2026", "mes": "Março", "data": "02/03/2026", "horarioChegada": "10:30", "solicitante": "DAVI", "peca": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-880", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 110.00, "valorVenda": 190.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-002", "codProduto": "881", "ano": "2026", "mes": "Março", "data": "07/03/2026", "horarioChegada": "11:20", "solicitante": "DAVI", "peca": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-881", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 240.00, "valorVenda": 390.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-003", "codProduto": "882", "ano": "2026", "mes": "Abril", "data": "23/04/2026", "horarioChegada": "14:00", "solicitante": "PEDRO", "peca": "CONTADOR VOLUMETRICO 1.2", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-882", "qt": 8, "qtAprovada": 8, "qtNaoAprovada": 0, "custoUnit": 115.00, "valorVenda": 195.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-004", "codProduto": "2680", "ano": "2026", "mes": "Abril", "data": "24/04/2026", "horarioChegada": "15:30", "solicitante": "LUCAS", "peca": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-MOINHO", "qt": 2, "qtAprovada": 1, "qtNaoAprovada": 1, "custoUnit": 410.00, "valorVenda": 690.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-005", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "14/08/2026", "horarioChegada": "09:40", "solicitante": "WILLIAN NEVES", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-006", "codProduto": "535", "ano": "2026", "mes": "Agosto", "data": "17/08/2026", "horarioChegada": "10:50", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-ULKA", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-007", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "25/08/2026", "horarioChegada": "13:10", "solicitante": "RYAN", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 7, "qtAprovada": 6, "qtNaoAprovada": 1, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-008", "codProduto": "534", "ano": "2026", "mes": "Agosto", "data": "27/08/2026", "horarioChegada": "16:20", "solicitante": "VITOR", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 5, "qtAprovada": 5, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-009", "codProduto": "534", "ano": "2026", "mes": "Setembro", "data": "11/09/2026", "horarioChegada": "09:00", "solicitante": "THIAGO", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 14, "qtAprovada": 14, "qtNaoAprovada": 0, "custoUnit": 195.00, "valorVenda": 320.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-010", "codProduto": "700", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "11:15", "solicitante": "CESAR", "peca": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-700", "qt": 20, "qtAprovada": 18, "qtNaoAprovada": 2, "custoUnit": 18.50, "valorVenda": 35.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-011", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "15/09/2026", "horarioChegada": "14:40", "solicitante": "CESAR", "peca": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 25, "qtAprovada": 25, "qtNaoAprovada": 0, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-012", "codProduto": "649", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "15:30", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-649", "qt": 30, "qtAprovada": 30, "qtNaoAprovada": 0, "custoUnit": 9.50, "valorVenda": 20.00, "observacao": "" },
+        { "ordemCompra": "OC-2026-013", "codProduto": "650", "ano": "2026", "mes": "Setembro", "data": "23/09/2026", "horarioChegada": "16:00", "solicitante": "SAMANTHA", "peca": "ANEL BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-650", "qt": 30, "qtAprovada": 28, "qtNaoAprovada": 2, "custoUnit": 9.80, "valorVenda": 20.00, "observacao": "" }
     ]
 
 if 'active_tab' not in st.session_state:
@@ -147,7 +196,7 @@ st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none
 # -----------------------------------------------------------------------------
 if st.session_state.active_tab == "Pedido de Compras":
     st.subheader("📝 Gestão e Lançamento de Pedidos de Compra")
-    st.caption("Cadastre novas ordens ou pesquise por uma Ordem de Compra existente para alterar dados cadastrais.")
+    st.caption("Cadastre novas ordens e sincronize automaticamente com a planilha Google 'Gastos peças e suprimentos'.")
 
     # ------------------ SEÇÃO DE PESQUISA & EDIÇÃO ------------------
     with st.expander("🔍 Pesquisar por Ordem de Compra para Editar", expanded=(st.session_state.edit_order_id is not None)):
@@ -171,7 +220,6 @@ if st.session_state.active_tab == "Pedido de Compras":
                     st.session_state.edit_order_id = None
                     st.rerun()
 
-    # Identifica se está em modo de edição
     record_to_edit = None
     if st.session_state.edit_order_id:
         for item in st.session_state.orders_data:
@@ -187,10 +235,8 @@ if st.session_state.active_tab == "Pedido de Compras":
             """, unsafe_allow_html=True)
 
     # ------------------ PREPARAÇÃO DOS DADOS DO FORMULÁRIO ------------------
-    # Lista de produtos do catálogo integrado da planilha
     produtos_lista = sorted(list(catalogo_produtos.keys()))
 
-    # Se estiver editando, resgata os valores; senão valores default
     def_oc = record_to_edit.get("ordemCompra", f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}") if record_to_edit else f"OC-{datetime.today().year}-{len(st.session_state.orders_data)+1:03d}"
     def_prod = record_to_edit.get("peca", produtos_lista[0] if produtos_lista else "") if record_to_edit else (produtos_lista[0] if produtos_lista else "")
     def_cod = record_to_edit.get("codProduto", catalogo_produtos.get(def_prod, "")) if record_to_edit else catalogo_produtos.get(def_prod, "")
@@ -211,20 +257,16 @@ if st.session_state.active_tab == "Pedido de Compras":
     def_qt_apr = int(record_to_edit.get("qtAprovada", 10)) if record_to_edit else 10
     def_obs = record_to_edit.get("observacao", "") if record_to_edit else ""
 
-    # Seletor interativo fora do form para atualizar o código do produto na hora
     col_p1, col_p2 = st.columns([3, 1])
     with col_p1:
         produto_selecionado = st.selectbox(
-            "Produto (Coluna B da planilha Google)*",
+            "Produto (Coluna B da planilha)*",
             options=produtos_lista + ["Outro (Digitar Manualmente)"],
             index=produtos_lista.index(def_prod) if def_prod in produtos_lista else 0,
             key="widget_produto_select"
         )
     with col_p2:
-        if produto_selecionado != "Outro (Digitar Manualmente)":
-            codigo_auto = catalogo_produtos.get(produto_selecionado, "")
-        else:
-            codigo_auto = ""
+        codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
     # ------------------ FORMULÁRIO PRINCIPAL ------------------
@@ -272,7 +314,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         observacao = st.text_area("Observação", value=def_obs, placeholder="Detalhes adicionais, motivo de recusa, etc.", height=70)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        btn_label = "💾 Salvar Alterações na Ordem" if record_to_edit else "💾 Gravar Pedido no Banco de Dados"
+        btn_label = "💾 Salvar Alterações na Ordem" if record_to_edit else "💾 Gravar Pedido no Banco de Dados e na Planilha"
         btn_salvar = st.form_submit_button(btn_label, use_container_width=True, type="primary")
 
         if btn_salvar:
@@ -307,22 +349,28 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
+                # 1. Grava na planilha Google através do webhook Apps Script
+                sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
+                if not sucesso_planilha:
+                    st.warning(f"⚠️ Aviso sobre a Planilha: {msg_planilha}")
+                else:
+                    st.success("✅ Pedido gravado com sucesso na planilha Google!")
+
+                # 2. Atualiza a memória de sessão para o dashboard refletir imediatamente
                 if record_to_edit:
-                    # Atualiza o registro existente
                     idx = st.session_state.orders_data.index(record_to_edit)
                     st.session_state.orders_data[idx] = registro_dados
                     st.session_state.edit_order_id = None
-                    st.success(f"✅ Ordem de Compra **{ordem_compra}** atualizada com sucesso no banco de dados!")
+                    st.success(f"✅ Ordem de Compra **{ordem_compra}** atualizada!")
                     st.rerun()
                 else:
-                    # Insere no topo
                     st.session_state.orders_data.insert(0, registro_dados)
-                    st.success(f"✅ Nova Ordem de Compra **{ordem_compra}** ({produto_final}) gravada com sucesso!")
+                    st.success(f"✅ Nova Ordem de Compra **{ordem_compra}** ({produto_final}) salva!")
                     st.rerun()
 
-    # ------------------ TABELA COMPLETA DE REGISTROS DO BANCO ------------------
+    # ------------------ TABELA COMPLETA DE REGISTROS ------------------
     st.markdown("---")
-    st.markdown("#### 📋 Base de Dados - Ordens de Compra Registradas")
+    st.markdown("#### 📋 Ordens de Compra Registradas")
     df_preview = pd.DataFrame(st.session_state.orders_data)
     df_preview["Custo Total (R$)"] = df_preview["qtAprovada"] * df_preview["custoUnit"]
     
@@ -332,14 +380,12 @@ if st.session_state.active_tab == "Pedido de Compras":
         'fornecedor', 'codPecaFornecedor', 'solicitante', 'Custo Total (R$)', 'observacao'
     ]
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
-    
     st.dataframe(df_preview[cols_existentes], use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # ABA 2: PAINEL EXECUTIVO ("Dashboard Compras")
 # -----------------------------------------------------------------------------
 elif st.session_state.active_tab == "Dashboard Compras":
-    # Converte os dados do session_state para JSON seguro para ser consumido pelo script JavaScript
     json_orders_data = json.dumps(st.session_state.orders_data, ensure_ascii=False)
 
     html_code = f"""
@@ -384,7 +430,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
     </head>
     <body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen transition-colors duration-300">
 
-      <!-- Header Superior -->
       <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md px-6 py-4 shadow-sm">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div class="flex items-center gap-3">
@@ -411,7 +456,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
 
       <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-        <!-- SOLICITAÇÃO / ESCOPO DO PROJETO EM DESTAQUE NO TOPO -->
         <section class="bg-blue-50/70 dark:bg-slate-900/90 border border-blue-200 dark:border-blue-900/50 rounded-2xl p-5 shadow-sm">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-3">
@@ -436,7 +480,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Filtros Dinâmicos na Posição Original Superior (Grid de 5 colunas) -->
+        <!-- Filtros Dinâmicos -->
         <section class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -484,10 +528,8 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- CARDS DE KPIS PRINCIPAIS (Inclui Peças Atendidas e Não Atendidas) -->
+        <!-- CARDS DE KPIS -->
         <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          
-          <!-- KPI 1 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Valor Compras (Custo)</span>
@@ -501,7 +543,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <!-- KPI 2 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total de Pedidos</span>
@@ -515,7 +556,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <!-- KPI 3 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Qtde Solicitada</span>
@@ -529,7 +569,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <!-- KPI 4 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between ring-1 ring-emerald-500/20">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Peças Atendidas</span>
@@ -546,7 +585,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <!-- KPI 5 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between ring-1 ring-rose-500/20">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Não Atendidas</span>
@@ -563,7 +601,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <!-- KPI 6 -->
           <div class="kpi-card bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Custo Médio / Pedido</span>
@@ -578,7 +615,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Top 5 Solicitantes em Agosto e Setembro com Valores Visíveis -->
+        <!-- Top 5 Solicitantes em Agosto e Setembro -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div class="flex justify-between items-center mb-4">
@@ -613,7 +650,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Gráficos Visuais Adicionais: Categorias e Fornecedor com Valores -->
+        <!-- Gráficos de Categorias e Fornecedor -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div class="flex justify-between items-center mb-4">
@@ -642,7 +679,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- TABELA COM RESUMO POR PEÇA SOLICITADA -->
+        <!-- TABELA COM RESUMO POR PEÇA -->
         <section class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
@@ -684,55 +721,10 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Insights e Alertas Executivos -->
-        <section class="bg-gradient-to-r from-blue-900/10 via-indigo-900/10 to-transparent dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-transparent border border-blue-200 dark:border-blue-900/40 rounded-2xl p-6">
-          <div class="flex items-center gap-2 mb-4">
-            <div class="p-2 rounded-lg bg-blue-600 text-white">
-              <i data-lucide="sparkles" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h2 class="text-lg font-bold">Diagnósticos Automáticos de Compras</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Alertas identificados a partir do custo e da taxa de atendimento de peças</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div class="p-4 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-              <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
-                <i data-lucide="check-check" class="w-4 h-4"></i>
-                <span>Taxa Global de Atendimento</span>
-              </div>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Mais de <strong class="text-slate-900 dark:text-white">90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
-              </p>
-            </div>
-
-            <div class="p-4 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-              <div class="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-semibold mb-1">
-                <i data-lucide="alert-octagon" class="w-4 h-4"></i>
-                <span>Itens Não Atendidos / Reprovados</span>
-              </div>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
-              </p>
-            </div>
-
-            <div class="p-4 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800">
-              <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold mb-1">
-                <i data-lucide="trending-up" class="w-4 h-4"></i>
-                <span>Controle da Coluna Custo</span>
-              </div>
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong class="text-slate-900 dark:text-white">EVOCA</strong> e <strong class="text-slate-900 dark:text-white">PARAMOUNT</strong>, com conciliação financeira automatizada.
-              </p>
-            </div>
-          </div>
-        </section>
-
       </main>
 
       <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-slate-800 mt-12">
-        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
+        Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise com Peças Atendidas e Integração Direta com Google Planilhas.
       </footer>
 
       <script>
@@ -744,7 +736,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
         const themeIcon = document.getElementById('themeIcon');
         const themeText = document.getElementById('themeText');
 
-        // Padrão: Modo Claro (Light Mode)
+        // Padrão: Modo Claro
         htmlElem.classList.remove('dark');
         htmlElem.classList.add('light');
 
@@ -763,7 +755,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
           updateChartsTheme();
         }});
 
-        // DADOS DINÂMICOS INJETADOS DIRETAMENTE DA SESSÃO DO STREAMLIT
         const rawOrdersData = {json_orders_data};
 
         rawOrdersData.forEach(item => {{
@@ -839,9 +830,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           return {{
             responsive: true,
             maintainAspectRatio: false,
-            layout: {{
-              padding: {{ top: 22, bottom: 6, left: 6, right: 6 }}
-            }},
+            layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
             plugins: {{
               legend: {{ display: false }},
               tooltip: {{
@@ -865,15 +854,8 @@ elif st.session_state.active_tab == "Dashboard Compras":
               }}
             }},
             scales: type === 'bar' ? {{
-              x: {{
-                grid: {{ color: gridColor }},
-                ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }}
-              }},
-              y: {{
-                grid: {{ color: gridColor }},
-                ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }},
-                beginAtZero: true
-              }}
+              x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }} }},
+              y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }}, beginAtZero: true }}
             }} : undefined
           }};
         }}
@@ -944,11 +926,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             plugins: {{
               legend: {{
                 position: 'right',
-                labels: {{
-                  boxWidth: 12,
-                  color: '#64748b',
-                  font: {{ family: 'Inter', size: 11 }}
-                }}
+                labels: {{ boxWidth: 12, color: '#64748b', font: {{ family: 'Inter', size: 11 }} }}
               }},
               datalabels: {{
                 color: '#ffffff',
@@ -1184,5 +1162,4 @@ elif st.session_state.active_tab == "Dashboard Compras":
     </html>
     """
 
-    # Renderiza o painel executivo
     components.html(html_code, height=2150, scrolling=True)
