@@ -11,10 +11,7 @@ import requests
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz8aGA0QU1Zfca6Lbq2olJeP5ituhE3_7Ix7ajFcQgPdby5SjrQj9D81BCfd9FRlzv9nw/exec"
 
 def gravar_na_planilha_google(dados_registro):
-    """
-    Envia o registro diretamente para o Webhook do Google Apps Script
-    tratando adequadamente o redirecionamento (302) do Google.
-    """
+    """Envia o registro diretamente para a planilha Google Sheets via Webhook."""
     try:
         session = requests.Session()
         response = session.post(
@@ -42,18 +39,20 @@ def gravar_na_planilha_google(dados_registro):
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
-    page_title="Dashboard Executivo - Solicitações & Ordens de Compra",
+    page_title="Gestão Integrada de Suprimentos & Compras",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # -----------------------------------------------------------------------------
-# BLINDAGEM COMPLETA CONTRA TEMA ESCURO (FORÇANDO 100% TEMA CLARO)
+# DESIGN SYSTEM: CORPORATIVO EXECUTIVO CLARO (ZERO FUNDOS PRETOS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* 1. Raiz global e reset de variáveis do Streamlit */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    /* Reset global do Streamlit para fundo claro corporativo */
     :root, html, body, #root, .stApp, [data-testid="stAppViewContainer"] {
         --background-color: #f8fafc !important;
         --secondary-background-color: #ffffff !important;
@@ -62,6 +61,7 @@ st.markdown("""
         background-color: #f8fafc !important;
         color: #0f172a !important;
         color-scheme: light !important;
+        font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
     }
 
     #MainMenu, footer, header { 
@@ -70,46 +70,55 @@ st.markdown("""
     }
 
     .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 1.5rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
+        padding-top: 0.75rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
         max-width: 100% !important;
         background-color: #f8fafc !important;
     }
 
-    /* 2. Todos os textos, títulos e labels forçados para escuro */
-    h1, h2, h3, h4, h5, h6, p, span, div, label, .stWidgetLabel, [data-testid="stWidgetLabel"] * {
+    /* Tipografia Corporativa */
+    h1, h2, h3, h4, h5, h6 {
         color: #0f172a !important;
-        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em !important;
+    }
+    
+    p, span, div {
+        color: #334155 !important;
+        font-weight: 400;
     }
 
     label, .stWidgetLabel, [data-testid="stWidgetLabel"] p {
         font-weight: 600 !important;
-        font-size: 0.85rem !important;
+        font-size: 0.825rem !important;
         color: #1e293b !important;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
 
     .stCaption, small {
         color: #64748b !important;
-        font-weight: 400 !important;
+        font-size: 0.8rem !important;
     }
 
-    /* 3. Containers de formulário e expanders - fundo branco e borda suave */
+    /* Card do Formulário e Painéis Retráteis */
     [data-testid="stForm"], [data-testid="stExpander"], details {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 14px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
-        padding: 1.25rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02) !important;
+        padding: 1.5rem !important;
     }
     
     summary, summary * {
         background-color: #ffffff !important;
         color: #0f172a !important;
+        font-weight: 600 !important;
     }
 
-    /* 4. Inputs, selects, textareas e campos numéricos 100% brancos */
+    /* Campos de Entrada: Fundo Branco Puro e Bordas Acetinadas */
     input, select, textarea,
     div[data-baseweb="select"],
     div[data-baseweb="select"] *,
@@ -121,19 +130,21 @@ st.markdown("""
         color: #0f172a !important;
         -webkit-text-fill-color: #0f172a !important;
         border-color: #cbd5e1 !important;
+        font-size: 0.9rem !important;
     }
 
     input, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] {
         border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
     }
 
     input:focus, textarea:focus, div[data-baseweb="input"]:focus-within {
         border-color: #0284c7 !important;
-        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12) !important;
     }
 
-    /* 5. DatePicker e pop-up do calendário totalmente forçados para fundo branco */
+    /* Pop-up do Calendário e DatePicker 100% Branco com Azul Safira */
     div[data-baseweb="input"] svg {
         fill: #0284c7 !important;
     }
@@ -151,12 +162,13 @@ st.markdown("""
 
     div[data-baseweb="calendar"] button {
         background-color: #ffffff !important;
-        color: #0f172a !important;
+        color: #1e293b !important;
         border-radius: 8px !important;
+        font-weight: 500 !important;
     }
 
     div[data-baseweb="calendar"] button:hover {
-        background-color: #f1f5f9 !important;
+        background-color: #f0f9ff !important;
         color: #0284c7 !important;
     }
 
@@ -164,109 +176,134 @@ st.markdown("""
         background-color: #0284c7 !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
+        font-weight: 700 !important;
     }
 
     div[data-baseweb="popover"] {
         border: 1px solid #cbd5e1 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.12) !important;
     }
 
-    /* 6. Botões nativos em tons claros e azul corporativo */
+    /* Botões Corporativos */
     .stButton > button {
         border-radius: 10px !important;
         font-weight: 600 !important;
         font-size: 0.875rem !important;
-        transition: all 0.2s ease !important;
+        padding: 0.5rem 1.25rem !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
     .stButton > button[kind="secondary"] {
         background-color: #ffffff !important;
         color: #475569 !important;
         border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
 
     .stButton > button[kind="secondary"]:hover {
-        background-color: #f1f5f9 !important;
+        background-color: #f8fafc !important;
         color: #0f172a !important;
         border-color: #94a3b8 !important;
+        transform: translateY(-1px);
     }
 
     .stButton > button[kind="primary"] {
-        background-color: #0284c7 !important;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
-        border: 1px solid #0284c7 !important;
-        box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2) !important;
+        border: none !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25) !important;
     }
 
     .stButton > button[kind="primary"]:hover {
-        background-color: #0369a1 !important;
-        border-color: #0369a1 !important;
+        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35) !important;
+        transform: translateY(-1px);
     }
 
-    /* 7. Estilo limpo e 100% branco para tabelas */
-    .tabela-container-clara {
+    /* Container de Tabela Corporativa em Cartão Branco */
+    .corporate-table-wrapper {
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: 14px !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04) !important;
         padding: 0.5rem !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
         overflow-x: auto !important;
     }
 
-    .tabela-customizada {
+    .corporate-table {
         width: 100% !important;
         border-collapse: collapse !important;
-        font-size: 0.8rem !important;
-        color: #1e293b !important;
+        font-size: 0.825rem !important;
         background-color: #ffffff !important;
     }
 
-    .tabela-customizada th {
+    .corporate-table th {
         background-color: #f8fafc !important;
         color: #475569 !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
-        font-size: 0.72rem !important;
-        letter-spacing: 0.05em !important;
-        padding: 12px 14px !important;
+        font-size: 0.7rem !important;
+        letter-spacing: 0.06em !important;
+        padding: 14px 16px !important;
         border-bottom: 2px solid #e2e8f0 !important;
         text-align: left !important;
         white-space: nowrap !important;
     }
 
-    .tabela-customizada td {
-        padding: 11px 14px !important;
+    .corporate-table td {
+        padding: 12px 16px !important;
         border-bottom: 1px solid #f1f5f9 !important;
         white-space: nowrap !important;
         background-color: #ffffff !important;
         color: #1e293b !important;
+        font-weight: 500 !important;
     }
 
-    .tabela-customizada tr:hover td {
+    .corporate-table tr:hover td {
         background-color: #f8fafc !important;
     }
 
-    /* 8. Banner de edição */
+    .badge-category {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 0.725rem;
+        font-weight: 600;
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+
+    .badge-oc {
+        font-weight: 700;
+        color: #0284c7;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
+    /* Banner Elegante de Edição */
     .edit-mode-banner {
-        background-color: #fef3c7 !important;
+        background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%) !important;
         border-left: 5px solid #d97706 !important;
-        padding: 12px 18px !important;
-        border-radius: 10px !important;
-        margin-bottom: 15px !important;
+        padding: 14px 20px !important;
+        border-radius: 12px !important;
+        margin-bottom: 18px !important;
         color: #92400e !important;
         font-weight: 600 !important;
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
-        border: 1px solid #fde68a !important;
+        border-top: 1px solid #fde68a !important;
+        border-bottom: 1px solid #fde68a !important;
+        border-right: 1px solid #fde68a !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# CARREGAMENTO DO CATÁLOGO DE PRODUTOS (GOOGLE SHEETS - ABA GID=270834817)
+# CARREGAMENTO DO CATÁLOGO DE PRODUTOS DA PLANILHA GOOGLE (ABA GID=270834817)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=300)
 def carregar_catalogo_produtos():
@@ -322,7 +359,7 @@ if 'orders_data' not in st.session_state:
         { "ordemCompra": "OC-2025-001", "codProduto": "2290", "ano": "2025", "mes": "Agosto", "data": "05/08/2025", "horarioChegada": "14:30", "solicitante": "WILLIAN NEVES", "peca": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2290", "qt": 15, "qtAprovada": 15, "qtNaoAprovada": 0, "custoUnit": 4.39, "valorVenda": 12.00, "observacao": "" },
         { "ordemCompra": "OC-2025-002", "codProduto": "1442", "ano": "2025", "mes": "Agosto", "data": "08/08/2025", "horarioChegada": "10:15", "solicitante": "FLAVIO", "peca": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-1442", "qt": 12, "qtAprovada": 12, "qtNaoAprovada": 0, "custoUnit": 8.52, "valorVenda": 18.00, "observacao": "" },
         { "ordemCompra": "OC-2025-003", "codProduto": "2672", "ano": "2025", "mes": "Agosto", "data": "12/08/2025", "horarioChegada": "16:00", "solicitante": "WILLIAN NEVES", "peca": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "codPecaFornecedor": "EV-2672", "qt": 4, "qtAprovada": 4, "qtNaoAprovada": 0, "custoUnit": 334.00, "valorVenda": 590.00, "observacao": "" },
-        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade avariada" },
+        { "ordemCompra": "OC-2025-004", "codProduto": "301", "ano": "2025", "mes": "Agosto", "data": "14/08/2025", "horarioChegada": "09:00", "solicitante": "NAPOLEAO", "peca": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "codPecaFornecedor": "LC-301", "qt": 8, "qtAprovada": 7, "qtNaoAprovada": 1, "custoUnit": 75.18, "valorVenda": 130.00, "observacao": "1 unidade reprovada" },
         { "ordemCompra": "OC-2025-005", "codProduto": "902", "ano": "2025", "mes": "Agosto", "data": "18/08/2025", "horarioChegada": "11:20", "solicitante": "FABIO", "peca": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "codPecaFornecedor": "FB-902", "qt": 10, "qtAprovada": 10, "qtNaoAprovada": 0, "custoUnit": 72.00, "valorVenda": 115.00, "observacao": "" },
         { "ordemCompra": "OC-2025-006", "codProduto": "534", "ano": "2025", "mes": "Agosto", "data": "20/08/2025", "horarioChegada": "13:40", "solicitante": "LUCAS", "peca": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "codPecaFornecedor": "PM-534", "qt": 6, "qtAprovada": 5, "qtNaoAprovada": 1, "custoUnit": 180.00, "valorVenda": 290.00, "observacao": "" },
         { "ordemCompra": "OC-2025-007", "codProduto": "110", "ano": "2025", "mes": "Agosto", "data": "22/08/2025", "horarioChegada": "15:00", "solicitante": "WILLIAN NEVES", "peca": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "codPecaFornecedor": "MG-110", "qt": 20, "qtAprovada": 20, "qtNaoAprovada": 0, "custoUnit": 26.50, "valorVenda": 48.00, "observacao": "" },
@@ -368,15 +405,20 @@ if 'form_reset_counter' not in st.session_state:
     st.session_state.form_reset_counter = 0
 
 # -----------------------------------------------------------------------------
-# BARRA DE NAVEGAÇÃO SUPERIOR
+# BARRA DE NAVEGAÇÃO SUPERIOR (CORPORATIVA EXECUTIVA)
 # -----------------------------------------------------------------------------
 nav_col1, nav_col2, nav_col3 = st.columns([5, 2.5, 2.5])
 
 with nav_col1:
     st.markdown("""
-        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-            <span style="font-size: 1.4rem;">📦</span>
-            <span style="font-size: 1.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Sistema Integrado de Suprimentos</span>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+            <div style="background: linear-gradient(135deg, #0284c7, #0369a1); padding: 8px 12px; border-radius: 12px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
+                <span style="font-size: 1.25rem;">📦</span>
+            </div>
+            <div>
+                <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; display: block; line-height: 1.2;">Portal Integrado de Suprimentos</span>
+                <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">Gestão Operacional & Ordens de Compra</span>
+            </div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -390,7 +432,7 @@ with nav_col3:
         st.session_state.active_tab = "Pedido de Compras"
         st.rerun()
 
-st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1.25rem; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin-top: 0.75rem; margin-bottom: 1.5rem; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ABA 1: FORMULÁRIO DE CADASTRO E EDIÇÃO ("Pedido de Compras")
@@ -399,7 +441,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     st.subheader("📝 Lançamento & Gestão de Pedidos de Compra")
     st.caption("Cadastre novas ordens e sincronize em tempo real com a aba 'Ordem de Compra(Peças)'.")
 
-    # Pré-listas dinâmicas
+    # Listas dinâmicas a partir da base existente
     lista_fornecedores = sorted(list(set([d.get("fornecedor", "") for d in st.session_state.orders_data if d.get("fornecedor")])))
     lista_categorias = sorted(list(set([d.get("categoria", "") for d in st.session_state.orders_data if d.get("categoria")])))
     lista_solicitantes = sorted(list(set([d.get("solicitante", "") for d in st.session_state.orders_data if d.get("solicitante")])))
@@ -477,7 +519,7 @@ if st.session_state.active_tab == "Pedido de Compras":
         codigo_auto = catalogo_produtos.get(produto_selecionado, "") if produto_selecionado != "Outro (Digitar Manualmente)" else ""
         st.info(f"Cód. Planilha: **{codigo_auto or 'N/A'}**")
 
-    # ------------------ FORMULÁRIO COM TEMA 100% CLARO ------------------
+    # ------------------ FORMULÁRIO EXECUTIVO CLARO ------------------
     with st.form("form_pedido_completo", clear_on_submit=False):
         st.markdown("<h5 style='margin-bottom: 0.75rem; color: #0f172a;'>📦 Dados da Ordem e Peça</h5>", unsafe_allow_html=True)
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -514,7 +556,6 @@ if st.session_state.active_tab == "Pedido de Compras":
         st.markdown("<h5 style='margin-top: 1rem; margin-bottom: 0.75rem; color: #0f172a;'>📅 Prazos e Horários</h5>", unsafe_allow_html=True)
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            # Data do Pedido com calendário totalmente ajustado para fundo branco
             data_pedido = st.date_input("Data do Pedido*", value=def_data)
         with col_t2:
             horario_chegada = st.text_input("Horario de Chegada do Pedido*", value=def_hora, placeholder="Ex: 14:30")
@@ -571,7 +612,7 @@ if st.session_state.active_tab == "Pedido de Compras":
                     "observacao": observacao
                 }
 
-                # 1. Gravação na planilha Google
+                # 1. Envio para a planilha Google Sheets
                 sucesso_planilha, msg_planilha = gravar_na_planilha_google(registro_dados)
 
                 # 2. Atualização dos dados em memória
@@ -587,11 +628,11 @@ if st.session_state.active_tab == "Pedido de Compras":
                     else:
                         st.warning(f"⚠️ Gravado no painel interno. Aviso da planilha: {msg_planilha}")
                 
-                # Zera as informações do form mantendo a data atual e o próximo número de OC
+                # Zera campos de valores/quantidades mantendo data atual e próxima OC
                 st.session_state.form_reset_counter += 1
                 st.rerun()
 
-    # ------------------ TABELA COMPLETA (ORDENS DE COMPRA) 100% BRANCA ------------------
+    # ------------------ TABELA EXECUTIVA (100% FUNDO CLARO) ------------------
     st.markdown("---")
     st.markdown("<h4 style='color: #0f172a; margin-bottom: 0.75rem;'>📋 Ordens de Compra Registradas</h4>", unsafe_allow_html=True)
     
@@ -606,7 +647,7 @@ if st.session_state.active_tab == "Pedido de Compras":
     cols_existentes = [c for c in colunas_visiveis if c in df_preview.columns]
     df_render = df_preview[cols_existentes].copy()
 
-    # Formatação de valores monetários
+    # Formatação visual refinada dos valores
     if "custoUnit" in df_render.columns:
         df_render["custoUnit"] = df_render["custoUnit"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     if "valorVenda" in df_render.columns:
@@ -614,10 +655,10 @@ if st.session_state.active_tab == "Pedido de Compras":
     if "Custo Total (R$)" in df_render.columns:
         df_render["Custo Total (R$)"] = df_render["Custo Total (R$)"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    # Tabela 100% clara com HTML/CSS
+    # Tabela Executiva Renderizada em HTML Puro (Zero Preto / Zero Escuro)
     tabela_html = f"""
-    <div class="tabela-container-clara">
-        <table class="tabela-customizada">
+    <div class="corporate-table-wrapper">
+        <table class="corporate-table">
             <thead>
                 <tr>
                     {"".join(f"<th>{col}</th>" for col in df_render.columns)}
@@ -625,7 +666,12 @@ if st.session_state.active_tab == "Pedido de Compras":
             </thead>
             <tbody>
                 {"".join(
-                    "<tr>" + "".join(f"<td>{val}</td>" for val in row) + "</tr>"
+                    "<tr>" + "".join(
+                        f"<td><span class='badge-oc'>{val}</span></td>" if col == 'ordemCompra' else
+                        f"<td><span class='badge-category'>{val}</span></td>" if col == 'categoria' else
+                        f"<td>{val}</td>"
+                        for col, val in zip(df_render.columns, row)
+                    ) + "</tr>"
                     for row in df_render.values
                 )}
             </tbody>
@@ -652,13 +698,20 @@ elif st.session_state.active_tab == "Dashboard Compras":
       <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
       <script src="https://unpkg.com/lucide@latest"></script>
       <style>
-        body {{ font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f8fafc; color: #0f172a; }}
+        body {{ 
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
+          background-color: #f8fafc; 
+          color: #0f172a; 
+        }}
         .kpi-card {{
+          background-color: #ffffff;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }}
         .kpi-card:hover {{
           transform: translateY(-2px);
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+          box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
         }}
       </style>
     </head>
@@ -667,17 +720,17 @@ elif st.session_state.active_tab == "Dashboard Compras":
       <header class="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/25">
+            <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20">
               <i data-lucide="package-search" class="w-6 h-6"></i>
             </div>
             <div>
-              <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-              <p class="text-xs text-slate-500">Controle Operacional: Ordens de Compra, Custos Reais e Status de Atendimento</p>
+              <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel Executivo de Compras & Peças</h1>
+              <p class="text-xs text-slate-500">Controle Operacional: Ordens de Compra, Custos Reais e Atendimento</p>
             </div>
           </div>
           
           <div class="flex items-center gap-3">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Cálculos em Tempo Real
             </span>
           </div>
@@ -686,10 +739,10 @@ elif st.session_state.active_tab == "Dashboard Compras":
 
       <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-        <section class="bg-blue-50/80 border border-blue-200 rounded-2xl p-5 shadow-sm">
+        <section class="bg-gradient-to-r from-blue-50/90 to-sky-50/70 border border-blue-200/80 rounded-2xl p-5 shadow-sm">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-3">
-              <div class="p-2 rounded-xl bg-blue-600 text-white mt-0.5">
+              <div class="p-2.5 rounded-xl bg-blue-600 text-white mt-0.5 shadow-md shadow-blue-500/20">
                 <i data-lucide="clipboard-check" class="w-5 h-5"></i>
               </div>
               <div>
@@ -702,8 +755,6 @@ elif st.session_state.active_tab == "Dashboard Compras":
                   <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
                   <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
                   <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
-                  <p>• <strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor exibindo os <strong>valores numéricos e em R$ diretamente nas barras/fatias</strong>.</p>
-                  <p>• <strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com pesquisa em tempo real, quantidades solicitadas/atendidas/não atendidas e valor financeiro.</p>
                 </div>
               </div>
             </div>
@@ -758,9 +809,9 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- CARDS DE KPIS -->
+        <!-- CARDS DE KPIS EXECUTIVOS -->
         <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Valor Compras (Custo)</span>
               <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
@@ -773,7 +824,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total de Pedidos</span>
               <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600">
@@ -786,7 +837,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Qtde Solicitada</span>
               <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
@@ -799,7 +850,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             </div>
           </div>
 
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between ring-1 ring-emerald-500/20">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between ring-1 ring-emerald-500/20">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Peças Atendidas</span>
               <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
@@ -811,11 +862,11 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 <span id="kpiApprovedQty" class="text-xl font-bold tracking-tight text-emerald-600">0 un</span>
                 <p class="text-[11px] text-slate-400 mt-0.5">Aprovadas / Compradas</p>
               </div>
-              <span id="kpiApprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">0%</span>
+              <span id="kpiApprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">0%</span>
             </div>
           </div>
 
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between ring-1 ring-rose-500/20">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between ring-1 ring-rose-500/20">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Não Atendidas</span>
               <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600">
@@ -827,11 +878,11 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 <span id="kpiUnapprovedQty" class="text-xl font-bold tracking-tight text-rose-600">0 un</span>
                 <p class="text-[11px] text-slate-400 mt-0.5">Reprovadas / Pendentes</p>
               </div>
-              <span id="kpiUnapprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700">0%</span>
+              <span id="kpiUnapprovedPercent" class="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">0%</span>
             </div>
           </div>
 
-          <div class="kpi-card bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="kpi-card p-4 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between">
               <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Custo Médio / Pedido</span>
               <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
@@ -845,7 +896,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Top 5 Solicitantes em Agosto e Setembro -->
+        <!-- Gráficos Principais -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex justify-between items-center mb-4">
@@ -856,7 +907,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 </h3>
                 <p class="text-xs text-slate-500">Valores de peças demandadas</p>
               </div>
-              <span class="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Agosto</span>
+              <span class="text-xs font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200">Agosto</span>
             </div>
             <div class="relative h-64">
               <canvas id="chartTopAgosto"></canvas>
@@ -872,7 +923,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 </h3>
                 <p class="text-xs text-slate-500">Valores de peças demandadas</p>
               </div>
-              <span class="text-xs font-bold bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md">Setembro</span>
+              <span class="text-xs font-bold bg-cyan-50 text-cyan-700 px-2.5 py-1 rounded-md border border-cyan-200">Setembro</span>
             </div>
             <div class="relative h-64">
               <canvas id="chartTopSetembro"></canvas>
@@ -880,7 +931,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- Gráficos Visuais Adicionais -->
+        <!-- Distribuição por Categoria e Fornecedor -->
         <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex justify-between items-center mb-4">
@@ -909,7 +960,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
           </div>
         </section>
 
-        <!-- TABELA COM RESUMO POR PEÇA -->
+        <!-- Tabela Resumo Detalhado por Peça -->
         <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-200">
             <div>
@@ -1031,7 +1082,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
         function getChartTheme() {{
           const textColor = '#475569';
           const labelColor = '#0f172a';
-          const gridColor = '#e2e8f0';
+          const gridColor = '#f1f5f9';
 
           return {{
             responsive: true,
@@ -1043,7 +1094,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 backgroundColor: '#ffffff',
                 titleColor: '#0f172a',
                 bodyColor: '#334155',
-                borderColor: '#cbd5e1',
+                borderColor: '#e2e8f0',
                 borderWidth: 1,
                 padding: 10
               }},
@@ -1052,7 +1103,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
                 align: 'top',
                 offset: 2,
                 color: labelColor,
-                font: {{ family: 'Inter', weight: 'bold', size: 11 }},
+                font: {{ family: 'Plus Jakarta Sans', weight: 'bold', size: 11 }},
                 formatter: function(value) {{
                   if (value === 0 || value === null || value === undefined) return '';
                   return typeof value === 'number' && value >= 1000 ? value.toLocaleString('pt-BR') : value;
@@ -1060,8 +1111,8 @@ elif st.session_state.active_tab == "Dashboard Compras":
               }}
             }},
             scales: {{
-              x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }} }},
-              y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }}, beginAtZero: true }}
+              x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Plus Jakarta Sans', size: 10 }} }} }},
+              y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ family: 'Plus Jakarta Sans', size: 10 }} }}, beginAtZero: true }}
             }}
           }};
         }}
@@ -1132,7 +1183,7 @@ elif st.session_state.active_tab == "Dashboard Compras":
             plugins: {{
               legend: {{
                 position: 'right',
-                labels: {{ boxWidth: 12, color: '#475569', font: {{ family: 'Inter', size: 11 }} }}
+                labels: {{ boxWidth: 12, color: '#475569', font: {{ family: 'Plus Jakarta Sans', size: 11 }} }}
               }},
               datalabels: {{
                 color: '#ffffff',
