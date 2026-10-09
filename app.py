@@ -2,13 +2,16 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
+import re
+import os
+import base64
 
-# Link oficial fornecido do Google Apps Script Web App
+# Link oficial do Web App do Google Apps Script
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
 st.set_page_config(
     page_title="Gestão de Peças & Solicitações de Compras",
-    page_icon="📦",
+    page_icon="☕",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -28,22 +31,72 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==============================================================================
+# CARREGAMENTO EXATO DO ARQUIVO "Logotipo.PNG" NA MESMA PASTA DO APP.PY
+# ==============================================================================
+def obter_logo_base64():
+    """Localiza especificamente o Logotipo.PNG na pasta atual e converte para base64."""
+    pastas_busca = [
+        os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else "",
+        os.getcwd(),
+        "."
+    ]
+    
+    # Lista de nomes com prioridade para Logotipo.PNG
+    nomes_alvo = [
+        "Logotipo.PNG", "Logotipo.png", "logotipo.PNG", "logotipo.png",
+        "LOGOTIPO.PNG", "logo.PNG", "logo.png"
+    ]
+    
+    caminho_encontrado = None
+    for pasta in pastas_busca:
+        if not pasta:
+            continue
+        for nome in nomes_alvo:
+            candidato = os.path.join(pasta, nome)
+            if os.path.isfile(candidato):
+                caminho_encontrado = candidato
+                break
+        if caminho_encontrado:
+            break
+            
+    # Se ainda não encontrou diretamente, faz varredura insensível a maiúsculas/minúsculas
+    if not caminho_encontrado:
+        for pasta in pastas_busca:
+            if not pasta or not os.path.isdir(pasta):
+                continue
+            for arq in os.listdir(pasta):
+                if arq.lower() in ["logotipo.png", "logotipo.jpg", "logotipo.jpeg"]:
+                    caminho_encontrado = os.path.join(pasta, arq)
+                    break
+            if caminho_encontrado:
+                break
+
+    if caminho_encontrado and os.path.exists(caminho_encontrado):
+        ext = os.path.splitext(caminho_encontrado)[1].lower().replace(".", "")
+        mime = "jpeg" if ext in ["jpg", "jpeg"] else "png"
+        with open(caminho_encontrado, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("utf-8")
+            return f"data:image/{mime};base64,{encoded}"
+            
+    return ""
+
+logo_base64_src = obter_logo_base64()
+
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE = "270834817"
+GID_BASE_PECAS = "270834817"      # Aba: Base de Dados (catálogo)
+GID_ORDEM_COMPRA = "643448898"     # Aba: Ordem de Compra(Peças)
 
-URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
-URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
+URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE_PECAS}"
+URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def carregar_catalogo_planilha():
     df = None
     try:
-        df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
+        df = pd.read_csv(URL_CSV_CATALOGO, dtype=str)
     except Exception:
-        try:
-            df = pd.read_csv(URL_GVIZ_DIRECT, dtype=str)
-        except Exception:
-            pass
+        pass
 
     if df is None or df.empty:
         return []
@@ -69,9 +122,79 @@ def carregar_catalogo_planilha():
             })
     return catalogo
 
+def obter_dados_ordens_e_proxima_oc():
+    df = None
+    try:
+        df = pd.read_csv(URL_CSV_ORDENS, dtype=str)
+    except Exception:
+        pass
+
+    ocs_existentes = []
+    maior_por_ano = {}
+
+    if df is not None and not df.empty:
+        col_oc = df.columns[0]
+        col_cod = df.columns[1] if len(df.columns) > 1 else ""
+        col_prod = df.columns[2] if len(df.columns) > 2 else ""
+        col_cat = df.columns[3] if len(df.columns) > 3 else ""
+        col_data = df.columns[4] if len(df.columns) > 4 else ""
+        col_custo = df.columns[6] if len(df.columns) > 6 else ""
+        col_qt = df.columns[7] if len(df.columns) > 7 else ""
+        col_qt_aprov = df.columns[8] if len(df.columns) > 8 else ""
+        col_venda = df.columns[10] if len(df.columns) > 10 else ""
+        col_forn = df.columns[11] if len(df.columns) > 11 else ""
+        col_obs = df.columns[13] if len(df.columns) > 13 else ""
+
+        for _, r in df.iterrows():
+            oc_val = str(r[col_oc]).strip() if pd.notna(r[col_oc]) else ""
+            if not oc_val or oc_val.lower() in ["nan", "ordem de compra"]:
+                continue
+
+            match = re.search(r'OC-(\d{4})-(\d+)', oc_val, re.IGNORECASE)
+            if match:
+                ano_str = match.group(1)
+                seq_num = int(match.group(2))
+                maior_por_ano[ano_str] = max(maior_por_ano.get(ano_str, 0), seq_num)
+
+            obs_val = str(r[col_obs]) if pd.notna(r[col_obs]) else ""
+            solic = obs_val.replace("Solicitante:", "").strip() if "Solicitante:" in obs_val else ""
+
+            def to_float(val):
+                if not val or pd.isna(val): return 0.0
+                s = str(val).replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+                try: return float(s)
+                except: return 0.0
+
+            custo_u = to_float(r.get(col_custo, 0))
+            qt_val = int(to_float(r.get(col_qt, 1)))
+            qt_ap = int(to_float(r.get(col_qt_aprov, qt_val)))
+            venda_u = to_float(r.get(col_venda, 0))
+
+            ocs_existentes.append({
+                "oc": oc_val,
+                "data": str(r.get(col_data, "")).strip(),
+                "solicitante": solic,
+                "fornecedor": str(r.get(col_forn, "")).strip(),
+                "codigoPeca": str(r.get(col_cod, "")).strip(),
+                "peca": str(r.get(col_prod, "")).strip(),
+                "categoria": str(r.get(col_cat, "")).strip(),
+                "qt": qt_val,
+                "qtAprovada": qt_ap,
+                "qtNaoAprovada": max(0, qt_val - qt_ap),
+                "custoUnit": custo_u,
+                "vendaUnit": venda_u if venda_u > 0 else (custo_u * 1.70),
+                "custoTotal": qt_ap * custo_u
+            })
+
+    return ocs_existentes, maior_por_ano
+
 catalogo_pecas = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
+
+ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
+ocs_planilha_json = json.dumps(ocs_planilha, ensure_ascii=False)
+max_seq_anos_json = json.dumps(max_seq_anos, ensure_ascii=False)
 
 html_code = f"""
 <!DOCTYPE html>
@@ -86,9 +209,9 @@ html_code = f"""
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body {{ 
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background-color: #f1f5f9;
-      color: #1e293b;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+      background-color: #f1f5f9; 
+      color: #1e293b; 
     }}
     .kpi-card {{
       background-color: #ffffff;
@@ -99,51 +222,51 @@ html_code = f"""
       transform: translateY(-2px);
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }}
-    .nav-btn.active {{
-      background-color: #0284c7;
-      color: #ffffff;
+    .nav-btn.active {{ 
+      background-color: #0284c7; 
+      color: #ffffff; 
       box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.25);
     }}
-    .nav-btn.inactive {{
-      background-color: #ffffff;
-      color: #64748b;
-      border: 1px solid #e2e8f0;
+    .nav-btn.inactive {{ 
+      background-color: #ffffff; 
+      color: #64748b; 
+      border: 1px solid #e2e8f0; 
     }}
-
     @media print {{
-      body * {{
-        visibility: hidden;
-      }}
-      #printArea, #printArea * {{
-        visibility: visible;
-      }}
-      #printArea {{
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        background-color: #ffffff !important;
-        padding: 24px;
+      body * {{ visibility: hidden; }}
+      #printArea, #printArea * {{ visibility: visible; }}
+      #printArea {{ 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        padding: 24px; 
+        background: #ffffff !important; 
         color: #000000 !important;
       }}
-      .no-print {{
-        display: none !important;
-      }}
+      .no-print {{ display: none !important; }}
     }}
   </style>
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- Header Superior -->
+  <!-- Header Superior com Logotipo da Master Café -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
       <div class="flex items-center gap-3">
-        <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/25">
-          <i data-lucide="package-search" class="w-6 h-6"></i>
+        <!-- Logotipo da Master Café -->
+        <div class="flex items-center justify-center p-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" style="height: 52px; min-width: 52px;">
+          <img id="headerLogoImg" src="{logo_base64_src}" alt="Master Café" class="max-h-12 w-auto object-contain" onerror="this.style.display='none'; document.getElementById('headerFallbackIcon').style.display='flex';">
+          <div id="headerFallbackIcon" style="display: {'none' if logo_base64_src else 'flex'};" class="w-10 h-10 bg-amber-700 text-white rounded-lg items-center justify-center font-black text-sm">
+            MC
+          </div>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Edição e Reimpressão de Pedidos · {total_itens_carregados} peças sincronizadas</p>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            Master Café
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">Gestão de Peças</span>
+          </h1>
+          <p class="text-xs text-slate-500">Painel de Compras, Ordens de Serviço & Estoque · {total_itens_carregados} peças na base</p>
         </div>
       </div>
       
@@ -157,7 +280,7 @@ html_code = f"""
           Nova Solicitação (OC)
         </button>
         <button onclick="window.parent.location.reload()" title="Clique para recarregar da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Peças (Recarregar 🔄)
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Sincronizar 🔄
         </button>
       </div>
     </div>
@@ -404,7 +527,7 @@ html_code = f"""
             </div>
             <div>
               <h2 id="formTitleText" class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Fornecedor único · Múltiplas peças · Impressão oficial com valores de custo</p>
+              <p class="text-xs text-slate-500">Fornecedor único · Múltiplas peças · Sequência controlada diretamente pela planilha</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -618,13 +741,18 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (APENAS CUSTO) ==================== -->
+    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (COM LOGO DA MASTER CAFÉ) ==================== -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
-        <div class="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
-          <div>
-            <h1 class="text-2xl font-black uppercase tracking-tight">ORDEM DE COMPRA</h1>
-            <p class="text-xs text-slate-600">Controle Operacional de Peças & Suprimentos</p>
+        
+        <!-- Topo da Impressão com o Logotipo -->
+        <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
+          <div class="flex items-center gap-4">
+            <img id="printLogoImg" src="{logo_base64_src}" alt="Master Café" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
+            <div>
+              <h1 class="text-2xl font-black uppercase tracking-tight">Master Café</h1>
+              <p class="text-xs text-slate-600 font-bold uppercase tracking-wider">Ordem de Compra de Peças & Suprimentos</p>
+            </div>
           </div>
           <div class="text-right">
             <span id="printOCNumero" class="text-xl font-mono font-black text-blue-800">OC-0000-0000</span>
@@ -690,6 +818,9 @@ html_code = f"""
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     const catalogoPecas = {catalogo_json};
+
+    let rawOrdersData = {ocs_planilha_json};
+    let maxSeqAnosPlanilha = {max_seq_anos_json};
 
     // Popula Datalists
     const dlCodigos = document.getElementById('listaCodigosPecas');
@@ -898,29 +1029,42 @@ html_code = f"""
       renderizarTabelaItensOC();
     }}
 
-    let rawOrdersData = [];
     let todasOCsEmitidas = {{}};
     let ultimaOCSalva = null;
-    let ocEmEdicao = null; // Guarda o número da OC quando estiver em edição
+    let ocEmEdicao = null;
+
+    rawOrdersData.forEach(item => {{
+      if (!todasOCsEmitidas[item.oc]) {{
+        todasOCsEmitidas[item.oc] = {{
+          oc: item.oc,
+          data: item.data,
+          solicitante: item.solicitante,
+          fornecedor: item.fornecedor,
+          itens: []
+        }};
+      }}
+      todasOCsEmitidas[item.oc].itens.push(item);
+    }});
 
     function gerarNumeroOC(anoSelecionado) {{
-      const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
-      let maiorSequencial = 0;
-      pedidosDoAno.forEach(item => {{
-        if (item.oc && item.oc.startsWith(`OC-${{anoSelecionado}}-`)) {{
-          const partes = item.oc.split('-');
-          const seq = parseInt(partes[2]);
-          if (!isNaN(seq) && seq > maiorSequencial) {{
-            maiorSequencial = seq;
+      let maior = maxSeqAnosPlanilha[anoSelecionado] || 0;
+
+      rawOrdersData.forEach(item => {{
+        if (item.oc) {{
+          const match = item.oc.match(new RegExp('OC-' + anoSelecionado + '-(\\\\d+)', 'i'));
+          if (match) {{
+            const seq = parseInt(match[1]);
+            if (seq > maior) maior = seq;
           }}
         }}
       }});
-      const proximoSeq = String(maiorSequencial + 1).padStart(4, '0');
+
+      const proximoSeq = String(maior + 1).padStart(4, '0');
       return `OC-${{anoSelecionado}}-${{proximoSeq}}`;
     }}
 
     function atualizarProximoNumeroOC() {{
-      if (ocEmEdicao) return; // Não altera o número se estiver editando
+      if (ocEmEdicao) return;
       const anoSelecionado = document.getElementById('formAno').value;
       document.getElementById('formNumeroOC').value = gerarNumeroOC(anoSelecionado);
     }}
@@ -932,9 +1076,6 @@ html_code = f"""
       }}
     }}
 
-    // ==============================================================================
-    // FUNÇÃO PARA INICIAR A EDIÇÃO DE UMA ORDEM DE COMPRA
-    // ==============================================================================
     function editarOCEspecifica(numeroOC) {{
       const ocData = todasOCsEmitidas[numeroOC];
       if (!ocData) {{
@@ -942,30 +1083,20 @@ html_code = f"""
         return;
       }}
 
-      // Garante que a página do formulário esteja visível
       switchPage('formulario');
-
       ocEmEdicao = numeroOC;
 
-      // Carrega os dados no formulário
       document.getElementById('formNumeroOC').value = ocData.oc;
-      document.getElementById('formAno').value = ocData.ano;
-      document.getElementById('formMes').value = ocData.mes;
-      document.getElementById('formData').value = ocData.data;
-      document.getElementById('formSolicitante').value = ocData.solicitante;
-      document.getElementById('formFornecedor').value = ocData.fornecedor;
+      if (ocData.solicitante) document.getElementById('formSolicitante').value = ocData.solicitante;
+      if (ocData.fornecedor) document.getElementById('formFornecedor').value = ocData.fornecedor;
 
-      // Carrega a lista de peças da OC
       itensDaOrdemAtual = JSON.parse(JSON.stringify(ocData.itens));
       renderizarTabelaItensOC();
 
-      // Ajusta os textos visuais indicando edição
       document.getElementById('alertEditMode').classList.remove('hidden');
       document.getElementById('labelEditOC').innerText = ocData.oc;
       document.getElementById('formTitleText').innerText = 'Edição da Ordem de Compra: ' + ocData.oc;
       document.getElementById('btnSalvarText').innerText = 'Atualizar Ordem de Compra';
-
-      // Rola a tela até o formulário
       document.getElementById('orderForm').scrollIntoView({{ behavior: 'smooth', block: 'start' }});
     }}
 
@@ -981,9 +1112,6 @@ html_code = f"""
       atualizarProximoNumeroOC();
     }}
 
-    // ==============================================================================
-    // SALVAMENTO / ATUALIZAÇÃO DA ORDEM DE COMPRA
-    // ==============================================================================
     let enviandoAgora = false;
 
     function handleFinalSubmit(e) {{
@@ -1030,7 +1158,6 @@ html_code = f"""
       btnSalvar.disabled = true;
       btnSalvar.innerText = ehEdicao ? 'Atualizando na planilha...' : 'Gravando na planilha...';
 
-      // Disparo único via Beacon Image (GET) para o Google Apps Script
       try {{
         const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
         const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
@@ -1047,7 +1174,6 @@ html_code = f"""
           (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
       }}, 800);
 
-      // Se for edição, remove os itens antigos antes de inserir os novos
       if (ehEdicao) {{
         rawOrdersData = rawOrdersData.filter(item => item.oc !== oc);
       }}
@@ -1074,9 +1200,14 @@ html_code = f"""
         rawOrdersData.unshift(novoRegistro);
       }});
 
+      const match = oc.match(new RegExp('OC-' + ano + '-(\\\\d+)', 'i'));
+      if (match) {{
+        const seqSalvo = parseInt(match[1]);
+        maxSeqAnosPlanilha[ano] = Math.max(maxSeqAnosPlanilha[ano] || 0, seqSalvo);
+      }}
+
       const totalPecas = itensDaOrdemAtual.length;
 
-      // Reseta o modo de edição se ativo
       if (ehEdicao) {{
         ocEmEdicao = null;
         document.getElementById('alertEditMode').classList.add('hidden');
@@ -1084,7 +1215,6 @@ html_code = f"""
         document.getElementById('btnSalvarText').innerText = 'Salvar e Emitir Ordem de Compra';
       }}
 
-      // Limpa os campos da tela
       limparOCAtual();
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
@@ -1098,7 +1228,7 @@ html_code = f"""
       document.getElementById('alertSuccessTitle').innerText = ehEdicao ? 
         `✅ Ordem de Compra ${{oc}} atualizada com sucesso (${{totalPecas}} peças)!` :
         `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
-      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados registrados na planilha.`;
+      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados gravados na planilha Google Sheets.`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       lucide.createIcons();
@@ -1111,7 +1241,7 @@ html_code = f"""
         return;
       }}
 
-      recentBody.innerHTML = rawOrdersData.slice(0, 20).map(item => `
+      recentBody.innerHTML = rawOrdersData.slice(0, 25).map(item => `
         <tr class="hover:bg-slate-50 transition font-medium">
           <td class="py-2 px-3 whitespace-nowrap">
             <div class="flex items-center gap-1.5">
@@ -1127,8 +1257,8 @@ html_code = f"""
           </td>
           <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.oc}}</td>
           <td class="py-2.5 px-3">${{item.data}}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.solicitante}}</td>
-          <td class="py-2.5 px-3 font-bold text-blue-900">${{item.fornecedor}}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.solicitante || '-'}}</td>
+          <td class="py-2.5 px-3 font-bold text-blue-900">${{item.fornecedor || '-'}}</td>
           <td class="py-2.5 px-3 font-mono text-slate-600">${{item.codigoPeca}}</td>
           <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.peca}}</td>
           <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
@@ -1155,11 +1285,11 @@ html_code = f"""
         if (itens.length > 0) {{
           executarImpressao({{
             oc: numeroOC,
-            ano: itens[0].ano,
-            mes: itens[0].mes,
-            data: itens[0].data,
-            solicitante: itens[0].solicitante,
-            fornecedor: itens[0].fornecedor,
+            ano: itens[0].ano || '2026',
+            mes: itens[0].mes || '',
+            data: itens[0].data || '',
+            solicitante: itens[0].solicitante || '',
+            fornecedor: itens[0].fornecedor || '',
             itens: itens
           }});
           return;
@@ -1172,7 +1302,7 @@ html_code = f"""
 
     function executarImpressao(dadosOC) {{
       document.getElementById('printOCNumero').innerText = dadosOC.oc;
-      document.getElementById('printOCData').innerText = `Data: ${{dadosOC.data}} (${{dadosOC.mes}}/${{dadosOC.ano}})`;
+      document.getElementById('printOCData').innerText = `Data: ${{dadosOC.data}}`;
       document.getElementById('printOCFornecedor').innerText = dadosOC.fornecedor;
       document.getElementById('printOCSolicitante').innerText = dadosOC.solicitante;
 
@@ -1193,8 +1323,8 @@ html_code = f"""
             <td class="py-2 px-3 border border-slate-300">${{item.peca}}</td>
             <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
             <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
-            <td class="py-2.5 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
-            <td class="py-2.5 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
           </tr>
         `;
       }}).join('');
@@ -1273,10 +1403,10 @@ html_code = f"""
       filterCategory.innerHTML = '<option value="ALL">Todas as Categorias</option>';
       filterRequester.innerHTML = '<option value="ALL">Todos os Solicitantes</option>';
 
-      const years = [...new Set(rawOrdersData.map(d => d.ano))].sort();
-      const months = [...new Set(rawOrdersData.map(d => d.mes))];
-      const categories = [...new Set(rawOrdersData.map(d => d.categoria))].sort();
-      const requesters = [...new Set(rawOrdersData.map(d => d.solicitante))].sort();
+      const years = [...new Set(rawOrdersData.map(d => d.ano).filter(Boolean))].sort();
+      const months = [...new Set(rawOrdersData.map(d => d.mes).filter(Boolean))];
+      const categories = [...new Set(rawOrdersData.map(d => d.categoria).filter(Boolean))].sort();
+      const requesters = [...new Set(rawOrdersData.map(d => d.solicitante).filter(Boolean))].sort();
 
       years.forEach(y => {{ const opt = document.createElement('option'); opt.value = y; opt.textContent = y; filterYear.appendChild(opt); }});
       months.forEach(m => {{ const opt = document.createElement('option'); opt.value = m; opt.textContent = m; filterMonth.appendChild(opt); }});
@@ -1358,10 +1488,10 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
-      const totalCusto = filtered.reduce((acc, cur) => acc + cur.custoTotal, 0);
-      const totalItens = filtered.reduce((acc, cur) => acc + cur.qt, 0);
-      const totalAtendidas = filtered.reduce((acc, cur) => acc + cur.qtAprovada, 0);
-      const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + cur.qtNaoAprovada, 0);
+      const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
+      const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
+      const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
+      const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtNaoAprovada || 0), 0);
       
       const ocsUnicas = new Set(filtered.map(f => f.oc)).size;
       const avgCost = ocsUnicas > 0 ? (totalCusto / ocsUnicas) : 0;
@@ -1378,33 +1508,14 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
-      const agostoItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Agosto');
-      const setembroItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Setembro');
-
-      function getTop5(items) {{
-        const counts = {{}};
-        items.forEach(d => counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt);
-        return Object.entries(counts).map(([name, qt]) => ({{ name, qt }})).sort((a, b) => b.qt - a.qt).slice(0, 5);
-      }}
-
-      const topAgosto = getTop5(agostoItems);
-      chartAgosto.data.labels = topAgosto.map(d => d.name);
-      chartAgosto.data.datasets[0].data = topAgosto.map(d => d.qt);
-      chartAgosto.update();
-
-      const topSetembro = getTop5(setembroItems);
-      chartSetembro.data.labels = topSetembro.map(d => d.name);
-      chartSetembro.data.datasets[0].data = topSetembro.map(d => d.qt);
-      chartSetembro.update();
-
       const catCounts = {{}};
-      filtered.forEach(d => catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt);
+      filtered.forEach(d => {{ if(d.categoria) catCounts[d.categoria] = (catCounts[d.categoria] || 0) + (d.qt || 0); }});
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
       const supplierCosts = {{}};
-      filtered.forEach(d => supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal);
+      filtered.forEach(d => {{ if(d.fornecedor) supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + (d.custoTotal || 0); }});
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
@@ -1428,19 +1539,19 @@ html_code = f"""
             custoTotal: 0
           }};
         }}
-        grouped[key].qtTotal += item.qt;
-        grouped[key].qtAtendida += item.qtAprovada;
-        grouped[key].qtNaoAtendida += item.qtNaoAprovada;
+        grouped[key].qtTotal += (item.qt || 0);
+        grouped[key].qtAtendida += (item.qtAprovada || 0);
+        grouped[key].qtNaoAtendida += (item.qtNaoAprovada || 0);
         grouped[key].pedidosCount += 1;
-        grouped[key].custoTotal += item.custoTotal;
+        grouped[key].custoTotal += (item.custoTotal || 0);
       }});
 
       let itemsArray = Object.values(grouped);
       if (searchTerm) {{
         itemsArray = itemsArray.filter(i => 
-          i.peca.toLowerCase().includes(searchTerm) || 
-          i.codigoPeca.toLowerCase().includes(searchTerm) ||
-          i.categoria.toLowerCase().includes(searchTerm)
+          (i.peca && i.peca.toLowerCase().includes(searchTerm)) || 
+          (i.codigoPeca && i.codigoPeca.toLowerCase().includes(searchTerm)) ||
+          (i.categoria && i.categoria.toLowerCase().includes(searchTerm))
         );
       }}
 
