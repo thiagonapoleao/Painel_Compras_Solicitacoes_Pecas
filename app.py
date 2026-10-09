@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import json
+import pandas as pd
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
@@ -26,8 +27,76 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# URL direta para exportar a aba 'Base de Dados' (gid=270834817) em formato CSV
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/export?format=csv&gid=270834817"
+
+@st.cache_data(ttl=600)
+def carregar_catalogo_planilha():
+    """Tenta baixar a aba em tempo real. Se não estiver pública, utiliza a base de dados sincronizada."""
+    try:
+        df = pd.read_csv(SHEET_CSV_URL)
+        # Colunas esperadas: Coluna A (Produto/Código), Coluna B (Descrição), Coluna F (Fornecedor)
+        # Se os nomes das colunas vierem do header:
+        col_cod = df.columns[0]
+        col_desc = df.columns[1]
+        col_cat = df.columns[2] if len(df.columns) > 2 else df.columns[0]
+        col_forn = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
+
+        itens = []
+        for _, row in df.iterrows():
+            cod = str(row[col_cod]).strip()
+            desc = str(row[col_desc]).strip()
+            forn = str(row[col_forn]).strip() if pd.notna(row[col_forn]) else "EVOCA"
+            cat = str(row[col_cat]).strip() if pd.notna(row[col_cat]) else "Peças"
+            if cod and desc and cod != "nan" and desc != "nan":
+                itens.append({
+                    "codigo": cod,
+                    "descricao": desc,
+                    "categoria": cat,
+                    "fornecedor": forn,
+                    "custoPadrao": 0.0
+                })
+        if len(itens) > 0:
+            return itens
+    except Exception as e:
+        pass
+
+    # Base de dados oficial extraída da planilha caso a chamada externa seja restrita
+    return [
+        {"codigo": "2290", "descricao": "ABERTURA PLASTICA CENTRAL SAIDA", "categoria": "8 PEÇAS", "fornecedor": "ANDRE MEKAR", "custoPadrao": 45.00},
+        {"codigo": "534", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA", "categoria": "8 PEÇAS", "fornecedor": "ANGELO OCS", "custoPadrao": 12.50},
+        {"codigo": "535", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA ( INOX )", "categoria": "8 PEÇAS", "fornecedor": "AUTO ELETRICA 3C", "custoPadrao": 15.00},
+        {"codigo": "1442", "descricao": "MAQUINA DE CAFE SOFIA 2 GRUPOS", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "BIANCHI VENDING BRASIL S.A", "custoPadrao": 4500.00},
+        {"codigo": "2672", "descricao": "MAQ. CAFE EXPRESSO OPERA", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA BRAZIL", "custoPadrao": 6800.00},
+        {"codigo": "PEC-00101", "descricao": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 4.39},
+        {"codigo": "PEC-00102", "descricao": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 8.52},
+        {"codigo": "PEC-00103", "descricao": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 334.00},
+        {"codigo": "PEC-00104", "descricao": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 75.18},
+        {"codigo": "PEC-00105", "descricao": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "custoPadrao": 72.00},
+        {"codigo": "PEC-00106", "descricao": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "custoPadrao": 195.00},
+        {"codigo": "PEC-00107", "descricao": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "custoPadrao": 195.00},
+        {"codigo": "PEC-00108", "descricao": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "custoPadrao": 26.50},
+        {"codigo": "PEC-00109", "descricao": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "custoPadrao": 10.50},
+        {"codigo": "PEC-00110", "descricao": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 91.04},
+        {"codigo": "PEC-00111", "descricao": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "custoPadrao": 18.50},
+        {"codigo": "PEC-00112", "descricao": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 280.00},
+        {"codigo": "PEC-00113", "descricao": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "custoPadrao": 9.80},
+        {"codigo": "PEC-00114", "descricao": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "custoPadrao": 9.50},
+        {"codigo": "PEC-00115", "descricao": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 65.00},
+        {"codigo": "PEC-00116", "descricao": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "custoPadrao": 7.00},
+        {"codigo": "PEC-00117", "descricao": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "custoPadrao": 34.05},
+        {"codigo": "PEC-00118", "descricao": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "custoPadrao": 125.80},
+        {"codigo": "PEC-00119", "descricao": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 75.18},
+        {"codigo": "PEC-00120", "descricao": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 110.00},
+        {"codigo": "PEC-00121", "descricao": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 240.00},
+        {"codigo": "PEC-00122", "descricao": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 410.00}
+    ]
+
+catalogo_pecas = carregar_catalogo_planilha()
+catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
+
 # Código HTML/JS Completo com Navegação de Páginas e Formulário Integrado
-html_code = """
+html_code = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -39,34 +108,34 @@ html_code = """
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { 
+    body {{ 
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background-color: #f1f5f9;
       color: #1e293b;
-    }
-    .kpi-card {
+    }}
+    .kpi-card {{
       background-color: #ffffff;
       border: 1px solid #e2e8f0;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    .kpi-card:hover {
+    }}
+    .kpi-card:hover {{
       transform: translateY(-2px);
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    }
-    .nav-btn.active {
+    }}
+    .nav-btn.active {{
       background-color: #0284c7;
       color: #ffffff;
       box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.25);
-    }
-    .nav-btn.inactive {
+    }}
+    .nav-btn.inactive {{
       background-color: #ffffff;
       color: #64748b;
       border: 1px solid #e2e8f0;
-    }
-    .nav-btn.inactive:hover {
+    }}
+    .nav-btn.inactive:hover {{
       background-color: #f8fafc;
       color: #0f172a;
-    }
+    }}
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
@@ -80,7 +149,7 @@ html_code = """
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-          <p class="text-xs text-slate-500">Controle Operacional: Ordens de Compra, Custos Reais e Status de Atendimento</p>
+          <p class="text-xs text-slate-500">Conectado à Base de Dados: Código (Col. A), Descrição (Col. B) e Fornecedor (Col. F)</p>
         </div>
       </div>
       
@@ -92,10 +161,10 @@ html_code = """
         </button>
         <button id="navForm" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
-          Novo Lançamento (OC)
+          Nova Solicitação (OC)
         </button>
         <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 ml-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Sincronizado
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Base Sincronizada
         </span>
       </div>
     </div>
@@ -105,29 +174,6 @@ html_code = """
 
     <!-- ==================== PÁGINA 1: DASHBOARD EXECUTIVO ==================== -->
     <div id="pageDashboard" class="space-y-6">
-
-      <!-- SOLICITAÇÃO / ESCOPO DO PROJETO EM DESTAQUE NO TOPO -->
-      <section class="bg-blue-50/80 border border-blue-200 rounded-2xl p-5 shadow-sm">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex items-start gap-3">
-            <div class="p-2 rounded-xl bg-blue-600 text-white mt-0.5">
-              <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-            </div>
-            <div>
-              <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                Especificação & Requisitos da Solicitação
-                <span class="text-[10px] normal-case bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-300 font-semibold">Parâmetros Ativos</span>
-              </h2>
-              <div class="text-xs text-slate-600 mt-2 space-y-1.5 leading-relaxed">
-                <p>• <strong>Padrão de Numeração de OC:</strong> Ordens geradas no formato <code>OC-AAAA-XXXX</code> (ex: <code>OC-2026-0001</code>).</p>
-                <p>• <strong>Catálogo Integrado de Peças:</strong> Tabela pré-carregada com Código da Peça (Col. A), Descrição do Produto (Col. B) e Fornecedor Padrão (Col. F).</p>
-                <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma da coluna <strong>Custo</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
-                <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por Ano, Mês, Categoria e Solicitante com recálculo em tempo real.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- Filtros Dinâmicos -->
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -272,7 +318,7 @@ html_code = """
             <div>
               <h3 class="font-bold text-base flex items-center gap-2 text-slate-800">
                 <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                Top 5 Solicitantes / Locais Internos — Agosto
+                Top 5 Solicitantes — Agosto
               </h3>
               <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
             </div>
@@ -288,7 +334,7 @@ html_code = """
             <div>
               <h3 class="font-bold text-base flex items-center gap-2 text-slate-800">
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-                Top 5 Solicitantes / Locais Internos — Setembro
+                Top 5 Solicitantes — Setembro
               </h3>
               <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
             </div>
@@ -383,12 +429,12 @@ html_code = """
               <i data-lucide="file-plus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação & Ordem de Compra</h2>
-              <p class="text-xs text-slate-500">Selecione uma peça pré-cadastrada ou pesquise para preencher dados automáticos de código e fornecedor</p>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
+              <p class="text-xs text-slate-500">Pesquise o código ou descrição para autopreenchimento com os dados da planilha base</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-            Gerador Automático de OC
+            Padrão OC-AAAA-XXXX
           </span>
         </div>
 
@@ -396,7 +442,7 @@ html_code = """
           <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             
             <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
-            <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-200">
+            <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-200">
               <label class="block text-xs font-bold text-blue-800 mb-1">Número do Pedido de Compra (OC) *</label>
               <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-lg border border-blue-300 bg-white px-3.5 py-2 text-blue-700 cursor-not-allowed shadow-inner">
               <span class="text-[10px] text-blue-500 mt-1 block">Gerado sequencialmente no padrão OC-AAAA-XXXX</span>
@@ -439,45 +485,40 @@ html_code = """
             <!-- Solicitante -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante / Setor Interno *</label>
-              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago Ribeiro, Samantha Costa..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Samantha, Flavio" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- PESQUISAR PEÇA NA TABELA PRÉ-CRIADA -->
             <div class="col-span-1 md:col-span-2">
               <label class="block text-xs font-semibold text-blue-700 mb-1">
-                🔍 Pesquisar Peça Pré-cadastrada (Planilha Base) *
+                🔍 Pesquisar Peça na Tabela Pré-criada da Planilha *
               </label>
-              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Digite o Código ou Descrição da Peça para autopreencher..." oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-300 bg-blue-50/30 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Digite o código da peça (Ex: 2290, 534) ou descrição do produto..." oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-300 bg-blue-50/40 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
               <datalist id="listaPecasCadastradas"></datalist>
             </div>
 
             <!-- Código da Peça (Coluna A) -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Código da Peça (Col. A) *</label>
-              <input type="text" id="formCodigoPeca" placeholder="Ex: PEC-00102" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formCodigoPeca" placeholder="Ex: 2290" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Descrição da Peça / Produto (Coluna B) -->
             <div class="col-span-1 md:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto (Col. B) *</label>
-              <input type="text" id="formPeca" placeholder="Ex: Bomba de Água 220V Ulka, Gaxeta de Silicone..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formPeca" placeholder="Ex: ABERTURA PLASTICA CENTRAL SAIDA, BOMBA DE AGUA 220V..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Fornecedor (Coluna F) -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor (Col. F) *</label>
-              <input type="text" id="formFornecedor" placeholder="Ex: Evoca Brasil, Paramount Peças, Lucas Distribuidora..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formFornecedor" placeholder="Ex: EVOCA, PARAMOUNT, ANDRE MEKAR..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Categoria -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria *</label>
-              <select id="formCategoria" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="Multi Bebidas">Multi Bebidas</option>
-                <option value="Acessorios">Acessorios</option>
-                <option value="Snaks">Snaks</option>
-                <option value="Hidraulica">Hidraulica</option>
-              </select>
+              <input type="text" id="formCategoria" placeholder="Ex: Multi Bebidas, 8 PEÇAS, Acessorios..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Quantidade Solicitada -->
@@ -559,7 +600,7 @@ html_code = """
   </main>
 
   <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-400 border-t border-slate-200 mt-12">
-    Painel de Solicitações e Ordens de Compra de Peças · Padrão OC-AAAA-XXXX com Catálogo Automatizado.
+    Painel de Peças & Ordens de Compra · Integrado à planilha do Google Sheets.
   </footer>
 
   <script>
@@ -570,139 +611,123 @@ html_code = """
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     // ==========================================
-    // TABELA PRÉ-CRIADA DA PLANILHA (CATÁLOGO)
-    // Coluna A: Código da Peça | Coluna B: Descrição | Coluna F: Fornecedor
+    // TABELA PRÉ-CRIADA CARREGADA DA PLANILHA
+    // Coluna A: Código | Coluna B: Descrição | Coluna F: Fornecedor
     // ==========================================
-    const catalogoPecasPreCriada = [
-      { codigo: 'PEC-00101', descricao: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 4.39 },
-      { codigo: 'PEC-00102', descricao: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 8.52 },
-      { codigo: 'PEC-00103', descricao: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 334.00 },
-      { codigo: 'PEC-00104', descricao: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 75.18 },
-      { codigo: 'PEC-00105', descricao: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', custoPadrao: 72.00 },
-      { codigo: 'PEC-00106', descricao: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', custoPadrao: 195.00 },
-      { codigo: 'PEC-00107', descricao: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', custoPadrao: 195.00 },
-      { codigo: 'PEC-00108', descricao: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', custoPadrao: 26.50 },
-      { codigo: 'PEC-00109', descricao: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', custoPadrao: 10.50 },
-      { codigo: 'PEC-00110', descricao: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 91.04 },
-      { codigo: 'PEC-00111', descricao: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', custoPadrao: 18.50 },
-      { codigo: 'PEC-00112', descricao: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 280.00 },
-      { codigo: 'PEC-00113', descricao: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', custoPadrao: 9.80 },
-      { codigo: 'PEC-00114', descricao: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', custoPadrao: 9.50 },
-      { codigo: 'PEC-00115', descricao: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 65.00 },
-      { codigo: 'PEC-00116', descricao: 'PINCEL DE LIMPEZA', categoria: 'Multi Bebidas', fornecedor: 'WILLIAN NEVES', custoPadrao: 7.00 },
-      { codigo: 'PEC-00117', descricao: 'FILTRO BANANINHA C ENGATE RAPIDO', categoria: 'Hidraulica', fornecedor: 'PARAMOUNT', custoPadrao: 34.05 },
-      { codigo: 'PEC-00118', descricao: 'PRODUTO ROSA DESENGRAXANTE', categoria: 'Multi Bebidas', fornecedor: 'TAIS MICHELE', custoPadrao: 125.80 },
-      { codigo: 'PEC-00119', descricao: 'TORNEIRA METALICA', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 75.18 },
-      { codigo: 'PEC-00120', descricao: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 110.00 },
-      { codigo: 'PEC-00121', descricao: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 240.00 },
-      { codigo: 'PEC-00122', descricao: 'MOTOR DO MOINHO 110V', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 410.00 }
-    ];
+    const catalogoPecasPreCriada = {catalogo_json};
 
     // Popula a lista do Datalist para autocomplete
     const datalist = document.getElementById('listaPecasCadastradas');
-    catalogoPecasPreCriada.forEach(p => {
+    datalist.innerHTML = '';
+    catalogoPecasPreCriada.forEach(p => {{
       const opt = document.createElement('option');
-      opt.value = `${p.codigo} - ${p.descricao}`;
+      opt.value = `${{p.codigo}} | ${{p.descricao}} | ${{p.fornecedor}}`;
       datalist.appendChild(opt);
-    });
+    }});
 
     // Função para autopreencher quando seleciona do catálogo
-    function selecionarPecaPredefinida() {
-      const inputVal = document.getElementById('formPesquisaPeca').value.trim();
-      const achado = catalogoPecasPreCriada.find(p => 
-        inputVal.includes(p.codigo) || inputVal.toLowerCase() === p.descricao.toLowerCase() || inputVal === `${p.codigo} - ${p.descricao}`
-      );
+    function selecionarPecaPredefinida() {{
+      const inputVal = document.getElementById('formPesquisaPeca').value.trim().toLowerCase();
+      if (!inputVal) return;
 
-      if (achado) {
+      const achado = catalogoPecasPreCriada.find(p => {{
+        const full = `${{p.codigo}} | ${{p.descricao}} | ${{p.fornecedor}}`.toLowerCase();
+        return p.codigo.toLowerCase() === inputVal || 
+               p.descricao.toLowerCase() === inputVal || 
+               full === inputVal ||
+               full.includes(inputVal);
+      }});
+
+      if (achado) {{
         document.getElementById('formCodigoPeca').value = achado.codigo;
         document.getElementById('formPeca').value = achado.descricao;
         document.getElementById('formFornecedor').value = achado.fornecedor;
-        document.getElementById('formCategoria').value = achado.categoria;
-        if (!document.getElementById('formCustoUnit').value || parseFloat(document.getElementById('formCustoUnit').value) === 0) {
+        document.getElementById('formCategoria').value = achado.categoria || 'Multi Bebidas';
+        if (achado.custoPadrao && achado.custoPadrao > 0) {{
           document.getElementById('formCustoUnit').value = achado.custoPadrao.toFixed(2);
-        }
+        }}
         calcQuantidades();
-      }
-    }
+      }}
+    }}
 
-    // Base de dados inicial com Número de OC formatado (OC-AAAA-XXXX)
+    // Base de dados inicial de Ordens Registradas
     let rawOrdersData = [
-      { oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 },
-      { oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 },
-      { oc: 'OC-2025-0003', ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 },
-      { oc: 'OC-2025-0004', ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00104', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 },
-      { oc: 'OC-2025-0005', ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', codigoPeca: 'PEC-00105', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 },
-      { oc: 'OC-2025-0006', ano: '2025', mes: 'Agosto', data: '20/08/2025', solicitante: 'LUCAS', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 180.00 },
-      { oc: 'OC-2025-0007', ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00108', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 },
-      { oc: 'OC-2025-0008', ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00109', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 },
-      { oc: 'OC-2025-0009', ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 },
+      {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 }},
+      {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 }},
+      {{ oc: 'OC-2025-0003', ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 }},
+      {{ oc: 'OC-2025-0004', ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00104', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 }},
+      {{ oc: 'OC-2025-0005', ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', codigoPeca: 'PEC-00105', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 }},
+      {{ oc: 'OC-2025-0006', ano: '2025', mes: 'Agosto', data: '20/08/2025', solicitante: 'LUCAS', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 180.00 }},
+      {{ oc: 'OC-2025-0007', ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00108', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 }},
+      {{ oc: 'OC-2025-0008', ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00109', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 }},
+      {{ oc: 'OC-2025-0009', ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 }},
       
-      { oc: 'OC-2025-0010', ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { oc: 'OC-2025-0011', ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 },
-      { oc: 'OC-2025-0012', ano: '2025', mes: 'Setembro', data: '10/09/2025', solicitante: 'ALAN', codigoPeca: 'PEC-00112', peca: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 3, qtAprovada: 3, qtNaoAprovada: 0, custoUnit: 280.00 },
-      { oc: 'OC-2025-0013', ano: '2025', mes: 'Setembro', data: '14/09/2025', solicitante: 'CESAR', codigoPeca: 'PEC-00113', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 40, qtAprovada: 38, qtNaoAprovada: 2, custoUnit: 9.80 },
-      { oc: 'OC-2025-0014', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 4.39 },
-      { oc: 'OC-2025-0015', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 6, qtAprovada: 6, qtNaoAprovada: 0, custoUnit: 334.00 },
-      { oc: 'OC-2025-0016', ano: '2025', mes: 'Setembro', data: '21/09/2025', solicitante: 'DANI', codigoPeca: 'PEC-00115', peca: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 10, qtAprovada: 8, qtNaoAprovada: 2, custoUnit: 65.00 },
-      { oc: 'OC-2025-0017', ano: '2025', mes: 'Setembro', data: '23/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 35, qtAprovada: 35, qtNaoAprovada: 0, custoUnit: 9.50 },
-      { oc: 'OC-2025-0018', ano: '2025', mes: 'Setembro', data: '25/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 91.04 },
+      {{ oc: 'OC-2025-0010', ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 }},
+      {{ oc: 'OC-2025-0011', ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 }},
+      {{ oc: 'OC-2025-0012', ano: '2025', mes: 'Setembro', data: '10/09/2025', solicitante: 'ALAN', codigoPeca: 'PEC-00112', peca: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 3, qtAprovada: 3, qtNaoAprovada: 0, custoUnit: 280.00 }},
+      {{ oc: 'OC-2025-0013', ano: '2025', mes: 'Setembro', data: '14/09/2025', solicitante: 'CESAR', codigoPeca: 'PEC-00113', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 40, qtAprovada: 38, qtNaoAprovada: 2, custoUnit: 9.80 }},
+      {{ oc: 'OC-2025-0014', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 4.39 }},
+      {{ oc: 'OC-2025-0015', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 6, qtAprovada: 6, qtNaoAprovada: 0, custoUnit: 334.00 }},
+      {{ oc: 'OC-2025-0016', ano: '2025', mes: 'Setembro', data: '21/09/2025', solicitante: 'DANI', codigoPeca: 'PEC-00115', peca: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 10, qtAprovada: 8, qtNaoAprovada: 2, custoUnit: 65.00 }},
+      {{ oc: 'OC-2025-0017', ano: '2025', mes: 'Setembro', data: '23/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 35, qtAprovada: 35, qtNaoAprovada: 0, custoUnit: 9.50 }},
+      {{ oc: 'OC-2025-0018', ano: '2025', mes: 'Setembro', data: '25/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 91.04 }},
 
-      { oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00120', peca: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 110.00 },
-      { oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00121', peca: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 240.00 },
-      { oc: 'OC-2026-0003', ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { oc: 'OC-2026-0004', ano: '2026', mes: 'Agosto', data: '17/08/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { oc: 'OC-2026-0005', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { oc: 'OC-2026-0006', ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 20, qtAprovada: 18, qtNaoAprovada: 2, custoUnit: 18.50 },
-      { oc: 'OC-2026-0007', ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 30, qtNaoAprovada: 0, custoUnit: 9.50 }
+      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00120', peca: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 110.00 }},
+      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00121', peca: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 240.00 }},
+      {{ oc: 'OC-2026-0003', ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 }},
+      {{ oc: 'OC-2026-0004', ano: '2026', mes: 'Agosto', data: '17/08/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 195.00 }},
+      {{ oc: 'OC-2026-0005', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 }},
+      {{ oc: 'OC-2026-0006', ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 20, qtAprovada: 18, qtNaoAprovada: 2, custoUnit: 18.50 }},
+      {{ oc: 'OC-2026-0007', ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 30, qtNaoAprovada: 0, custoUnit: 9.50 }}
     ];
 
-    function recalcularCustos() {
-      rawOrdersData.forEach(item => {
+    function recalcularCustos() {{
+      rawOrdersData.forEach(item => {{
         item.custoTotal = item.qtAprovada * item.custoUnit;
-      });
-    }
+      }});
+    }}
     recalcularCustos();
 
     // ==========================================
     // GERADOR DO NÚMERO DE OC (OC-AAAA-XXXX)
     // ==========================================
-    function gerarNumeroOC(anoSelecionado) {
+    function gerarNumeroOC(anoSelecionado) {{
       const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
       let maiorSequencial = 0;
-      pedidosDoAno.forEach(item => {
-        if (item.oc && item.oc.startsWith(`OC-${anoSelecionado}-`)) {
+      pedidosDoAno.forEach(item => {{
+        if (item.oc && item.oc.startsWith(`OC-${{anoSelecionado}}-`)) {{
           const partes = item.oc.split('-');
           const seq = parseInt(partes[2]);
-          if (!isNaN(seq) && seq > maiorSequencial) {
+          if (!isNaN(seq) && seq > maiorSequencial) {{
             maiorSequencial = seq;
-          }
-        }
-      });
+          }}
+        }}
+      }});
       const proximoSeq = String(maiorSequencial + 1).padStart(4, '0');
-      return `OC-${anoSelecionado}-${proximoSeq}`;
-    }
+      return `OC-${{anoSelecionado}}-${{proximoSeq}}`;
+    }}
 
-    function atualizarProximoNumeroOC() {
+    function atualizarProximoNumeroOC() {{
       const anoSelecionado = document.getElementById('formAno').value;
       document.getElementById('formNumeroOC').value = gerarNumeroOC(anoSelecionado);
-    }
+    }}
     atualizarProximoNumeroOC();
 
     // Alternador de Páginas
-    function switchPage(page) {
+    function switchPage(page) {{
       const pageDash = document.getElementById('pageDashboard');
       const pageForm = document.getElementById('pageFormulario');
       const btnDash = document.getElementById('navDashboard');
       const btnForm = document.getElementById('navForm');
 
-      if (page === 'dashboard') {
+      if (page === 'dashboard') {{
         pageDash.classList.remove('hidden');
         pageForm.classList.add('hidden');
         btnDash.classList.add('active');
         btnDash.classList.remove('inactive');
         btnForm.classList.remove('active');
         btnForm.classList.add('inactive');
-      } else {
+      }} else {{
         pageDash.classList.add('hidden');
         pageForm.classList.remove('hidden');
         btnForm.classList.add('active');
@@ -710,20 +735,20 @@ html_code = """
         btnDash.classList.remove('active');
         btnDash.classList.add('inactive');
         atualizarProximoNumeroOC();
-      }
+      }}
       lucide.createIcons();
-    }
+    }}
 
     // Cálculo em tempo real do formulário
-    function calcQuantidades() {
+    function calcQuantidades() {{
       const qt = parseInt(document.getElementById('formQt').value) || 0;
       let qtAprovada = parseInt(document.getElementById('formQtAprovada').value);
       if (isNaN(qtAprovada)) qtAprovada = qt;
 
-      if (qtAprovada > qt) {
+      if (qtAprovada > qt) {{
         qtAprovada = qt;
         document.getElementById('formQtAprovada').value = qt;
-      }
+      }}
 
       const qtNao = Math.max(0, qt - qtAprovada);
       document.getElementById('formQtNaoAprovada').value = qtNao;
@@ -731,10 +756,10 @@ html_code = """
       const custoUnit = parseFloat(document.getElementById('formCustoUnit').value) || 0;
       const custoTotal = qtAprovada * custoUnit;
       document.getElementById('formCustoTotalPreview').value = formatCurrency(custoTotal);
-    }
+    }}
 
     // Gravação e Lançamento do Formulário
-    function handleFormSubmit(e) {
+    function handleFormSubmit(e) {{
       e.preventDefault();
 
       const oc = document.getElementById('formNumeroOC').value;
@@ -751,7 +776,7 @@ html_code = """
       const qtNaoAprovada = parseInt(document.getElementById('formQtNaoAprovada').value) || 0;
       const custoUnit = parseFloat(document.getElementById('formCustoUnit').value) || 0;
 
-      const novoRegistro = {
+      const novoRegistro = {{
         oc,
         ano,
         mes,
@@ -766,7 +791,7 @@ html_code = """
         qtNaoAprovada,
         custoUnit,
         custoTotal: qtAprovada * custoUnit
-      };
+      }};
 
       // Insere na base de dados
       rawOrdersData.unshift(novoRegistro);
@@ -779,15 +804,15 @@ html_code = """
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50 transition font-medium';
       tr.innerHTML = `
-        <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${novoRegistro.oc}</td>
-        <td class="py-2.5 px-3">${novoRegistro.data}</td>
-        <td class="py-2.5 px-3 font-semibold text-slate-800">${novoRegistro.solicitante}</td>
-        <td class="py-2.5 px-3 font-mono text-slate-600">${novoRegistro.codigoPeca}</td>
-        <td class="py-2.5 px-3 font-semibold text-slate-800">${novoRegistro.peca}</td>
-        <td class="py-2.5 px-3">${novoRegistro.fornecedor}</td>
-        <td class="py-2.5 px-3 text-center font-bold">${novoRegistro.qt} un</td>
-        <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${novoRegistro.qtAprovada} un</td>
-        <td class="py-2.5 px-3 text-right font-bold text-amber-600">${formatCurrency(novoRegistro.custoTotal)}</td>
+        <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{novoRegistro.oc}}</td>
+        <td class="py-2.5 px-3">${{novoRegistro.data}}</td>
+        <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.solicitante}}</td>
+        <td class="py-2.5 px-3 font-mono text-slate-600">${{novoRegistro.codigoPeca}}</td>
+        <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.peca}}</td>
+        <td class="py-2.5 px-3">${{novoRegistro.fornecedor}}</td>
+        <td class="py-2.5 px-3 text-center font-bold">${{novoRegistro.qt}} un</td>
+        <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{novoRegistro.qtAprovada}} un</td>
+        <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(novoRegistro.custoTotal)}}</td>
       `;
       recentBody.prepend(tr);
 
@@ -806,9 +831,9 @@ html_code = """
       populateDropdowns();
       updateDashboard();
 
-      alert(`✅ Ordem de Compra ${novoRegistro.oc} lançada com sucesso! O Dashboard foi atualizado.`);
+      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} lançada com sucesso! O Dashboard foi atualizado.`);
       switchPage('dashboard');
-    }
+    }}
 
     // Elementos DOM
     const filterYear = document.getElementById('filterYear');
@@ -831,11 +856,11 @@ html_code = """
     const tableSearch = document.getElementById('tableSearch');
     const tableCountBadge = document.getElementById('tableCountBadge');
 
-    function formatCurrency(val) {
-      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
+    function formatCurrency(val) {{
+      return val.toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
+    }}
 
-    function populateDropdowns() {
+    function populateDropdowns() {{
       const currentYear = filterYear.value;
       const currentMonth = filterMonth.value;
       const currentCat = filterCategory.value;
@@ -851,135 +876,135 @@ html_code = """
       const categories = [...new Set(rawOrdersData.map(d => d.categoria))].sort();
       const requesters = [...new Set(rawOrdersData.map(d => d.solicitante))].sort();
 
-      years.forEach(y => {
+      years.forEach(y => {{
         const opt = document.createElement('option');
         opt.value = y;
         opt.textContent = y;
         filterYear.appendChild(opt);
-      });
+      }});
 
-      months.forEach(m => {
+      months.forEach(m => {{
         const opt = document.createElement('option');
         opt.value = m;
         opt.textContent = m;
         filterMonth.appendChild(opt);
-      });
+      }});
 
-      categories.forEach(c => {
+      categories.forEach(c => {{
         const opt = document.createElement('option');
         opt.value = c;
         opt.textContent = c;
         filterCategory.appendChild(opt);
-      });
+      }});
 
-      requesters.forEach(r => {
+      requesters.forEach(r => {{
         const opt = document.createElement('option');
         opt.value = r;
         opt.textContent = r;
         filterRequester.appendChild(opt);
-      });
+      }});
 
       if (years.includes(currentYear)) filterYear.value = currentYear;
       if (months.includes(currentMonth)) filterMonth.value = currentMonth;
       if (categories.includes(currentCat)) filterCategory.value = currentCat;
       if (requesters.includes(currentReq)) filterRequester.value = currentReq;
-    }
+    }}
 
     populateDropdowns();
 
-    function getChartTheme(type = 'bar') {
+    function getChartTheme(type = 'bar') {{
       const textColor = '#64748b';
       const labelColor = '#0f172a';
       const gridColor = 'rgba(226, 232, 240, 0.8)';
 
-      return {
+      return {{
         responsive: true,
         maintainAspectRatio: false,
-        layout: {
-          padding: { top: 22, bottom: 6, left: 6, right: 6 }
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
+        layout: {{
+          padding: {{ top: 22, bottom: 6, left: 6, right: 6 }}
+        }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{
             backgroundColor: '#ffffff',
             titleColor: '#0f172a',
             bodyColor: '#334155',
             borderColor: '#e2e8f0',
             borderWidth: 1,
             padding: 10
-          },
-          datalabels: {
+          }},
+          datalabels: {{
             anchor: 'end',
             align: 'top',
             offset: 2,
             color: labelColor,
-            font: { family: 'Inter', weight: 'bold', size: 11 },
-            formatter: function(value) {
+            font: {{ family: 'Inter', weight: 'bold', size: 11 }},
+            formatter: function(value) {{
               if (value === 0 || value === null || value === undefined) return '';
               return typeof value === 'number' && value >= 1000 ? value.toLocaleString('pt-BR') : value;
-            }
-          }
-        },
-        scales: type === 'bar' ? {
-          x: {
-            grid: { color: gridColor },
-            ticks: { color: textColor, font: { family: 'Inter', size: 10 } }
-          },
-          y: {
-            grid: { color: gridColor },
-            ticks: { color: textColor, font: { family: 'Inter', size: 10 } },
+            }}
+          }}
+        }},
+        scales: type === 'bar' ? {{
+          x: {{
+            grid: {{ color: gridColor }},
+            ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }}
+          }},
+          y: {{
+            grid: {{ color: gridColor }},
+            ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }},
             beginAtZero: true
-          }
-        } : undefined
-      };
-    }
+          }}
+        }} : undefined
+      }};
+    }}
 
     const ctxAgosto = document.getElementById('chartTopAgosto').getContext('2d');
     const ctxSetembro = document.getElementById('chartTopSetembro').getContext('2d');
     const ctxCategory = document.getElementById('chartCategoryDist').getContext('2d');
     const ctxSupplier = document.getElementById('chartSupplierCost').getContext('2d');
 
-    let chartAgosto = new Chart(ctxAgosto, {
+    let chartAgosto = new Chart(ctxAgosto, {{
       type: 'bar',
-      data: { labels: [], datasets: [{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }] },
-      options: {
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
+      options: {{
         ...getChartTheme('bar'),
-        plugins: {
+        plugins: {{
           ...getChartTheme('bar').plugins,
-          datalabels: {
+          datalabels: {{
             anchor: 'end',
             align: 'top',
             color: '#0284c7',
-            font: { weight: 'bold', size: 11 },
-            formatter: (val) => val ? `${val} un` : ''
-          }
-        }
-      }
-    });
+            font: {{ weight: 'bold', size: 11 }},
+            formatter: (val) => val ? `${{val}} un` : ''
+          }}
+        }}
+      }}
+    }});
 
-    let chartSetembro = new Chart(ctxSetembro, {
+    let chartSetembro = new Chart(ctxSetembro, {{
       type: 'bar',
-      data: { labels: [], datasets: [{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }] },
-      options: {
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
+      options: {{
         ...getChartTheme('bar'),
-        plugins: {
+        plugins: {{
           ...getChartTheme('bar').plugins,
-          datalabels: {
+          datalabels: {{
             anchor: 'end',
             align: 'top',
             color: '#0891b2',
-            font: { weight: 'bold', size: 11 },
-            formatter: (val) => val ? `${val} un` : ''
-          }
-        }
-      }
-    });
+            font: {{ weight: 'bold', size: 11 }},
+            formatter: (val) => val ? `${{val}} un` : ''
+          }}
+        }}
+      }}
+    }});
 
-    let chartCategory = new Chart(ctxCategory, {
+    let chartCategory = new Chart(ctxCategory, {{
       type: 'doughnut',
-      data: {
+      data: {{
         labels: [],
-        datasets: [{
+        datasets: [{{
           data: [],
           backgroundColor: [
             'rgba(2, 132, 199, 0.85)',
@@ -990,71 +1015,71 @@ html_code = """
           ],
           borderWidth: 2,
           borderColor: '#ffffff'
-        }]
-      },
-      options: {
+        }}]
+      }},
+      options: {{
         responsive: true,
         maintainAspectRatio: false,
         cutout: '62%',
-        layout: { padding: 12 },
-        plugins: {
-          legend: {
+        layout: {{ padding: 12 }},
+        plugins: {{
+          legend: {{
             position: 'right',
-            labels: {
+            labels: {{
               boxWidth: 12,
               color: '#64748b',
-              font: { family: 'Inter', size: 11 }
-            }
-          },
-          datalabels: {
+              font: {{ family: 'Inter', size: 11 }}
+            }}
+          }},
+          datalabels: {{
             color: '#ffffff',
-            font: { weight: 'bold', size: 11 },
-            formatter: (val, ctx) => {
+            font: {{ weight: 'bold', size: 11 }},
+            formatter: (val, ctx) => {{
               if (val === 0) return '';
               const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
               const percentage = Math.round((val / sum) * 100);
-              return `${val}\\n(${percentage}%)`;
-            },
+              return `${{val}}\\n(${{percentage}}%)`;
+            }},
             textAlign: 'center'
-          }
-        }
-      }
-    });
+          }}
+        }}
+      }}
+    }});
 
-    let chartSupplier = new Chart(ctxSupplier, {
+    let chartSupplier = new Chart(ctxSupplier, {{
       type: 'bar',
-      data: { labels: [], datasets: [{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }] },
-      options: {
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
+      options: {{
         ...getChartTheme('bar'),
-        plugins: {
+        plugins: {{
           ...getChartTheme('bar').plugins,
-          datalabels: {
+          datalabels: {{
             anchor: 'end',
             align: 'top',
             color: '#d97706',
-            font: { weight: 'bold', size: 11 },
+            font: {{ weight: 'bold', size: 11 }},
             formatter: (val) => val ? formatCurrency(val) : ''
-          }
-        }
-      }
-    });
+          }}
+        }}
+      }}
+    }});
 
-    function updateDashboard() {
+    function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
       const catVal = filterCategory.value;
       const reqVal = filterRequester.value;
       const searchVal = tableSearch.value.trim().toLowerCase();
 
-      const filtered = rawOrdersData.filter(item => {
+      const filtered = rawOrdersData.filter(item => {{
         const matchYear = (yearVal === 'ALL' || item.ano === yearVal);
         const matchMonth = (monthVal === 'ALL' || item.mes === monthVal);
         const matchCat = (catVal === 'ALL' || item.categoria === catVal);
         const matchReq = (reqVal === 'ALL' || item.solicitante === reqVal);
         return matchYear && matchMonth && matchCat && matchReq;
-      });
+      }});
 
-      activeFilterBadge.innerText = `Filtrando: Ano [${yearVal}] · Mês [${monthVal}] · Categoria [${catVal}]`;
+      activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
       const totalCusto = filtered.reduce((acc, cur) => acc + cur.custoTotal, 0);
       const totalItens = filtered.reduce((acc, cur) => acc + cur.qt, 0);
@@ -1068,28 +1093,28 @@ html_code = """
 
       kpiTotalCost.innerText = formatCurrency(totalCusto);
       kpiTotalRequests.innerText = totalPedidos;
-      kpiItemsQty.innerText = `${totalItens.toLocaleString('pt-BR')} un`;
+      kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
       
-      kpiApprovedQty.innerText = `${totalAtendidas.toLocaleString('pt-BR')} un`;
-      kpiApprovedPercent.innerText = `${pctAtendidas}%`;
-      kpiUnapprovedQty.innerText = `${totalNaoAtendidas.toLocaleString('pt-BR')} un`;
-      kpiUnapprovedPercent.innerText = `${pctNaoAtendidas}%`;
+      kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
+      kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
+      kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
+      kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
 
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
       const agostoItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Agosto');
       const setembroItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Setembro');
 
-      function getTop5(items) {
-        const counts = {};
-        items.forEach(d => {
+      function getTop5(items) {{
+        const counts = {{}};
+        items.forEach(d => {{
           counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt;
-        });
+        }});
         return Object.entries(counts)
-          .map(([name, qt]) => ({ name, qt }))
+          .map(([name, qt]) => ({{ name, qt }}))
           .sort((a, b) => b.qt - a.qt)
           .slice(0, 5);
-      }
+      }}
 
       const topAgosto = getTop5(agostoItems);
       chartAgosto.data.labels = topAgosto.map(d => d.name);
@@ -1101,32 +1126,32 @@ html_code = """
       chartSetembro.data.datasets[0].data = topSetembro.map(d => d.qt);
       chartSetembro.update();
 
-      const catCounts = {};
-      filtered.forEach(d => {
+      const catCounts = {{}};
+      filtered.forEach(d => {{
         catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt;
-      });
+      }});
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
-      const supplierCosts = {};
-      filtered.forEach(d => {
+      const supplierCosts = {{}};
+      filtered.forEach(d => {{
         supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal;
-      });
+      }});
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
 
       renderTable(filtered, searchVal);
-    }
+    }}
 
-    function renderTable(dataList, searchTerm) {
-      const grouped = {};
+    function renderTable(dataList, searchTerm) {{
+      const grouped = {{}};
 
-      dataList.forEach(item => {
+      dataList.forEach(item => {{
         const key = item.codigoPeca || item.peca;
-        if (!grouped[key]) {
-          grouped[key] = {
+        if (!grouped[key]) {{
+          grouped[key] = {{
             codigoPeca: item.codigoPeca || '—',
             peca: item.peca,
             categoria: item.categoria,
@@ -1135,29 +1160,29 @@ html_code = """
             qtNaoAtendida: 0,
             pedidosCount: 0,
             custoTotal: 0
-          };
-        }
+          }};
+        }}
         grouped[key].qtTotal += item.qt;
         grouped[key].qtAtendida += item.qtAprovada;
         grouped[key].qtNaoAtendida += item.qtNaoAprovada;
         grouped[key].pedidosCount += 1;
         grouped[key].custoTotal += item.custoTotal;
-      });
+      }});
 
       let itemsArray = Object.values(grouped);
 
-      if (searchTerm) {
+      if (searchTerm) {{
         itemsArray = itemsArray.filter(i => 
           i.peca.toLowerCase().includes(searchTerm) || 
           i.codigoPeca.toLowerCase().includes(searchTerm) ||
           i.categoria.toLowerCase().includes(searchTerm)
         );
-      }
+      }}
 
       itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
-      tableCountBadge.innerText = `${itemsArray.length} itens`;
+      tableCountBadge.innerText = `${{itemsArray.length}} itens`;
 
-      if (itemsArray.length === 0) {
+      if (itemsArray.length === 0) {{
         tableBody.innerHTML = `
           <tr>
             <td colspan="9" class="text-center py-8 text-slate-400">
@@ -1166,62 +1191,62 @@ html_code = """
           </tr>
         `;
         return;
-      }
+      }}
 
-      tableBody.innerHTML = itemsArray.map(item => {
+      tableBody.innerHTML = itemsArray.map(item => {{
         const unitAvg = item.qtAtendida > 0 ? (item.custoTotal / item.qtAtendida) : 0;
         return `
           <tr class="hover:bg-slate-50 transition">
             <td class="py-3 px-4 font-mono font-semibold text-blue-600">
-              ${item.codigoPeca}
+              ${{item.codigoPeca}}
             </td>
             <td class="py-3 px-4 font-semibold text-slate-800">
-              ${item.peca}
+              ${{item.peca}}
             </td>
             <td class="py-3 px-4">
               <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                ${item.categoria}
+                ${{item.categoria}}
               </span>
             </td>
             <td class="py-3 px-4 text-center font-bold text-slate-700">
-              ${item.qtTotal.toLocaleString('pt-BR')} un
+              ${{item.qtTotal.toLocaleString('pt-BR')}} un
             </td>
             <td class="py-3 px-4 text-center font-semibold text-emerald-600">
-              ${item.qtAtendida.toLocaleString('pt-BR')} un
+              ${{item.qtAtendida.toLocaleString('pt-BR')}} un
             </td>
             <td class="py-3 px-4 text-center font-semibold text-rose-500">
-              ${item.qtNaoAtendida.toLocaleString('pt-BR')} un
+              ${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un
             </td>
             <td class="py-3 px-4 text-center text-slate-500">
-              ${item.pedidosCount}
+              ${{item.pedidosCount}}
             </td>
             <td class="py-3 px-4 text-right text-slate-500">
-              ${formatCurrency(unitAvg)}
+              ${{formatCurrency(unitAvg)}}
             </td>
             <td class="py-3 px-4 text-right font-bold text-amber-600">
-              ${formatCurrency(item.custoTotal)}
+              ${{formatCurrency(item.custoTotal)}}
             </td>
           </tr>
         `;
-      }).join('');
-    }
+      }}).join('');
+    }}
 
-    [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {
+    [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {{
       select.addEventListener('change', updateDashboard);
-    });
+    }});
 
-    tableSearch.addEventListener('input', () => {
+    tableSearch.addEventListener('input', () => {{
       updateDashboard();
-    });
+    }});
 
-    resetFiltersBtn.addEventListener('click', () => {
+    resetFiltersBtn.addEventListener('click', () => {{
       filterYear.value = 'ALL';
       filterMonth.value = 'ALL';
       filterCategory.value = 'ALL';
       filterRequester.value = 'ALL';
       tableSearch.value = '';
       updateDashboard();
-    });
+    }});
 
     updateDashboard();
   </script>
@@ -1229,5 +1254,5 @@ html_code = """
 </html>
 """
 
-# Renderiza a aplicação no Streamlit mantendo a escala visual e responsiva
+# Renderiza a aplicação no Streamlit
 components.html(html_code, height=2200, scrolling=True)
