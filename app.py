@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 
-# Link oficial do Google Apps Script Web App
+# Link oficial fornecido do Google Apps Script Web App
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
 st.set_page_config(
@@ -143,7 +143,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Fornecedor Único · Envio Único sem Duplicação · {total_itens_carregados} peças sincronizadas</p>
+          <p class="text-xs text-slate-500">Edição e Reimpressão de Pedidos · {total_itens_carregados} peças sincronizadas</p>
         </div>
       </div>
       
@@ -357,8 +357,22 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
+    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO ==================== -->
     <div id="pageFormulario" class="space-y-6">
+
+      <!-- Alerta de Modo de Edição Ativo -->
+      <div id="alertEditMode" class="hidden p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-amber-500 text-white rounded-xl"><i data-lucide="edit-3" class="w-5 h-5"></i></div>
+          <div>
+            <p class="text-sm font-bold">Modo de Edição Ativo: <span id="labelEditOC" class="font-mono text-amber-800">OC-0000-0000</span></p>
+            <p class="text-xs text-amber-700">Você está alterando esta Ordem de Compra. Ao clicar em atualizar, os dados antigos serão substituídos.</p>
+          </div>
+        </div>
+        <button type="button" onclick="cancelarEdicao()" class="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 rounded-xl text-xs font-bold text-amber-900 transition">
+          Cancelar Edição ✕
+        </button>
+      </div>
 
       <!-- Notificação de Sucesso com Botão de Imprimir Imediato -->
       <div id="alertSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
@@ -389,7 +403,7 @@ html_code = f"""
               <i data-lucide="file-plus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
+              <h2 id="formTitleText" class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
               <p class="text-xs text-slate-500">Fornecedor único · Múltiplas peças · Impressão oficial com valores de custo</p>
             </div>
           </div>
@@ -409,7 +423,7 @@ html_code = f"""
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Ano *</label>
-              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+              <select id="formAno" required onchange="aoMudarAnoForm()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
@@ -443,7 +457,7 @@ html_code = f"""
             </div>
           </div>
 
-          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM (APENAS MONTA NA TELA, NÃO ENVIA PARA PLANILHA) -->
+          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM -->
           <div class="p-5 rounded-2xl border-2 border-blue-200 bg-blue-50/20 space-y-4">
             <div class="flex items-center justify-between pb-2 border-b border-blue-100">
               <h3 class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2">
@@ -565,17 +579,17 @@ html_code = f"""
             </button>
             <button type="submit" id="btnSalvarOC" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
               <i data-lucide="save" class="w-4 h-4"></i>
-              Salvar e Emitir Ordem de Compra
+              <span id="btnSalvarText">Salvar e Emitir Ordem de Compra</span>
             </button>
           </div>
         </form>
       </section>
 
-      <!-- Histórico de Lançamentos Recentes com Botão de Imprimir em cada linha -->
+      <!-- Histórico de Lançamentos Recentes com Botão de Imprimir e Editar -->
       <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
-          Últimas Ordens de Compra Emitidas (Reimpressão Disponível)
+          Últimas Ordens de Compra Emitidas (Edição & Impressão)
         </h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
@@ -768,9 +782,6 @@ html_code = f"""
       document.getElementById('itemVendaSubtotalPreview').value = formatCurrency(subtotalVenda);
     }}
 
-    // ==============================================================================
-    // ADICIONAR PEÇA: APENAS ADICIONA NA MEMÓRIA DA TELA (SEM DISPARAR PARA PLANILHA)
-    // ==============================================================================
     let itensDaOrdemAtual = [];
 
     function adicionarItemNaLista() {{
@@ -799,7 +810,6 @@ html_code = f"""
         return;
       }}
 
-      // Apenas adiciona na tabela temporária na tela
       itensDaOrdemAtual.push({{
         codigoPeca,
         peca,
@@ -891,6 +901,7 @@ html_code = f"""
     let rawOrdersData = [];
     let todasOCsEmitidas = {{}};
     let ultimaOCSalva = null;
+    let ocEmEdicao = null; // Guarda o número da OC quando estiver em edição
 
     function gerarNumeroOC(anoSelecionado) {{
       const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
@@ -909,20 +920,76 @@ html_code = f"""
     }}
 
     function atualizarProximoNumeroOC() {{
+      if (ocEmEdicao) return; // Não altera o número se estiver editando
       const anoSelecionado = document.getElementById('formAno').value;
       document.getElementById('formNumeroOC').value = gerarNumeroOC(anoSelecionado);
     }}
     atualizarProximoNumeroOC();
 
+    function aoMudarAnoForm() {{
+      if (!ocEmEdicao) {{
+        atualizarProximoNumeroOC();
+      }}
+    }}
+
     // ==============================================================================
-    // SALVAR ORDEM: DISPARO ÚNICO PARA A PLANILHA (SEM DUPLICAÇÃO)
+    // FUNÇÃO PARA INICIAR A EDIÇÃO DE UMA ORDEM DE COMPRA
+    // ==============================================================================
+    function editarOCEspecifica(numeroOC) {{
+      const ocData = todasOCsEmitidas[numeroOC];
+      if (!ocData) {{
+        alert('Dados da Ordem de Compra ' + numeroOC + ' não localizados.');
+        return;
+      }}
+
+      // Garante que a página do formulário esteja visível
+      switchPage('formulario');
+
+      ocEmEdicao = numeroOC;
+
+      // Carrega os dados no formulário
+      document.getElementById('formNumeroOC').value = ocData.oc;
+      document.getElementById('formAno').value = ocData.ano;
+      document.getElementById('formMes').value = ocData.mes;
+      document.getElementById('formData').value = ocData.data;
+      document.getElementById('formSolicitante').value = ocData.solicitante;
+      document.getElementById('formFornecedor').value = ocData.fornecedor;
+
+      // Carrega a lista de peças da OC
+      itensDaOrdemAtual = JSON.parse(JSON.stringify(ocData.itens));
+      renderizarTabelaItensOC();
+
+      // Ajusta os textos visuais indicando edição
+      document.getElementById('alertEditMode').classList.remove('hidden');
+      document.getElementById('labelEditOC').innerText = ocData.oc;
+      document.getElementById('formTitleText').innerText = 'Edição da Ordem de Compra: ' + ocData.oc;
+      document.getElementById('btnSalvarText').innerText = 'Atualizar Ordem de Compra';
+
+      // Rola a tela até o formulário
+      document.getElementById('orderForm').scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+    }}
+
+    function cancelarEdicao() {{
+      ocEmEdicao = null;
+      document.getElementById('alertEditMode').classList.add('hidden');
+      document.getElementById('formTitleText').innerText = 'Formulário de Entrada: Solicitação de Compra de Peças';
+      document.getElementById('btnSalvarText').innerText = 'Salvar e Emitir Ordem de Compra';
+      
+      limparOCAtual();
+      document.getElementById('formSolicitante').value = '';
+      document.getElementById('formFornecedor').value = '';
+      atualizarProximoNumeroOC();
+    }}
+
+    // ==============================================================================
+    // SALVAMENTO / ATUALIZAÇÃO DA ORDEM DE COMPRA
     // ==============================================================================
     let enviandoAgora = false;
 
     function handleFinalSubmit(e) {{
       e.preventDefault();
 
-      if (enviandoAgora) return; // Evita duplo clique
+      if (enviandoAgora) return;
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
       if (!fornecedorPrincipal) {{
@@ -943,6 +1010,7 @@ html_code = f"""
       const mes = document.getElementById('formMes').value;
       const dataStr = document.getElementById('formData').value;
       const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
+      const ehEdicao = (ocEmEdicao !== null);
 
       const dadosOCSalva = {{
         oc,
@@ -951,6 +1019,7 @@ html_code = f"""
         data: dataStr,
         solicitante,
         fornecedor: fornecedorPrincipal,
+        acao: ehEdicao ? "editar" : "inserir",
         itens: JSON.parse(JSON.stringify(itensDaOrdemAtual))
       }};
 
@@ -959,9 +1028,9 @@ html_code = f"""
 
       const btnSalvar = document.getElementById('btnSalvarOC');
       btnSalvar.disabled = true;
-      btnSalvar.innerText = 'Gravando na planilha...';
+      btnSalvar.innerText = ehEdicao ? 'Atualizando na planilha...' : 'Gravando na planilha...';
 
-      // DISPARO ÚNICO VIA GET (BEACON IMAGE) - NÃO GERA CONFLITO DE CORS NEM DUPLICA
+      // Disparo único via Beacon Image (GET) para o Google Apps Script
       try {{
         const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
         const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
@@ -974,10 +1043,15 @@ html_code = f"""
       setTimeout(() => {{
         enviandoAgora = false;
         btnSalvar.disabled = false;
-        btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar e Emitir Ordem de Compra';
+        btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span id="btnSalvarText">' + 
+          (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
       }}, 800);
 
-      // Registra uma única vez no histórico local
+      // Se for edição, remove os itens antigos antes de inserir os novos
+      if (ehEdicao) {{
+        rawOrdersData = rawOrdersData.filter(item => item.oc !== oc);
+      }}
+
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1002,7 +1076,15 @@ html_code = f"""
 
       const totalPecas = itensDaOrdemAtual.length;
 
-      // Limpa a tela
+      // Reseta o modo de edição se ativo
+      if (ehEdicao) {{
+        ocEmEdicao = null;
+        document.getElementById('alertEditMode').classList.add('hidden');
+        document.getElementById('formTitleText').innerText = 'Formulário de Entrada: Solicitação de Compra de Peças';
+        document.getElementById('btnSalvarText').innerText = 'Salvar e Emitir Ordem de Compra';
+      }}
+
+      // Limpa os campos da tela
       limparOCAtual();
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
@@ -1013,8 +1095,10 @@ html_code = f"""
       renderizarTabelaRecentes();
 
       const alertBox = document.getElementById('alertSuccess');
-      document.getElementById('alertSuccessTitle').innerText = `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
-      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados gravados na planilha Google Sheets.`;
+      document.getElementById('alertSuccessTitle').innerText = ehEdicao ? 
+        `✅ Ordem de Compra ${{oc}} atualizada com sucesso (${{totalPecas}} peças)!` :
+        `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
+      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados registrados na planilha.`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       lucide.createIcons();
@@ -1027,13 +1111,19 @@ html_code = f"""
         return;
       }}
 
-      recentBody.innerHTML = rawOrdersData.slice(0, 15).map(item => `
+      recentBody.innerHTML = rawOrdersData.slice(0, 20).map(item => `
         <tr class="hover:bg-slate-50 transition font-medium">
-          <td class="py-2 px-3">
-            <button type="button" onclick="imprimirOCEspecifica('${{item.oc}}')" title="Imprimir Ordem de Compra ${{item.oc}}" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 transition">
-              <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-              Imprimir
-            </button>
+          <td class="py-2 px-3 whitespace-nowrap">
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="editarOCEspecifica('${{item.oc}}')" title="Editar Ordem de Compra ${{item.oc}}" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold border border-amber-300 transition">
+                <i data-lucide="edit-2" class="w-3 h-3"></i>
+                Editar
+              </button>
+              <button type="button" onclick="imprimirOCEspecifica('${{item.oc}}')" title="Imprimir Ordem de Compra ${{item.oc}}" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 transition">
+                <i data-lucide="printer" class="w-3 h-3"></i>
+                Imprimir
+              </button>
+            </div>
           </td>
           <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.oc}}</td>
           <td class="py-2.5 px-3">${{item.data}}</td>
