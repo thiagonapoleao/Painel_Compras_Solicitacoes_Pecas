@@ -2,7 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
-import urllib.parse
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
@@ -32,7 +31,6 @@ st.markdown("""
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
 GID_BASE = "270834817" # Aba: Base de Dados
 
-# Endereços para leitura direta via Google Sheets CSV / gviz
 URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
 URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
 
@@ -44,20 +42,13 @@ def buscar_dados_planilha_ao_vivo():
     Coluna F: Fornecedor
     """
     df = None
-    erros = []
-
-    # Tentativa 1: Exportação padrão CSV com gid
     try:
         df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
-    except Exception as e:
-        erros.append(str(e))
-
-    # Tentativa 2: Google Visualization API (GViz CSV)
-    if df is None or df.empty:
+    except Exception:
         try:
             df = pd.read_csv(URL_GVIZ_DIRECT, dtype=str)
-        except Exception as e:
-            erros.append(str(e))
+        except Exception:
+            pass
 
     if df is None or df.empty:
         st.error(
@@ -67,11 +58,6 @@ def buscar_dados_planilha_ao_vivo():
         )
         return []
 
-    # Mapeamento dinâmico das colunas A, B e F (posições 0, 1 e 5)
-    # Coluna 0 (A): Código da Peça
-    # Coluna 1 (B): Descrição da Peça / Produto
-    # Coluna 2 (C): Categoria / Grupo
-    # Coluna 5 (F): Fornecedor
     col_a = df.columns[0]
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
@@ -84,7 +70,6 @@ def buscar_dados_planilha_ao_vivo():
         cat = str(row[col_c]).strip() if pd.notna(row[col_c]) else "Geral"
         forn = str(row[col_f]).strip() if pd.notna(row[col_f]) else ""
 
-        # Ignora linhas vazias ou de cabeçalho repetido
         if cod and desc and cod.lower() not in ["nan", "produto", "código", "codigo"]:
             catalogo.append({
                 "codigo": cod,
@@ -95,12 +80,10 @@ def buscar_dados_planilha_ao_vivo():
 
     return catalogo
 
-# Botão no sidebar/topo se quiser forçar atualização instantânea
 dados_catalogo = buscar_dados_planilha_ao_vivo()
 catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
 total_itens_carregados = len(dados_catalogo)
 
-# Código HTML/JS Completo Integrado
 html_code = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -149,23 +132,23 @@ html_code = f"""
           <i data-lucide="package-search" class="w-6 h-6"></i>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-          <p class="text-xs text-slate-500">Conexão 100% dinâmica com a planilha: {total_itens_carregados} itens lidos em tempo real</p>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Serviço</h1>
+          <p class="text-xs text-slate-500">Múltiplos itens por Ordem de Compra (OC-AAAA-XXXX) com Pré-listas integradas</p>
         </div>
       </div>
       
       <!-- Navegação -->
       <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-        <button id="navDashboard" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
+        <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           Dashboard
         </button>
-        <button id="navForm" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
+        <button id="navForm" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
           Nova Solicitação (OC)
         </button>
         <button onclick="window.parent.location.reload()" title="Clique para recarregar novidades da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Peças Conectadas (Recarregar 🔄)
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Itens Sincronizados (🔄)
         </button>
       </div>
     </div>
@@ -174,7 +157,7 @@ html_code = f"""
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
     <!-- ==================== PÁGINA 1: DASHBOARD ==================== -->
-    <div id="pageDashboard" class="space-y-6">
+    <div id="pageDashboard" class="hidden space-y-6">
 
       <!-- Filtros Dinâmicos -->
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -389,7 +372,19 @@ html_code = f"""
     </div>
 
     <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
-    <div id="pageFormulario" class="hidden space-y-6">
+    <div id="pageFormulario" class="space-y-6">
+
+      <!-- Notificação de Sucesso que surge na mesma página -->
+      <div id="alertSuccess" class="hidden p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between shadow-sm transition">
+        <div class="flex items-center gap-3">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+          <div>
+            <p id="alertSuccessTitle" class="text-xs font-bold">Ordem de Compra salva com sucesso!</p>
+            <p id="alertSuccessSub" class="text-[11px] text-emerald-600">Os dados foram registrados e o formulário está pronto para o próximo lançamento.</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('alertSuccess').classList.add('hidden')" class="text-xs font-semibold px-3 py-1 rounded-lg hover:bg-emerald-100 text-emerald-700">Fechar</button>
+      </div>
       
       <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
@@ -399,7 +394,7 @@ html_code = f"""
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Selecione nas pré-listas diretas da sua planilha para preenchimento automático</p>
+              <p class="text-xs text-slate-500">Adicione uma ou mais peças na mesma ordem de compra antes de salvar</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -407,20 +402,20 @@ html_code = f"""
           </span>
         </div>
 
-        <form id="orderForm" onsubmit="handleFormSubmit(event)" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            
+        <form id="orderForm" onsubmit="handleFinalSubmit(event)" class="space-y-6">
+          
+          <!-- DADOS GERAIS DO CABEÇALHO DA OC -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200">
             <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
-            <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-200">
+            <div>
               <label class="block text-xs font-bold text-blue-800 mb-1">Número da OC *</label>
-              <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-lg border border-blue-300 bg-white px-3 py-2 text-blue-700 cursor-not-allowed">
-              <span class="text-[10px] text-blue-500 mt-1 block">Sequencial automático por ano</span>
+              <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-blue-700 cursor-not-allowed shadow-inner">
             </div>
 
             <!-- Ano -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Ano *</label>
-              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
+              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
@@ -429,7 +424,7 @@ html_code = f"""
             <!-- Mês -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Mês *</label>
-              <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
+              <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
                 <option value="Agosto">Agosto</option>
                 <option value="Setembro">Setembro</option>
                 <option value="Outubro" selected>Outubro</option>
@@ -448,96 +443,157 @@ html_code = f"""
             <!-- Data da Solicitação -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Solicitação *</label>
-              <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
+              <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
             </div>
 
             <!-- Solicitante -->
-            <div>
+            <div class="md:col-span-4">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
-              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
+              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
             </div>
-
-            <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A DA PLANILHA -->
-            <div>
-              <label class="block text-xs font-bold text-slate-800 mb-1">
-                Código da Peça *
-              </label>
-              <input list="listaCodigosPecas" id="formCodigoPeca" placeholder="Clique duas vezes ou digite o código..." required oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
-              <datalist id="listaCodigosPecas"></datalist>
-              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna A da Planilha</span>
-            </div>
-
-            <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B DA PLANILHA -->
-            <div class="col-span-1 md:col-span-2">
-              <label class="block text-xs font-bold text-slate-800 mb-1">
-                Descrição da Peça / Produto *
-              </label>
-              <input list="listaDescricoesPecas" id="formPeca" placeholder="Clique duas vezes ou digite a descrição do produto..." required oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
-              <datalist id="listaDescricoesPecas"></datalist>
-              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna B da Planilha</span>
-            </div>
-
-            <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F DA PLANILHA -->
-            <div>
-              <label class="block text-xs font-bold text-slate-800 mb-1">
-                Fornecedor *
-              </label>
-              <input list="listaFornecedores" id="formFornecedor" placeholder="Clique duas vezes ou selecione o fornecedor..." required class="w-full text-sm font-semibold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
-              <datalist id="listaFornecedores"></datalist>
-              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna F da Planilha</span>
-            </div>
-
-            <!-- Categoria -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria *</label>
-              <input type="text" id="formCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Quantidade Solicitada -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade Solicitada (Qt) *</label>
-              <input type="number" id="formQt" min="1" value="1" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Custo Unitário -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Custo Unitário (R$) *</label>
-              <input type="number" step="0.01" min="0" id="formCustoUnit" placeholder="Ex: 195,00" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Quantidade Atendida -->
-            <div>
-              <label class="block text-xs font-semibold text-emerald-700 mb-1">Quantidade Atendida</label>
-              <input type="number" id="formQtAprovada" min="0" value="1" oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-emerald-300 bg-emerald-50/30 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Quantidade Não Atendida -->
-            <div>
-              <label class="block text-xs font-semibold text-rose-700 mb-1">Quantidade Não Atendida</label>
-              <input type="number" id="formQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Custo Total Previsto -->
-            <div class="col-span-1 md:col-span-3">
-              <label class="block text-xs font-semibold text-amber-700 mb-1">Custo Total Previsto (Coluna Custo)</label>
-              <input type="text" id="formCustoTotalPreview" readonly value="R$ 0,00" class="w-full text-base font-bold rounded-xl border border-amber-300 bg-amber-50/50 px-3.5 py-2.5 text-amber-800 cursor-not-allowed">
-            </div>
-
           </div>
 
+          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM -->
+          <div class="p-5 rounded-2xl border-2 border-blue-200 bg-blue-50/20 space-y-4">
+            <div class="flex items-center justify-between pb-2 border-b border-blue-100">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
+                Adicionar Peça à Ordem de Compra
+              </h3>
+              <span class="text-[11px] text-blue-600">Pré-listas conectadas à Coluna A, B e F da planilha</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A DA PLANILHA -->
+              <div>
+                <label class="block text-xs font-bold text-slate-800 mb-1">
+                  Código da Peça *
+                </label>
+                <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <datalist id="listaCodigosPecas"></datalist>
+              </div>
+
+              <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B DA PLANILHA -->
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-xs font-bold text-slate-800 mb-1">
+                  Descrição da Peça / Produto *
+                </label>
+                <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <datalist id="listaDescricoesPecas"></datalist>
+              </div>
+
+              <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F DA PLANILHA -->
+              <div>
+                <label class="block text-xs font-bold text-slate-800 mb-1">
+                  Fornecedor *
+                </label>
+                <input list="listaFornecedores" id="itemFornecedor" placeholder="Selecione o fornecedor..." class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <datalist id="listaFornecedores"></datalist>
+              </div>
+
+              <!-- Categoria -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria</label>
+                <input type="text" id="itemCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+              </div>
+
+              <!-- Quantidade Solicitada -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade Solicitada (Qt) *</label>
+                <input type="number" id="itemQt" min="1" value="1" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+              </div>
+
+              <!-- Custo Unitário -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Custo Unitário (R$) *</label>
+                <input type="number" step="0.01" min="0" id="itemCustoUnit" placeholder="0,00" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+              </div>
+
+              <!-- Quantidade Atendida -->
+              <div>
+                <label class="block text-xs font-semibold text-emerald-700 mb-1">Quantidade Atendida</label>
+                <input type="number" id="itemQtAprovada" min="0" value="1" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-emerald-300 bg-emerald-50/30 px-3 py-2 text-slate-800">
+              </div>
+
+              <!-- Quantidade Não Atendida -->
+              <div>
+                <label class="block text-xs font-semibold text-rose-700 mb-1">Quantidade Não Atendida</label>
+                <input type="number" id="itemQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3 py-2 text-slate-800">
+              </div>
+
+              <!-- Custo Total deste item -->
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal da Peça (Qt Atendida × Custo Unit.)</label>
+                <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
+              </div>
+
+              <!-- Botão Adicionar Item -->
+              <div class="flex items-end">
+                <button type="button" onclick="adicionarItemNaLista()" class="w-full py-2.5 px-4 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-800 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  Adicionar Peça à Ordem
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TABELA DE PEÇAS ADICIONADAS ANTES DE SALVAR -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="shopping-cart" class="w-4 h-4 text-blue-600"></i>
+                Peças Selecionadas para esta Ordem de Compra
+              </h4>
+              <span id="badgeTotalItensOC" class="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">0 peça(s)</span>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-sm">
+              <table class="w-full text-left text-xs text-slate-600">
+                <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
+                  <tr>
+                    <th class="py-2.5 px-3">Código</th>
+                    <th class="py-2.5 px-3">Descrição da Peça</th>
+                    <th class="py-2.5 px-3">Fornecedor</th>
+                    <th class="py-2.5 px-3 text-center">Qt Pedida</th>
+                    <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
+                    <th class="py-2.5 px-3 text-right">Custo Unit.</th>
+                    <th class="py-2.5 px-3 text-right">Subtotal</th>
+                    <th class="py-2.5 px-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="listaPecasOCTableBody" class="divide-y divide-slate-100">
+                  <tr id="rowEmptyList">
+                    <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+                  </tr>
+                </tbody>
+                <tfoot class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
+                  <tr>
+                    <td colspan="3" class="py-3 px-3 text-right uppercase text-[11px]">Total Geral da Ordem de Compra:</td>
+                    <td id="footTotalQt" class="py-3 px-3 text-center text-blue-700 font-bold">0 un</td>
+                    <td id="footTotalAtendida" class="py-3 px-3 text-center text-emerald-700 font-bold">0 un</td>
+                    <td></td>
+                    <td id="footTotalValor" class="py-3 px-3 text-right text-amber-700 font-bold text-sm">R$ 0,00</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- BOTÕES FINAIS -->
           <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <button type="button" onclick="switchPage('dashboard')" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
-              Cancelar
+            <button type="button" onclick="limparOCAtual()" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+              Limpar Ordem
             </button>
             <button type="submit" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
-              <i data-lucide="check" class="w-4 h-4"></i>
-              Emitir e Lançar Ordem de Compra
+              <i data-lucide="save" class="w-4 h-4"></i>
+              Salvar e Emitir Ordem de Compra
             </button>
           </div>
         </form>
       </section>
 
-      <!-- Histórico de Lançamentos Recentes -->
+      <!-- Histórico de Lançamentos Recentes nesta Sessão -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
@@ -578,7 +634,7 @@ html_code = f"""
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     // ==============================================================
-    // BASE DE DADOS CARREGADA 100% DIRETO DA PLANILHA DO GOOGLE
+    // BASE DE DADOS CARREGADA DIRETO DA PLANILHA DO GOOGLE
     // ==============================================================
     const catalogoPecas = {catalogo_json};
 
@@ -612,61 +668,166 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // Autopreenchimento ao selecionar/digitar Código
     function aoMudarCodigo() {{
-      const codDigitado = document.getElementById('formCodigoPeca').value.trim();
+      const codDigitado = document.getElementById('itemCodigoPeca').value.trim();
       if (!codDigitado) return;
 
       const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
-        document.getElementById('formPeca').value = itemAchado.descricao;
-        if (itemAchado.fornecedor) {{
-          document.getElementById('formFornecedor').value = itemAchado.fornecedor;
-        }}
-        if (itemAchado.categoria) {{
-          document.getElementById('formCategoria').value = itemAchado.categoria;
-        }}
-        calcQuantidades();
+        document.getElementById('itemPeca').value = itemAchado.descricao;
+        if (itemAchado.fornecedor) document.getElementById('itemFornecedor').value = itemAchado.fornecedor;
+        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+        calcItemPreview();
       }}
     }}
 
-    // Autopreenchimento ao selecionar/digitar Descrição
     function aoMudarDescricao() {{
-      const descDigitada = document.getElementById('formPeca').value.trim();
+      const descDigitada = document.getElementById('itemPeca').value.trim();
       if (!descDigitada) return;
 
       const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
-        document.getElementById('formCodigoPeca').value = itemAchado.codigo;
-        if (itemAchado.fornecedor) {{
-          document.getElementById('formFornecedor').value = itemAchado.fornecedor;
-        }}
-        if (itemAchado.categoria) {{
-          document.getElementById('formCategoria').value = itemAchado.categoria;
-        }}
-        calcQuantidades();
+        document.getElementById('itemCodigoPeca').value = itemAchado.codigo;
+        if (itemAchado.fornecedor) document.getElementById('itemFornecedor').value = itemAchado.fornecedor;
+        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+        calcItemPreview();
       }}
     }}
 
-    // Dados de Ordens de Compra
+    function calcItemPreview() {{
+      const qt = parseInt(document.getElementById('itemQt').value) || 0;
+      let qtAprovada = parseInt(document.getElementById('itemQtAprovada').value);
+      if (isNaN(qtAprovada)) qtAprovada = qt;
+      if (qtAprovada > qt) {{
+        qtAprovada = qt;
+        document.getElementById('itemQtAprovada').value = qt;
+      }}
+      document.getElementById('itemQtNaoAprovada').value = Math.max(0, qt - qtAprovada);
+
+      const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
+      const subtotal = qtAprovada * custoUnit;
+      document.getElementById('itemCustoSubtotalPreview').value = formatCurrency(subtotal);
+    }}
+
+    // ==============================================================
+    // LISTA DE PEÇAS DA ORDEM DE COMPRA ATUAL (CARRINHO TEMPORÁRIO)
+    // ==============================================================
+    let itensDaOrdemAtual = [];
+
+    function adicionarItemNaLista() {{
+      const codigoPeca = document.getElementById('itemCodigoPeca').value.trim().toUpperCase();
+      const peca = document.getElementById('itemPeca').value.trim().toUpperCase();
+      const fornecedor = document.getElementById('itemFornecedor').value.trim().toUpperCase();
+      const categoria = document.getElementById('itemCategoria').value.trim() || 'Geral';
+      const qt = parseInt(document.getElementById('itemQt').value) || 0;
+      const qtAprovada = parseInt(document.getElementById('itemQtAprovada').value) || 0;
+      const qtNaoAprovada = parseInt(document.getElementById('itemQtNaoAprovada').value) || 0;
+      const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
+
+      if (!codigoPeca || !peca) {{
+        alert('Por favor, informe ao menos o Código e a Descrição da Peça.');
+        return;
+      }}
+      if (qt <= 0) {{
+        alert('A Quantidade Solicitada deve ser maior que zero.');
+        return;
+      }}
+
+      itensDaOrdemAtual.push({{
+        codigoPeca,
+        peca,
+        fornecedor,
+        categoria,
+        qt,
+        qtAprovada,
+        qtNaoAprovada,
+        custoUnit,
+        custoTotal: qtAprovada * custoUnit
+      }});
+
+      // Limpar campos de entrada do item
+      document.getElementById('itemCodigoPeca').value = '';
+      document.getElementById('itemPeca').value = '';
+      document.getElementById('itemFornecedor').value = '';
+      document.getElementById('itemCategoria').value = '';
+      document.getElementById('itemQt').value = '1';
+      document.getElementById('itemQtAprovada').value = '1';
+      document.getElementById('itemQtNaoAprovada').value = '0';
+      document.getElementById('itemCustoUnit').value = '';
+      document.getElementById('itemCustoSubtotalPreview').value = 'R$ 0,00';
+
+      renderizarTabelaItensOC();
+    }}
+
+    function removerItemDaLista(index) {{
+      itensDaOrdemAtual.splice(index, 1);
+      renderizarTabelaItensOC();
+    }}
+
+    function renderizarTabelaItensOC() {{
+      const tbody = document.getElementById('listaPecasOCTableBody');
+      const badge = document.getElementById('badgeTotalItensOC');
+      badge.innerText = `${{itensDaOrdemAtual.length}} peça(s)`;
+
+      if (itensDaOrdemAtual.length === 0) {{
+        tbody.innerHTML = `
+          <tr id="rowEmptyList">
+            <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+          </tr>
+        `;
+        document.getElementById('footTotalQt').innerText = '0 un';
+        document.getElementById('footTotalAtendida').innerText = '0 un';
+        document.getElementById('footTotalValor').innerText = 'R$ 0,00';
+        return;
+      }}
+
+      let somaQt = 0;
+      let somaAtendida = 0;
+      let somaValor = 0;
+
+      tbody.innerHTML = itensDaOrdemAtual.map((item, idx) => {{
+        somaQt += item.qt;
+        somaAtendida += item.qtAprovada;
+        somaValor += item.custoTotal;
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.codigoPeca}}</td>
+            <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.peca}}</td>
+            <td class="py-2.5 px-3">${{item.fornecedor}}</td>
+            <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
+            <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{item.qtAprovada}} un</td>
+            <td class="py-2.5 px-3 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
+            <td class="py-2.5 px-3 text-center">
+              <button type="button" onclick="removerItemDaLista(${{idx}})" title="Remover Peça" class="text-rose-500 hover:text-rose-700 p-1 rounded-md hover:bg-rose-50">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }}).join('');
+
+      document.getElementById('footTotalQt').innerText = `${{somaQt}} un`;
+      document.getElementById('footTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('footTotalValor').innerText = formatCurrency(somaValor);
+      lucide.createIcons();
+    }}
+
+    function limparOCAtual() {{
+      itensDaOrdemAtual = [];
+      renderizarTabelaItensOC();
+    }}
+
+    // ==============================================================
+    // SALVAR E PERMANECER NA MESMA PÁGINA
+    // ==============================================================
     let rawOrdersData = [
-      {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 }},
-      {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 }},
-      {{ oc: 'OC-2025-0003', ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 }},
-      {{ oc: 'OC-2025-0004', ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00104', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 }},
-      {{ oc: 'OC-2025-0005', ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', codigoPeca: 'PEC-00105', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 }},
-      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00 }},
-      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: '534', peca: 'ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA', categoria: '8 PEÇAS', fornecedor: 'ANGELO OCS', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 12.50 }}
+      {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39, custoTotal: 65.85 }},
+      {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52, custoTotal: 102.24 }},
+      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00, custoTotal: 225.00 }}
     ];
 
-    function recalcularCustos() {{
-      rawOrdersData.forEach(item => {{
-        item.custoTotal = item.qtAprovada * item.custoUnit;
-      }});
-    }}
-    recalcularCustos();
-
-    // Gerador de OC: OC-AAAA-XXXX
     function gerarNumeroOC(anoSelecionado) {{
       const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
       let maiorSequencial = 0;
@@ -689,6 +850,76 @@ html_code = f"""
     }}
     atualizarProximoNumeroOC();
 
+    function handleFinalSubmit(e) {{
+      e.preventDefault();
+
+      if (itensDaOrdemAtual.length === 0) {{
+        alert('Atenção: Adicione pelo menos uma peça na ordem antes de salvar!');
+        return;
+      }}
+
+      const oc = document.getElementById('formNumeroOC').value;
+      const ano = document.getElementById('formAno').value;
+      const mes = document.getElementById('formMes').value;
+      const dataStr = document.getElementById('formData').value;
+      const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
+
+      // Grava todos os itens vinculados a esta Ordem de Compra
+      itensDaOrdemAtual.forEach(item => {{
+        const novoRegistro = {{
+          oc,
+          ano,
+          mes,
+          data: dataStr,
+          solicitante,
+          codigoPeca: item.codigoPeca,
+          peca: item.peca,
+          categoria: item.categoria,
+          fornecedor: item.fornecedor,
+          qt: item.qt,
+          qtAprovada: item.qtAprovada,
+          qtNaoAprovada: item.qtNaoAprovada,
+          custoUnit: item.custoUnit,
+          custoTotal: item.custoTotal
+        }};
+        rawOrdersData.unshift(novoRegistro);
+
+        // Atualiza a tabela de lançamentos recentes logo abaixo
+        const recentBody = document.getElementById('recentEntriesBody');
+        const emptyRow = recentBody.querySelector('td[colspan="9"]');
+        if (emptyRow) recentBody.innerHTML = '';
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition font-medium';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{novoRegistro.oc}}</td>
+          <td class="py-2.5 px-3">${{novoRegistro.data}}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.solicitante}}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-600">${{novoRegistro.codigoPeca}}</td>
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.peca}}</td>
+          <td class="py-2.5 px-3">${{novoRegistro.fornecedor}}</td>
+          <td class="py-2.5 px-3 text-center font-bold">${{novoRegistro.qt}} un</td>
+          <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{novoRegistro.qtAprovada}} un</td>
+          <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(novoRegistro.custoTotal)}}</td>
+        `;
+        recentBody.prepend(tr);
+      }});
+
+      const totalPecasSalvas = itensDaOrdemAtual.length;
+
+      // Limpa os itens adicionados e reseta para a próxima OC
+      limparOCAtual();
+      atualizarProximoNumeroOC();
+      populateDropdowns();
+      updateDashboard();
+
+      // Mostra a notificação de sucesso e PERMANECE NA MESMA PÁGINA
+      const alertBox = document.getElementById('alertSuccess');
+      document.getElementById('alertSuccessTitle').innerText = `✅ Ordem ${{oc}} salva com sucesso (${{totalPecasSalvas}} peças registradas)!`;
+      alertBox.classList.remove('hidden');
+      alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+    }}
+
     function switchPage(page) {{
       const pageDash = document.getElementById('pageDashboard');
       const pageForm = document.getElementById('pageFormulario');
@@ -702,6 +933,7 @@ html_code = f"""
         btnDash.classList.remove('inactive');
         btnForm.classList.remove('active');
         btnForm.classList.add('inactive');
+        updateDashboard();
       }} else {{
         pageDash.classList.add('hidden');
         pageForm.classList.remove('hidden');
@@ -714,97 +946,11 @@ html_code = f"""
       lucide.createIcons();
     }}
 
-    function calcQuantidades() {{
-      const qt = parseInt(document.getElementById('formQt').value) || 0;
-      let qtAprovada = parseInt(document.getElementById('formQtAprovada').value);
-      if (isNaN(qtAprovada)) qtAprovada = qt;
-
-      if (qtAprovada > qt) {{
-        qtAprovada = qt;
-        document.getElementById('formQtAprovada').value = qt;
-      }}
-
-      const qtNao = Math.max(0, qt - qtAprovada);
-      document.getElementById('formQtNaoAprovada').value = qtNao;
-
-      const custoUnit = parseFloat(document.getElementById('formCustoUnit').value) || 0;
-      const custoTotal = qtAprovada * custoUnit;
-      document.getElementById('formCustoTotalPreview').value = formatCurrency(custoTotal);
+    function formatCurrency(val) {{
+      return val.toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
-    function handleFormSubmit(e) {{
-      e.preventDefault();
-
-      const oc = document.getElementById('formNumeroOC').value;
-      const ano = document.getElementById('formAno').value;
-      const mes = document.getElementById('formMes').value;
-      const dataStr = document.getElementById('formData').value;
-      const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
-      const codigoPeca = document.getElementById('formCodigoPeca').value.toUpperCase().trim();
-      const peca = document.getElementById('formPeca').value.toUpperCase().trim();
-      const categoria = document.getElementById('formCategoria').value;
-      const fornecedor = document.getElementById('formFornecedor').value.toUpperCase().trim();
-      const qt = parseInt(document.getElementById('formQt').value) || 0;
-      const qtAprovada = parseInt(document.getElementById('formQtAprovada').value) || 0;
-      const qtNaoAprovada = parseInt(document.getElementById('formQtNaoAprovada').value) || 0;
-      const custoUnit = parseFloat(document.getElementById('formCustoUnit').value) || 0;
-
-      const novoRegistro = {{
-        oc,
-        ano,
-        mes,
-        data: dataStr,
-        solicitante,
-        codigoPeca,
-        peca,
-        categoria,
-        fornecedor,
-        qt,
-        qtAprovada,
-        qtNaoAprovada,
-        custoUnit,
-        custoTotal: qtAprovada * custoUnit
-      }};
-
-      rawOrdersData.unshift(novoRegistro);
-
-      const recentBody = document.getElementById('recentEntriesBody');
-      const emptyRow = recentBody.querySelector('td[colspan="9"]');
-      if (emptyRow) recentBody.innerHTML = '';
-
-      const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50 transition font-medium';
-      tr.innerHTML = `
-        <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{novoRegistro.oc}}</td>
-        <td class="py-2.5 px-3">${{novoRegistro.data}}</td>
-        <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.solicitante}}</td>
-        <td class="py-2.5 px-3 font-mono text-slate-600">${{novoRegistro.codigoPeca}}</td>
-        <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.peca}}</td>
-        <td class="py-2.5 px-3">${{novoRegistro.fornecedor}}</td>
-        <td class="py-2.5 px-3 text-center font-bold">${{novoRegistro.qt}} un</td>
-        <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{novoRegistro.qtAprovada}} un</td>
-        <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(novoRegistro.custoTotal)}}</td>
-      `;
-      recentBody.prepend(tr);
-
-      // Limpar formulário
-      document.getElementById('formCodigoPeca').value = '';
-      document.getElementById('formPeca').value = '';
-      document.getElementById('formFornecedor').value = '';
-      document.getElementById('formQt').value = '1';
-      document.getElementById('formQtAprovada').value = '1';
-      document.getElementById('formQtNaoAprovada').value = '0';
-      document.getElementById('formCustoUnit').value = '';
-      document.getElementById('formCustoTotalPreview').value = 'R$ 0,00';
-
-      atualizarProximoNumeroOC();
-      populateDropdowns();
-      updateDashboard();
-
-      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} gerada e lançada com sucesso!`);
-      switchPage('dashboard');
-    }}
-
+    // Filtros e Dashboard
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -825,10 +971,6 @@ html_code = f"""
     const tableSearch = document.getElementById('tableSearch');
     const tableCountBadge = document.getElementById('tableCountBadge');
 
-    function formatCurrency(val) {{
-      return val.toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
-    }}
-
     function populateDropdowns() {{
       const currentYear = filterYear.value;
       const currentMonth = filterMonth.value;
@@ -845,47 +987,22 @@ html_code = f"""
       const categories = [...new Set(rawOrdersData.map(d => d.categoria))].sort();
       const requesters = [...new Set(rawOrdersData.map(d => d.solicitante))].sort();
 
-      years.forEach(y => {{
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        filterYear.appendChild(opt);
-      }});
-
-      months.forEach(m => {{
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        filterMonth.appendChild(opt);
-      }});
-
-      categories.forEach(c => {{
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        filterCategory.appendChild(opt);
-      }});
-
-      requesters.forEach(r => {{
-        const opt = document.createElement('option');
-        opt.value = r;
-        opt.textContent = r;
-        filterRequester.appendChild(opt);
-      }});
+      years.forEach(y => {{ const opt = document.createElement('option'); opt.value = y; opt.textContent = y; filterYear.appendChild(opt); }});
+      months.forEach(m => {{ const opt = document.createElement('option'); opt.value = m; opt.textContent = m; filterMonth.appendChild(opt); }});
+      categories.forEach(c => {{ const opt = document.createElement('option'); opt.value = c; opt.textContent = c; filterCategory.appendChild(opt); }});
+      requesters.forEach(r => {{ const opt = document.createElement('option'); opt.value = r; opt.textContent = r; filterRequester.appendChild(opt); }});
 
       if (years.includes(currentYear)) filterYear.value = currentYear;
       if (months.includes(currentMonth)) filterMonth.value = currentMonth;
       if (categories.includes(currentCat)) filterCategory.value = currentCat;
       if (requesters.includes(currentReq)) filterRequester.value = currentReq;
     }}
-
     populateDropdowns();
 
     function getChartTheme(type = 'bar') {{
       const textColor = '#64748b';
       const labelColor = '#0f172a';
       const gridColor = 'rgba(226, 232, 240, 0.8)';
-
       return {{
         responsive: true,
         maintainAspectRatio: false,
@@ -954,14 +1071,15 @@ html_code = f"""
       const totalItens = filtered.reduce((acc, cur) => acc + cur.qt, 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + cur.qtAprovada, 0);
       const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + cur.qtNaoAprovada, 0);
-      const totalPedidos = filtered.length;
-      const avgCost = totalPedidos > 0 ? (totalCusto / totalPedidos) : 0;
+      
+      const ocsUnicas = new Set(filtered.map(f => f.oc)).size;
+      const avgCost = ocsUnicas > 0 ? (totalCusto / ocsUnicas) : 0;
 
       const pctAtendidas = totalItens > 0 ? Math.round((totalAtendidas / totalItens) * 100) : 0;
       const pctNaoAtendidas = totalItens > 0 ? (100 - pctAtendidas) : 0;
 
       kpiTotalCost.innerText = formatCurrency(totalCusto);
-      kpiTotalRequests.innerText = totalPedidos;
+      kpiTotalRequests.innerText = ocsUnicas;
       kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
       kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
       kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
@@ -1074,5 +1192,4 @@ html_code = f"""
 </html>
 """
 
-# Renderiza no Streamlit
-components.html(html_code, height=2200, scrolling=True)
+components.html(html_code, height=2400, scrolling=True)
