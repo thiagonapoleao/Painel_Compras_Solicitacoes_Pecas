@@ -3,6 +3,11 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 
+# ==============================================================================
+# COLE AQUI A URL GERADA NA IMPLANTAÇÃO DO SEU GOOGLE APPS SCRIPT (OPÇÃO 1)
+# ==============================================================================
+APPS_SCRIPT_WEBAPP_URL = "COLE_AQUI_A_URL_DO_SEU_WEB_APP_APPS_SCRIPT"
+
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
     page_title="Gestão de Peças & Solicitações de Compras",
@@ -150,7 +155,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Impressão focada em custos · Fornecedor único · {total_itens_carregados} itens da planilha</p>
+          <p class="text-xs text-slate-500">Gravação direta no Google Planilhas · Fornecedor único · Impressão sem valor de venda</p>
         </div>
       </div>
       
@@ -376,7 +381,7 @@ html_code = f"""
           </div>
           <div>
             <p id="alertSuccessTitle" class="text-sm font-bold">Ordem de Compra salva com sucesso!</p>
-            <p id="alertSuccessSub" class="text-xs text-emerald-700">Os campos foram limpos para a próxima solicitação.</p>
+            <p id="alertSuccessSub" class="text-xs text-emerald-700">Pedido enviado para a planilha. Campos limpos para o próximo lançamento.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -712,11 +717,14 @@ html_code = f"""
     lucide.createIcons();
     Chart.register(ChartDataLabels);
 
+    // ==============================================================
+    // CONFIGURAÇÃO DA URL DO WEB APP (GOOGLE APPS SCRIPT)
+    // ==============================================================
+    const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
+
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
-    // ==============================================================
-    // BASE DE DADOS CARREGADA DIRETO DA PLANILHA DO GOOGLE
-    // ==============================================================
+    // Base de dados carregada da aba Base de Dados
     const catalogoPecas = {catalogo_json};
 
     // 1. Popula Pré-lista do CÓDIGO DA PEÇA (Coluna A)
@@ -796,9 +804,6 @@ html_code = f"""
       }}
     }}
 
-    // ==============================================================
-    // CÁLCULO DE VALOR DE VENDA (70% DE MARGEM - INTERNO)
-    // ==============================================================
     function calcItemPreview() {{
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       let qtAprovada = parseInt(document.getElementById('itemQtAprovada').value);
@@ -989,9 +994,9 @@ html_code = f"""
     }}
     atualizarProximoNumeroOC();
 
-    // ==============================================================
-    // SALVAR PEDIDO + LIMPAR SOLICITANTE E FORNECEDOR
-    // ==============================================================
+    // ==============================================================================
+    // AQUI FICA A GRAVAÇÃO VIA JAVASCRIPT (OPÇÃO 1 - FETCH NO APPS SCRIPT)
+    // ==============================================================================
     function handleFinalSubmit(e) {{
       e.preventDefault();
 
@@ -1026,6 +1031,21 @@ html_code = f"""
       todasOCsEmitidas[oc] = dadosOCSalva;
       ultimaOCSalva = dadosOCSalva;
 
+      // DISPARO DO FETCH PARA A PLANILHA DO GOOGLE APPS SCRIPT (OPÇÃO 1)
+      if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "COLE_AQUI_A_URL_DO_SEU_WEB_APP_APPS_SCRIPT") {{
+        fetch(APPS_SCRIPT_URL, {{
+          method: "POST",
+          mode: "no-cors",
+          headers: {{ "Content-Type": "application/json" }},
+          body: JSON.stringify(dadosOCSalva)
+        }}).then(() => {{
+          console.log("Ordem " + oc + " enviada com sucesso para a planilha Google Sheets!");
+        }}).catch(err => {{
+          console.error("Erro ao enviar dados para o Google Apps Script:", err);
+        }});
+      }}
+
+      // Salva os itens localmente para alimentar o Dashboard e a lista
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1050,14 +1070,12 @@ html_code = f"""
 
       const totalPecas = itensDaOrdemAtual.length;
 
-      // 1. Limpa peças da ordem
+      // Limpa os campos da tela
       limparOCAtual();
-
-      // 2. Limpa Solicitante e Fornecedor
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
 
-      // 3. Atualiza controles
+      // Atualiza telas
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
@@ -1065,7 +1083,7 @@ html_code = f"""
 
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
-      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Campos limpos para o próximo lançamento.`;
+      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados enviados para a planilha.`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
     }}
@@ -1147,7 +1165,6 @@ html_code = f"""
       let somaAtendida = 0;
       let somaCusto = 0;
 
-      // Monta as linhas contendo APENAS CUSTO UNITÁRIO E CUSTO TOTAL
       tbody.innerHTML = dadosOC.itens.map((item, idx) => {{
         somaQt += item.qt;
         somaAtendida += item.qtAprovada;
