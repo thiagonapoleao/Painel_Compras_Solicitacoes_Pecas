@@ -2,12 +2,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
-import requests
 
-# Link oficial fornecido do Google Apps Script Web App
+# Link oficial do Web App
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
-# Configuração da página Streamlit em modo Wide
 st.set_page_config(
     page_title="Gestão de Peças & Solicitações de Compras",
     page_icon="📦",
@@ -15,31 +13,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Oculta menus padrão do Streamlit
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
         max-width: 100% !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# IDs e URLs da Planilha do Google Sheets (Aba: Base de Dados gid=270834817)
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
 GID_BASE = "270834817"
 
 URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
 URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
 
-@st.cache_data(ttl=60)
-def carregar_catalogo_planilha():
+def buscar_dados_planilha_ao_vivo():
     df = None
     try:
         df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
@@ -55,7 +50,7 @@ def carregar_catalogo_planilha():
     col_a = df.columns[0]
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
-    col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
+    col_f = df.columns[5] if len(df.columns) > 5 else (df.columns[-1])
 
     catalogo = []
     for _, row in df.iterrows():
@@ -71,29 +66,12 @@ def carregar_catalogo_planilha():
                 "categoria": cat,
                 "fornecedor": forn
             })
+
     return catalogo
 
-catalogo_pecas = carregar_catalogo_planilha()
-catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
-total_itens_carregados = len(catalogo_pecas)
-
-# Captura de envio vindo da interface
-query_params = st.query_params
-if "payload_oc" in query_params:
-    try:
-        payload_data = json.loads(query_params["payload_oc"])
-        # Disparo direto do Python para o Apps Script
-        resp = requests.post(
-            APPS_SCRIPT_WEBAPP_URL,
-            json=payload_data,
-            headers={"Content-Type": "application/json"},
-            timeout=15
-        )
-        st.success(f"✅ Pedido {payload_data.get('oc', '')} gravado com sucesso na planilha Google Sheets!")
-    except Exception as e:
-        st.error(f"Erro ao salvar na planilha via Python: {e}")
-    # Limpa parâmetro para não reenviar em recarregamentos
-    st.query_params.clear()
+dados_catalogo = buscar_dados_planilha_ao_vivo()
+catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
+total_itens_carregados = len(dados_catalogo)
 
 html_code = f"""
 <!DOCTYPE html>
@@ -154,7 +132,7 @@ html_code = f"""
     }}
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-slate-100 text-slate-800 min-h-screen">
 
   <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
@@ -165,11 +143,10 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Gravação Direta na Planilha · Fornecedor Único · {total_itens_carregados} itens sincronizados</p>
+          <p class="text-xs text-slate-500">Conexão direta com Google Sheets · {total_itens_carregados} itens lidos da planilha</p>
         </div>
       </div>
       
-      <!-- Navegação -->
       <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
         <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
@@ -441,7 +418,18 @@ html_code = f"""
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Mês *</label>
               <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
-                <option value="Janeiro">Janeiro</option><option value="Fevereiro">Fevereiro</option><option value="Março">Março</option><option value="Abril">Abril</option><option value="Maio">Maio</option><option value="Junho">Junho</option><option value="Julho">Julho</option><option value="Agosto">Agosto</option><option value="Setembro">Setembro</option><option value="Outubro" selected>Outubro</option><option value="Novembro">Novembro</option><option value="Dezembro">Dezembro</option>
+                <option value="Agosto">Agosto</option>
+                <option value="Setembro">Setembro</option>
+                <option value="Outubro" selected>Outubro</option>
+                <option value="Novembro">Novembro</option>
+                <option value="Dezembro">Dezembro</option>
+                <option value="Janeiro">Janeiro</option>
+                <option value="Fevereiro">Fevereiro</option>
+                <option value="Março">Março</option>
+                <option value="Abril">Abril</option>
+                <option value="Maio">Maio</option>
+                <option value="Junho">Junho</option>
+                <option value="Julho">Julho</option>
               </select>
             </div>
 
@@ -700,7 +688,6 @@ html_code = f"""
 
     const catalogoPecas = {catalogo_json};
 
-    // Popula Datalists
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -934,9 +921,9 @@ html_code = f"""
     atualizarProximoNumeroOC();
 
     // ==============================================================================
-    // ENVIO DEFINITIVO E SEGURO (DISPARO DUPLO: SCRIPT + PYTHON BACKEND)
+    // ENVIO INFALÍVEL PARA O GOOGLE APPS SCRIPT (BEACON GET + POST)
     // ==============================================================================
-    async function handleFinalSubmit(e) {{
+    function handleFinalSubmit(e) {{
       e.preventDefault();
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
@@ -972,9 +959,19 @@ html_code = f"""
 
       const btnSalvar = document.getElementById('btnSalvarOC');
       btnSalvar.disabled = true;
-      btnSalvar.innerText = 'Salvando na planilha...';
+      btnSalvar.innerText = 'Gravando na planilha...';
 
-      // 1. Tenta envio direto via Web App
+      // 1. DISPARO VIA IMAGE BEACON (GET) - Imune a bloqueios de CORS e iframes
+      try {{
+        const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
+        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
+        const img = new Image();
+        img.src = beaconUrl;
+      }} catch (errBeacon) {{
+        console.error("Erro no envio via Beacon:", errBeacon);
+      }}
+
+      // 2. DISPARO COMPLEMENTAR VIA FETCH
       try {{
         fetch(APPS_SCRIPT_URL, {{
           method: "POST",
@@ -984,15 +981,10 @@ html_code = f"""
         }});
       }} catch (errFetch) {{}}
 
-      // 2. Dispara também pelo backend Python via Streamlit URL
-      try {{
-        const urlParams = new URLSearchParams(window.parent.location.search);
-        urlParams.set('payload_oc', JSON.stringify(dadosOCSalva));
-        window.parent.history.replaceState(null, '', '?' + urlParams.toString());
-      }} catch (errUrl) {{}}
-
-      btnSalvar.disabled = false;
-      btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar e Emitir Ordem de Compra';
+      setTimeout(() => {{
+        btnSalvar.disabled = false;
+        btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar e Emitir Ordem de Compra';
+      }}, 600);
 
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
@@ -1029,7 +1021,7 @@ html_code = f"""
 
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
-      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados enviados para a planilha.`;
+      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados gravados na planilha Google Sheets.`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       lucide.createIcons();
@@ -1167,7 +1159,6 @@ html_code = f"""
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
-    // Filtros e Dashboard
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
