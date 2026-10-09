@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Oculta menus padrão do Streamlit
+# Oculta menus e bordas padrão do Streamlit
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -27,20 +27,15 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# IDs e URLs da Planilha do Google Sheets
+# IDs e URLs da Planilha do Google Sheets (Aba: Base de Dados gid=270834817)
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE = "270834817" # Aba: Base de Dados
+GID_BASE = "270834817"
 
 URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
 URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
 
 def buscar_dados_planilha_ao_vivo():
-    """
-    Lê diretamente da planilha 'Base de Dados' do Google Sheets em tempo real.
-    Coluna A: Código da Peça
-    Coluna B: Descrição da Peça / Produto
-    Coluna F: Fornecedor
-    """
+    """Lê diretamente da aba 'Base de Dados' do Google Sheets em tempo real."""
     df = None
     try:
         df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
@@ -120,20 +115,42 @@ html_code = f"""
       color: #64748b;
       border: 1px solid #e2e8f0;
     }}
+
+    /* Estilos exclusivos para impressão da Ordem de Compra */
+    @media print {{
+      body * {{
+        visibility: hidden;
+      }}
+      #printArea, #printArea * {{
+        visibility: visible;
+      }}
+      #printArea {{
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background-color: #ffffff !important;
+        padding: 20px;
+        color: #000000 !important;
+      }}
+      .no-print {{
+        display: none !important;
+      }}
+    }}
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
   <!-- Header Superior -->
-  <header class="sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
+  <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
       <div class="flex items-center gap-3">
         <div class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/25">
           <i data-lucide="package-search" class="w-6 h-6"></i>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Serviço</h1>
-          <p class="text-xs text-slate-500">Múltiplos itens por Ordem de Compra (OC-AAAA-XXXX) com Pré-listas integradas</p>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
+          <p class="text-xs text-slate-500">Fornecedor único por OC · Impressão formatada · {total_itens_carregados} itens da planilha</p>
         </div>
       </div>
       
@@ -147,8 +164,8 @@ html_code = f"""
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
           Nova Solicitação (OC)
         </button>
-        <button onclick="window.parent.location.reload()" title="Clique para recarregar novidades da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Itens Sincronizados (🔄)
+        <button onclick="window.parent.location.reload()" title="Clique para recarregar da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Peças (Recarregar 🔄)
         </button>
       </div>
     </div>
@@ -209,13 +226,10 @@ html_code = f"""
 
       <!-- CARDS DE KPIS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Valor Compras (Custo)</span>
-            <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600">
-              <i data-lucide="badge-dollar-sign" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600"><i data-lucide="badge-dollar-sign" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3">
             <span id="kpiTotalCost" class="text-xl font-bold tracking-tight text-amber-600">R$ 0,00</span>
@@ -226,9 +240,7 @@ html_code = f"""
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Pedidos</span>
-            <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-              <i data-lucide="clipboard-list" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600"><i data-lucide="clipboard-list" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3">
             <span id="kpiTotalRequests" class="text-xl font-bold tracking-tight text-slate-800">0</span>
@@ -239,9 +251,7 @@ html_code = f"""
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Qtde Solicitada</span>
-            <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-              <i data-lucide="boxes" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600"><i data-lucide="boxes" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3">
             <span id="kpiItemsQty" class="text-xl font-bold tracking-tight text-slate-800">0 un</span>
@@ -252,9 +262,7 @@ html_code = f"""
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-emerald-200">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Peças Atendidas</span>
-            <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3 flex items-baseline justify-between">
             <div>
@@ -268,9 +276,7 @@ html_code = f"""
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-rose-200">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider">Não Atendidas</span>
-            <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600">
-              <i data-lucide="x-circle" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600"><i data-lucide="x-circle" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3 flex items-baseline justify-between">
             <div>
@@ -284,9 +290,7 @@ html_code = f"""
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Custo Médio / OC</span>
-            <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
-              <i data-lucide="calculator" class="w-4 h-4"></i>
-            </span>
+            <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600"><i data-lucide="calculator" class="w-4 h-4"></i></span>
           </div>
           <div class="mt-3">
             <span id="kpiAvgCost" class="text-xl font-bold tracking-tight text-slate-800">R$ 0,00</span>
@@ -299,32 +303,24 @@ html_code = f"""
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Agosto</h3>
-          <div class="relative h-64">
-            <canvas id="chartTopAgosto"></canvas>
-          </div>
+          <div class="relative h-64"><canvas id="chartTopAgosto"></canvas></div>
         </div>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Setembro</h3>
-          <div class="relative h-64">
-            <canvas id="chartTopSetembro"></canvas>
-          </div>
+          <div class="relative h-64"><canvas id="chartTopSetembro"></canvas></div>
         </div>
       </section>
 
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="font-bold text-base text-slate-800 mb-2">Distribuição por Categoria</h3>
-          <div class="relative h-64">
-            <canvas id="chartCategoryDist"></canvas>
-          </div>
+          <div class="relative h-64"><canvas id="chartCategoryDist"></canvas></div>
         </div>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="font-bold text-base text-slate-800 mb-2">Soma de Custo por Fornecedor (R$)</h3>
-          <div class="relative h-64">
-            <canvas id="chartSupplierCost"></canvas>
-          </div>
+          <div class="relative h-64"><canvas id="chartSupplierCost"></canvas></div>
         </div>
       </section>
 
@@ -344,9 +340,7 @@ html_code = f"""
               <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
               <input type="text" id="tableSearch" placeholder="Buscar código ou descrição..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-56 sm:w-72">
             </div>
-            <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold">
-              0 itens
-            </span>
+            <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold">0 itens</span>
           </div>
         </div>
 
@@ -374,16 +368,26 @@ html_code = f"""
     <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
     <div id="pageFormulario" class="space-y-6">
 
-      <!-- Notificação de Sucesso que surge na mesma página -->
-      <div id="alertSuccess" class="hidden p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between shadow-sm transition">
+      <!-- Notificação de Sucesso com Botão de Imprimir -->
+      <div id="alertSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
         <div class="flex items-center gap-3">
-          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+          <div class="p-2 bg-emerald-600 text-white rounded-xl">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+          </div>
           <div>
-            <p id="alertSuccessTitle" class="text-xs font-bold">Ordem de Compra salva com sucesso!</p>
-            <p id="alertSuccessSub" class="text-[11px] text-emerald-600">Os dados foram registrados e o formulário está pronto para o próximo lançamento.</p>
+            <p id="alertSuccessTitle" class="text-sm font-bold">Ordem de Compra salva com sucesso!</p>
+            <p id="alertSuccessSub" class="text-xs text-emerald-700">O pedido foi registrado. Você pode imprimi-lo agora ou continuar cadastrando.</p>
           </div>
         </div>
-        <button onclick="document.getElementById('alertSuccess').classList.add('hidden')" class="text-xs font-semibold px-3 py-1 rounded-lg hover:bg-emerald-100 text-emerald-700">Fechar</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="imprimirUltimaOC()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-700 text-white text-xs font-bold hover:bg-emerald-800 shadow-md shadow-emerald-700/20 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            Imprimir Pedido de Compra
+          </button>
+          <button type="button" onclick="document.getElementById('alertSuccess').classList.add('hidden')" class="px-3 py-2 rounded-xl hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition">
+            Fechar
+          </button>
+        </div>
       </div>
       
       <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -394,7 +398,7 @@ html_code = f"""
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Adicione uma ou mais peças na mesma ordem de compra antes de salvar</p>
+              <p class="text-xs text-slate-500">Regra de Negócio: Cada pedido possui um <strong>Fornecedor Único</strong> com múltiplas peças</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -404,8 +408,8 @@ html_code = f"""
 
         <form id="orderForm" onsubmit="handleFinalSubmit(event)" class="space-y-6">
           
-          <!-- DADOS GERAIS DO CABEÇALHO DA OC -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200">
+          <!-- DADOS GERAIS DO CABEÇALHO DA OC (FORNECEDOR É ÚNICO NO CABEÇALHO) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
             <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
             <div>
               <label class="block text-xs font-bold text-blue-800 mb-1">Número da OC *</label>
@@ -447,9 +451,19 @@ html_code = f"""
             </div>
 
             <!-- Solicitante -->
-            <div class="md:col-span-4">
+            <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
+            </div>
+
+            <!-- FORNECEDOR (ÚNICO POR PEDIDO DE COMPRA COM PRÉ-LISTA DA COLUNA F) -->
+            <div class="md:col-span-3 lg:col-span-6 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200">
+              <label class="block text-xs font-bold text-blue-900 mb-1">
+                Fornecedor (Único para este Pedido de Compra) *
+              </label>
+              <input list="listaFornecedores" id="formFornecedor" placeholder="Selecione ou digite o Fornecedor exclusivo desta OC..." required onchange="aoMudarFornecedorPrincipal()" class="w-full text-sm font-semibold rounded-xl border border-blue-400 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
+              <datalist id="listaFornecedores"></datalist>
+              <span class="text-[11px] text-blue-600 font-medium mt-1 block">📌 Todas as peças adicionadas a este pedido de compra pertencerão a este fornecedor.</span>
             </div>
           </div>
 
@@ -460,10 +474,10 @@ html_code = f"""
                 <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
                 Adicionar Peça à Ordem de Compra
               </h3>
-              <span class="text-[11px] text-blue-600">Pré-listas conectadas à Coluna A, B e F da planilha</span>
+              <span class="text-[11px] text-slate-500">Pré-listas conectadas à Coluna A e B da planilha</span>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A DA PLANILHA -->
               <div>
                 <label class="block text-xs font-bold text-slate-800 mb-1">
@@ -480,15 +494,6 @@ html_code = f"""
                 </label>
                 <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaDescricoesPecas"></datalist>
-              </div>
-
-              <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F DA PLANILHA -->
-              <div>
-                <label class="block text-xs font-bold text-slate-800 mb-1">
-                  Fornecedor *
-                </label>
-                <input list="listaFornecedores" id="itemFornecedor" placeholder="Selecione o fornecedor..." class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
-                <datalist id="listaFornecedores"></datalist>
               </div>
 
               <!-- Categoria -->
@@ -521,8 +526,8 @@ html_code = f"""
                 <input type="number" id="itemQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Custo Total deste item -->
-              <div class="col-span-1 md:col-span-2">
+              <!-- Subtotal deste item -->
+              <div class="col-span-1 md:col-span-2 lg:col-span-3">
                 <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal da Peça (Qt Atendida × Custo Unit.)</label>
                 <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
               </div>
@@ -531,7 +536,7 @@ html_code = f"""
               <div class="flex items-end">
                 <button type="button" onclick="adicionarItemNaLista()" class="w-full py-2.5 px-4 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-800 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
                   <i data-lucide="plus" class="w-4 h-4"></i>
-                  Adicionar Peça à Ordem
+                  Adicionar Peça
                 </button>
               </div>
             </div>
@@ -553,7 +558,7 @@ html_code = f"""
                   <tr>
                     <th class="py-2.5 px-3">Código</th>
                     <th class="py-2.5 px-3">Descrição da Peça</th>
-                    <th class="py-2.5 px-3">Fornecedor</th>
+                    <th class="py-2.5 px-3">Categoria</th>
                     <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                     <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
                     <th class="py-2.5 px-3 text-right">Custo Unit.</th>
@@ -563,7 +568,7 @@ html_code = f"""
                 </thead>
                 <tbody id="listaPecasOCTableBody" class="divide-y divide-slate-100">
                   <tr id="rowEmptyList">
-                    <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+                    <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça".</td>
                   </tr>
                 </tbody>
                 <tfoot class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
@@ -594,7 +599,7 @@ html_code = f"""
       </section>
 
       <!-- Histórico de Lançamentos Recentes nesta Sessão -->
-      <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
           Últimas Ordens de Compra Emitidas nesta Sessão
@@ -606,9 +611,9 @@ html_code = f"""
                 <th class="py-2.5 px-3">Nº OC</th>
                 <th class="py-2.5 px-3">Data</th>
                 <th class="py-2.5 px-3">Solicitante</th>
-                <th class="py-2.5 px-3">Código da Peça</th>
-                <th class="py-2.5 px-3">Descrição da Peça / Produto</th>
                 <th class="py-2.5 px-3">Fornecedor</th>
+                <th class="py-2.5 px-3">Código</th>
+                <th class="py-2.5 px-3">Descrição da Peça</th>
                 <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                 <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
                 <th class="py-2.5 px-3 text-right">Custo Total</th>
@@ -623,6 +628,68 @@ html_code = f"""
         </div>
       </section>
 
+    </div>
+
+    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC ==================== -->
+    <div id="printArea" class="hidden">
+      <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
+        <div class="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
+          <div>
+            <h1 class="text-2xl font-black uppercase tracking-tight">ORDEM DE COMPRA</h1>
+            <p class="text-xs text-slate-600">Controle Operacional de Peças & Suprimentos</p>
+          </div>
+          <div class="text-right">
+            <span id="printOCNumero" class="text-xl font-mono font-black text-blue-800">OC-0000-0000</span>
+            <p id="printOCData" class="text-xs font-semibold text-slate-600 mt-1">Data: --/--/----</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 p-4 bg-slate-100 rounded-lg mb-6 text-xs">
+          <div>
+            <p><strong class="uppercase text-slate-600">Fornecedor:</strong></p>
+            <p id="printOCFornecedor" class="text-sm font-bold text-slate-900 mt-0.5">NOME DO FORNECEDOR</p>
+          </div>
+          <div>
+            <p><strong class="uppercase text-slate-600">Solicitante / Setor:</strong></p>
+            <p id="printOCSolicitante" class="text-sm font-bold text-slate-900 mt-0.5">NOME DO SOLICITANTE</p>
+          </div>
+        </div>
+
+        <table class="w-full text-left text-xs border border-slate-300 mb-6">
+          <thead class="bg-slate-200 uppercase font-bold text-slate-800">
+            <tr>
+              <th class="py-2 px-3 border border-slate-300">Item</th>
+              <th class="py-2 px-3 border border-slate-300">Cód. Peça</th>
+              <th class="py-2 px-3 border border-slate-300">Descrição do Produto</th>
+              <th class="py-2 px-3 border border-slate-300 text-center">Qt Solicitada</th>
+              <th class="py-2 px-3 border border-slate-300 text-center">Qt Atendida</th>
+              <th class="py-2 px-3 border border-slate-300 text-right">Custo Unit.</th>
+              <th class="py-2 px-3 border border-slate-300 text-right">Total (R$)</th>
+            </tr>
+          </thead>
+          <tbody id="printOCTableBody"></tbody>
+          <tfoot class="bg-slate-100 font-bold border-t-2 border-slate-800">
+            <tr>
+              <td colspan="3" class="py-2.5 px-3 text-right uppercase">Total do Pedido:</td>
+              <td id="printOCTotalQt" class="py-2.5 px-3 text-center">0 un</td>
+              <td id="printOCTotalAtendida" class="py-2.5 px-3 text-center">0 un</td>
+              <td></td>
+              <td id="printOCTotalValor" class="py-2.5 px-3 text-right text-sm font-black">R$ 0,00</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="grid grid-cols-2 gap-8 mt-16 pt-8 border-t border-slate-300 text-center text-xs">
+          <div>
+            <div class="border-t border-slate-500 w-3/4 mx-auto mb-1"></div>
+            <p class="font-bold">Aprovação / Responsável Compras</p>
+          </div>
+          <div>
+            <div class="border-t border-slate-500 w-3/4 mx-auto mb-1"></div>
+            <p class="font-bold">Recebimento / Almoxarifado</p>
+          </div>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -668,6 +735,20 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
+    function aoMudarFornecedorPrincipal() {{
+      const forn = document.getElementById('formFornecedor').value.trim();
+      if (forn && itensDaOrdemAtual.length > 0) {{
+        // Verifica se algum item já adicionado possui fornecedor divergente
+        const divergente = itensDaOrdemAtual.some(i => i.fornecedor && i.fornecedor.toUpperCase() !== forn.toUpperCase());
+        if (divergente) {{
+          if (confirm('Atenção: Ao alterar o fornecedor principal do pedido, o fornecedor das peças já adicionadas será atualizado para ' + forn + '. Deseja continuar?')) {{
+            itensDaOrdemAtual.forEach(i => i.fornecedor = forn.toUpperCase());
+            renderizarTabelaItensOC();
+          }}
+        }}
+      }}
+    }}
+
     function aoMudarCodigo() {{
       const codDigitado = document.getElementById('itemCodigoPeca').value.trim();
       if (!codDigitado) return;
@@ -675,8 +756,13 @@ html_code = f"""
       const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
         document.getElementById('itemPeca').value = itemAchado.descricao;
-        if (itemAchado.fornecedor) document.getElementById('itemFornecedor').value = itemAchado.fornecedor;
         if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+
+        // Se o fornecedor principal ainda não estiver preenchido, preenche automaticamente
+        const formForn = document.getElementById('formFornecedor');
+        if (!formForn.value.trim() && itemAchado.fornecedor) {{
+          formForn.value = itemAchado.fornecedor;
+        }}
         calcItemPreview();
       }}
     }}
@@ -688,8 +774,13 @@ html_code = f"""
       const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
         document.getElementById('itemCodigoPeca').value = itemAchado.codigo;
-        if (itemAchado.fornecedor) document.getElementById('itemFornecedor').value = itemAchado.fornecedor;
         if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+
+        // Se o fornecedor principal ainda não estiver preenchido, preenche automaticamente
+        const formForn = document.getElementById('formFornecedor');
+        if (!formForn.value.trim() && itemAchado.fornecedor) {{
+          formForn.value = itemAchado.fornecedor;
+        }}
         calcItemPreview();
       }}
     }}
@@ -710,14 +801,20 @@ html_code = f"""
     }}
 
     // ==============================================================
-    // LISTA DE PEÇAS DA ORDEM DE COMPRA ATUAL (CARRINHO TEMPORÁRIO)
+    // ADIÇÃO DE MÚLTIPLAS PEÇAS COM VALIDAÇÃO DE FORNECEDOR ÚNICO
     // ==============================================================
     let itensDaOrdemAtual = [];
 
     function adicionarItemNaLista() {{
+      const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
+      if (!fornecedorPrincipal) {{
+        alert('Por favor, informe primeiro o Fornecedor Principal no cabeçalho do pedido de compra.');
+        document.getElementById('formFornecedor').focus();
+        return;
+      }}
+
       const codigoPeca = document.getElementById('itemCodigoPeca').value.trim().toUpperCase();
       const peca = document.getElementById('itemPeca').value.trim().toUpperCase();
-      const fornecedor = document.getElementById('itemFornecedor').value.trim().toUpperCase();
       const categoria = document.getElementById('itemCategoria').value.trim() || 'Geral';
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       const qtAprovada = parseInt(document.getElementById('itemQtAprovada').value) || 0;
@@ -733,10 +830,17 @@ html_code = f"""
         return;
       }}
 
+      // Validação de consistência do fornecedor da peça cadastrada
+      const cadastroOriginal = catalogoPecas.find(p => p.codigo.toLowerCase() === codigoPeca.toLowerCase());
+      if (cadastroOriginal && cadastroOriginal.fornecedor && cadastroOriginal.fornecedor.toUpperCase() !== fornecedorPrincipal) {{
+        const confirma = confirm(`Atenção: Na base de dados, esta peça está associada ao fornecedor "${{cadastroOriginal.fornecedor}}", mas esta OC é exclusiva do fornecedor "${{fornecedorPrincipal}}".\\n\\nDeseja incluir a peça vinculando-a a ${{fornecedorPrincipal}}?`);
+        if (!confirma) return;
+      }}
+
       itensDaOrdemAtual.push({{
         codigoPeca,
         peca,
-        fornecedor,
+        fornecedor: fornecedorPrincipal,
         categoria,
         qt,
         qtAprovada,
@@ -745,10 +849,9 @@ html_code = f"""
         custoTotal: qtAprovada * custoUnit
       }});
 
-      // Limpar campos de entrada do item
+      // Limpa os campos da peça para a próxima inserção
       document.getElementById('itemCodigoPeca').value = '';
       document.getElementById('itemPeca').value = '';
-      document.getElementById('itemFornecedor').value = '';
       document.getElementById('itemCategoria').value = '';
       document.getElementById('itemQt').value = '1';
       document.getElementById('itemQtAprovada').value = '1';
@@ -772,7 +875,7 @@ html_code = f"""
       if (itensDaOrdemAtual.length === 0) {{
         tbody.innerHTML = `
           <tr id="rowEmptyList">
-            <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+            <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça".</td>
           </tr>
         `;
         document.getElementById('footTotalQt').innerText = '0 un';
@@ -794,7 +897,7 @@ html_code = f"""
           <tr class="hover:bg-slate-50 transition">
             <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.codigoPeca}}</td>
             <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.peca}}</td>
-            <td class="py-2.5 px-3">${{item.fornecedor}}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700">${{item.categoria}}</span></td>
             <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
             <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{item.qtAprovada}} un</td>
             <td class="py-2.5 px-3 text-right">${{formatCurrency(item.custoUnit)}}</td>
@@ -820,13 +923,15 @@ html_code = f"""
     }}
 
     // ==============================================================
-    // SALVAR E PERMANECER NA MESMA PÁGINA
+    // SALVAMENTO E IMPRESSÃO DA ORDEM DE COMPRA
     // ==============================================================
     let rawOrdersData = [
       {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39, custoTotal: 65.85 }},
       {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52, custoTotal: 102.24 }},
       {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00, custoTotal: 225.00 }}
     ];
+
+    let ultimaOCSalva = null; // Armazena a última OC para impressão
 
     function gerarNumeroOC(anoSelecionado) {{
       const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
@@ -853,6 +958,13 @@ html_code = f"""
     function handleFinalSubmit(e) {{
       e.preventDefault();
 
+      const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
+      if (!fornecedorPrincipal) {{
+        alert('Por favor, informe o Fornecedor Principal da Ordem de Compra.');
+        document.getElementById('formFornecedor').focus();
+        return;
+      }}
+
       if (itensDaOrdemAtual.length === 0) {{
         alert('Atenção: Adicione pelo menos uma peça na ordem antes de salvar!');
         return;
@@ -864,7 +976,18 @@ html_code = f"""
       const dataStr = document.getElementById('formData').value;
       const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
 
-      // Grava todos os itens vinculados a esta Ordem de Compra
+      // Guarda os dados para permitir impressão imediata
+      ultimaOCSalva = {{
+        oc,
+        ano,
+        mes,
+        data: dataStr,
+        solicitante,
+        fornecedor: fornecedorPrincipal,
+        itens: JSON.parse(JSON.stringify(itensDaOrdemAtual))
+      }};
+
+      // Salva os itens na base de dados
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -875,7 +998,7 @@ html_code = f"""
           codigoPeca: item.codigoPeca,
           peca: item.peca,
           categoria: item.categoria,
-          fornecedor: item.fornecedor,
+          fornecedor: fornecedorPrincipal,
           qt: item.qt,
           qtAprovada: item.qtAprovada,
           qtNaoAprovada: item.qtNaoAprovada,
@@ -884,7 +1007,7 @@ html_code = f"""
         }};
         rawOrdersData.unshift(novoRegistro);
 
-        // Atualiza a tabela de lançamentos recentes logo abaixo
+        // Atualiza a tabela recente
         const recentBody = document.getElementById('recentEntriesBody');
         const emptyRow = recentBody.querySelector('td[colspan="9"]');
         if (emptyRow) recentBody.innerHTML = '';
@@ -895,9 +1018,9 @@ html_code = f"""
           <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{novoRegistro.oc}}</td>
           <td class="py-2.5 px-3">${{novoRegistro.data}}</td>
           <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.solicitante}}</td>
+          <td class="py-2.5 px-3 font-bold text-blue-900">${{novoRegistro.fornecedor}}</td>
           <td class="py-2.5 px-3 font-mono text-slate-600">${{novoRegistro.codigoPeca}}</td>
           <td class="py-2.5 px-3 font-semibold text-slate-800">${{novoRegistro.peca}}</td>
-          <td class="py-2.5 px-3">${{novoRegistro.fornecedor}}</td>
           <td class="py-2.5 px-3 text-center font-bold">${{novoRegistro.qt}} un</td>
           <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{novoRegistro.qtAprovada}} un</td>
           <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(novoRegistro.custoTotal)}}</td>
@@ -905,19 +1028,68 @@ html_code = f"""
         recentBody.prepend(tr);
       }});
 
-      const totalPecasSalvas = itensDaOrdemAtual.length;
+      const totalPecas = itensDaOrdemAtual.length;
 
-      // Limpa os itens adicionados e reseta para a próxima OC
+      // Limpa dados para próxima OC
       limparOCAtual();
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
 
-      // Mostra a notificação de sucesso e PERMANECE NA MESMA PÁGINA
+      // Mostra o card de sucesso com a opção de imprimir
       const alertBox = document.getElementById('alertSuccess');
-      document.getElementById('alertSuccessTitle').innerText = `✅ Ordem ${{oc}} salva com sucesso (${{totalPecasSalvas}} peças registradas)!`;
+      document.getElementById('alertSuccessTitle').innerText = `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
+      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}}`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+    }}
+
+    // Função de montagem e acionamento de impressão (Print / PDF)
+    function imprimirUltimaOC() {{
+      if (!ultimaOCSalva) {{
+        alert('Nenhuma ordem de compra recente disponível para impressão.');
+        return;
+      }}
+
+      document.getElementById('printOCNumero').innerText = ultimaOCSalva.oc;
+      document.getElementById('printOCData').innerText = `Data: ${{ultimaOCSalva.data}} (${{ultimaOCSalva.mes}}/${{ultimaOCSalva.ano}})`;
+      document.getElementById('printOCFornecedor').innerText = ultimaOCSalva.fornecedor;
+      document.getElementById('printOCSolicitante').innerText = ultimaOCSalva.solicitante;
+
+      const tbody = document.getElementById('printOCTableBody');
+      let somaQt = 0;
+      let somaAtendida = 0;
+      let somaValor = 0;
+
+      tbody.innerHTML = ultimaOCSalva.itens.map((item, idx) => {{
+        somaQt += item.qt;
+        somaAtendida += item.qtAprovada;
+        somaValor += item.custoTotal;
+
+        return `
+          <tr class="border-b border-slate-200">
+            <td class="py-2 px-3 border border-slate-300 font-bold">${{idx + 1}}</td>
+            <td class="py-2 px-3 border border-slate-300 font-mono font-bold">${{item.codigoPeca}}</td>
+            <td class="py-2 px-3 border border-slate-300">${{item.peca}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
+            <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
+            <td class="py-2 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
+          </tr>
+        `;
+      }}).join('');
+
+      document.getElementById('printOCTotalQt').innerText = `${{somaQt}} un`;
+      document.getElementById('printOCTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('printOCTotalValor').innerText = formatCurrency(somaValor);
+
+      const printArea = document.getElementById('printArea');
+      printArea.classList.remove('hidden');
+
+      setTimeout(() => {{
+        window.print();
+        printArea.classList.add('hidden');
+      }}, 300);
     }}
 
     function switchPage(page) {{
@@ -1192,4 +1364,4 @@ html_code = f"""
 </html>
 """
 
-components.html(html_code, height=2400, scrolling=True)
+components.html(html_code, height=2500, scrolling=True)
