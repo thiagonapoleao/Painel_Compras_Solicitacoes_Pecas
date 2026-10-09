@@ -116,7 +116,7 @@ html_code = f"""
       border: 1px solid #e2e8f0;
     }}
 
-    /* Estilos de Impressão */
+    /* Estilos Exclusivos para Impressão da Ordem de Compra */
     @media print {{
       body * {{
         visibility: hidden;
@@ -150,7 +150,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Fornecedor único · Reimpressão de Pedidos · Preço de Venda (+70%)</p>
+          <p class="text-xs text-slate-500">Impressão focada em custos · Fornecedor único · {total_itens_carregados} itens da planilha</p>
         </div>
       </div>
       
@@ -398,7 +398,7 @@ html_code = f"""
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Fornecedor único · Múltiplas peças · Valor de Venda com <strong>+70% de margem</strong></p>
+              <p class="text-xs text-slate-500">Fornecedor único · Múltiplas peças · Impressão oficial com valores de custo</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -514,9 +514,9 @@ html_code = f"""
                 <input type="number" step="0.01" min="0" id="itemCustoUnit" placeholder="0,00" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Valor de Venda Unitário Calculado (+70%) -->
+              <!-- Valor de Venda Unitário Calculado (+70%) para uso interno -->
               <div>
-                <label class="block text-xs font-semibold text-emerald-700 mb-1">Valor Venda Unit. (+70%)</label>
+                <label class="block text-xs font-semibold text-emerald-700 mb-1">Valor Venda Unit. (+70%) [Interno]</label>
                 <input type="text" id="itemVendaUnitPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-50/60 px-3 py-2 text-emerald-900 cursor-not-allowed">
               </div>
 
@@ -533,14 +533,14 @@ html_code = f"""
               </div>
 
               <!-- Subtotal Custo -->
-              <div>
-                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total</label>
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total (Qt Atendida × Custo Unit.)</label>
                 <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
               </div>
 
               <!-- Subtotal Venda Total -->
-              <div>
-                <label class="block text-xs font-semibold text-indigo-700 mb-1">Subtotal Venda Total (+70%)</label>
+              <div class="col-span-1 md:col-span-1">
+                <label class="block text-xs font-semibold text-indigo-700 mb-1">Subtotal Venda (+70%) [Interno]</label>
                 <input type="text" id="itemVendaSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-indigo-300 bg-indigo-50/60 px-3 py-2 text-indigo-900 cursor-not-allowed">
               </div>
 
@@ -574,25 +574,22 @@ html_code = f"""
                     <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                     <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
                     <th class="py-2.5 px-3 text-right">Custo Unit.</th>
-                    <th class="py-2.5 px-3 text-right text-emerald-700">Venda Unit. (+70%)</th>
                     <th class="py-2.5 px-3 text-right">Custo Total</th>
-                    <th class="py-2.5 px-3 text-right text-indigo-700">Venda Total</th>
                     <th class="py-2.5 px-3 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="listaPecasOCTableBody" class="divide-y divide-slate-100">
                   <tr id="rowEmptyList">
-                    <td colspan="10" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+                    <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
                   </tr>
                 </tbody>
                 <tfoot class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
                   <tr>
-                    <td colspan="3" class="py-3 px-3 text-right uppercase text-[11px]">Totais da Ordem de Compra:</td>
+                    <td colspan="3" class="py-3 px-3 text-right uppercase text-[11px]">Totais da Ordem de Compra (Custo):</td>
                     <td id="footTotalQt" class="py-3 px-3 text-center text-blue-700 font-bold">0 un</td>
                     <td id="footTotalAtendida" class="py-3 px-3 text-center text-emerald-700 font-bold">0 un</td>
-                    <td colspan="2"></td>
+                    <td></td>
                     <td id="footTotalValor" class="py-3 px-3 text-right text-amber-700 font-bold text-sm">R$ 0,00</td>
-                    <td id="footTotalVenda" class="py-3 px-3 text-right text-indigo-700 font-bold text-sm">R$ 0,00</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -633,12 +630,11 @@ html_code = f"""
                 <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                 <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
                 <th class="py-2.5 px-3 text-right">Custo Total</th>
-                <th class="py-2.5 px-3 text-right text-indigo-700">Venda Total (+70%)</th>
               </tr>
             </thead>
             <tbody id="recentEntriesBody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="11" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td>
+                <td colspan="10" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td>
               </tr>
             </tbody>
           </table>
@@ -647,13 +643,13 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC ==================== -->
+    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (APENAS CUSTO) ==================== -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
         <div class="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
           <div>
             <h1 class="text-2xl font-black uppercase tracking-tight">ORDEM DE COMPRA</h1>
-            <p class="text-xs text-slate-600">Controle Operacional de Peças, Suprimentos e Precificação</p>
+            <p class="text-xs text-slate-600">Controle Operacional de Peças & Suprimentos</p>
           </div>
           <div class="text-right">
             <span id="printOCNumero" class="text-xl font-mono font-black text-blue-800">OC-0000-0000</span>
@@ -672,34 +668,32 @@ html_code = f"""
           </div>
         </div>
 
+        <!-- Tabela contendo apenas Custo Unitário e Custo Total -->
         <table class="w-full text-left text-xs border border-slate-300 mb-6">
           <thead class="bg-slate-200 uppercase font-bold text-slate-800">
             <tr>
-              <th class="py-2 px-3 border border-slate-300">Item</th>
-              <th class="py-2 px-3 border border-slate-300">Cód. Peça</th>
-              <th class="py-2 px-3 border border-slate-300">Descrição do Produto</th>
-              <th class="py-2 px-3 border border-slate-300 text-center">Qt Solicitada</th>
-              <th class="py-2 px-3 border border-slate-300 text-center">Qt Atendida</th>
-              <th class="py-2 px-3 border border-slate-300 text-right">Custo Unit.</th>
-              <th class="py-2 px-3 border border-slate-300 text-right">Venda Unit. (+70%)</th>
-              <th class="py-2 px-3 border border-slate-300 text-right">Custo Total</th>
-              <th class="py-2 px-3 border border-slate-300 text-right">Venda Total</th>
+              <th class="py-2.5 px-3 border border-slate-300">Item</th>
+              <th class="py-2.5 px-3 border border-slate-300">Cód. Peça</th>
+              <th class="py-2.5 px-3 border border-slate-300">Descrição do Produto</th>
+              <th class="py-2.5 px-3 border border-slate-300 text-center">Qt Solicitada</th>
+              <th class="py-2.5 px-3 border border-slate-300 text-center">Qt Atendida</th>
+              <th class="py-2.5 px-3 border border-slate-300 text-right">Custo Unitário (R$)</th>
+              <th class="py-2.5 px-3 border border-slate-300 text-right">Custo Total (R$)</th>
             </tr>
           </thead>
           <tbody id="printOCTableBody"></tbody>
           <tfoot class="bg-slate-100 font-bold border-t-2 border-slate-800">
             <tr>
-              <td colspan="3" class="py-2.5 px-3 text-right uppercase">Totais Gerais do Pedido:</td>
-              <td id="printOCTotalQt" class="py-2.5 px-3 text-center">0 un</td>
-              <td id="printOCTotalAtendida" class="py-2.5 px-3 text-center">0 un</td>
-              <td colspan="2"></td>
-              <td id="printOCTotalValor" class="py-2.5 px-3 text-right text-sm font-black text-amber-800">R$ 0,00</td>
-              <td id="printOCTotalVenda" class="py-2.5 px-3 text-right text-sm font-black text-indigo-800">R$ 0,00</td>
+              <td colspan="3" class="py-3 px-3 text-right uppercase text-xs">Total Geral da Ordem de Compra (Custo):</td>
+              <td id="printOCTotalQt" class="py-3 px-3 text-center">0 un</td>
+              <td id="printOCTotalAtendida" class="py-3 px-3 text-center">0 un</td>
+              <td></td>
+              <td id="printOCTotalValor" class="py-3 px-3 text-right text-base font-black text-slate-900">R$ 0,00</td>
             </tr>
           </tfoot>
         </table>
 
-        <div class="grid grid-cols-2 gap-8 mt-14 pt-8 border-t border-slate-300 text-center text-xs">
+        <div class="grid grid-cols-2 gap-8 mt-16 pt-8 border-t border-slate-300 text-center text-xs">
           <div>
             <div class="border-t border-slate-500 w-3/4 mx-auto mb-1"></div>
             <p class="font-bold">Aprovação / Responsável Compras</p>
@@ -803,7 +797,7 @@ html_code = f"""
     }}
 
     // ==============================================================
-    // CÁLCULO DE VALOR DE VENDA: 70% SOBRE O VALOR DE CUSTO
+    // CÁLCULO DE VALOR DE VENDA (70% DE MARGEM - INTERNO)
     // ==============================================================
     function calcItemPreview() {{
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
@@ -816,7 +810,6 @@ html_code = f"""
       document.getElementById('itemQtNaoAprovada').value = Math.max(0, qt - qtAprovada);
 
       const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
-      // Preço de venda com margem de 70%
       const vendaUnit = custoUnit * 1.70;
       const subtotalCusto = qtAprovada * custoUnit;
       const subtotalVenda = qtAprovada * vendaUnit;
@@ -899,26 +892,23 @@ html_code = f"""
       if (itensDaOrdemAtual.length === 0) {{
         tbody.innerHTML = `
           <tr id="rowEmptyList">
-            <td colspan="10" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
+            <td colspan="8" class="text-center py-6 text-slate-400">Nenhuma peça adicionada ainda. Preencha os campos acima e clique em "Adicionar Peça à Ordem".</td>
           </tr>
         `;
         document.getElementById('footTotalQt').innerText = '0 un';
         document.getElementById('footTotalAtendida').innerText = '0 un';
         document.getElementById('footTotalValor').innerText = 'R$ 0,00';
-        document.getElementById('footTotalVenda').innerText = 'R$ 0,00';
         return;
       }}
 
       let somaQt = 0;
       let somaAtendida = 0;
       let somaValor = 0;
-      let somaVenda = 0;
 
       tbody.innerHTML = itensDaOrdemAtual.map((item, idx) => {{
         somaQt += item.qt;
         somaAtendida += item.qtAprovada;
         somaValor += item.custoTotal;
-        somaVenda += item.vendaTotal;
 
         return `
           <tr class="hover:bg-slate-50 transition">
@@ -928,9 +918,7 @@ html_code = f"""
             <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
             <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{item.qtAprovada}} un</td>
             <td class="py-2.5 px-3 text-right">${{formatCurrency(item.custoUnit)}}</td>
-            <td class="py-2.5 px-3 text-right font-semibold text-emerald-700">${{formatCurrency(item.vendaUnit)}}</td>
             <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
-            <td class="py-2.5 px-3 text-right font-bold text-indigo-700">${{formatCurrency(item.vendaTotal)}}</td>
             <td class="py-2.5 px-3 text-center">
               <button type="button" onclick="removerItemDaLista(${{idx}})" title="Remover Peça" class="text-rose-500 hover:text-rose-700 p-1 rounded-md hover:bg-rose-50">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -943,7 +931,6 @@ html_code = f"""
       document.getElementById('footTotalQt').innerText = `${{somaQt}} un`;
       document.getElementById('footTotalAtendida').innerText = `${{somaAtendida}} un`;
       document.getElementById('footTotalValor').innerText = formatCurrency(somaValor);
-      document.getElementById('footTotalVenda').innerText = formatCurrency(somaVenda);
       lucide.createIcons();
     }}
 
@@ -961,9 +948,8 @@ html_code = f"""
       {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00, vendaUnit: 76.50, custoTotal: 225.00, vendaTotal: 382.50 }}
     ];
 
-    let todasOCsEmitidas = {{}}; // Armazenamento completo por número de OC para permitir reimpressão a qualquer momento
+    let todasOCsEmitidas = {{}};
 
-    // Preenche as OCs iniciais
     rawOrdersData.forEach(item => {{
       if (!todasOCsEmitidas[item.oc]) {{
         todasOCsEmitidas[item.oc] = {{
@@ -1027,7 +1013,6 @@ html_code = f"""
       const dataStr = document.getElementById('formData').value;
       const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
 
-      // Guarda os dados completos da OC para reimpressão
       const dadosOCSalva = {{
         oc,
         ano,
@@ -1041,7 +1026,6 @@ html_code = f"""
       todasOCsEmitidas[oc] = dadosOCSalva;
       ultimaOCSalva = dadosOCSalva;
 
-      // Salva os itens na base de dados
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1066,20 +1050,19 @@ html_code = f"""
 
       const totalPecas = itensDaOrdemAtual.length;
 
-      // 1. Limpa os itens da ordem atual
+      // 1. Limpa peças da ordem
       limparOCAtual();
 
-      // 2. LIMPA OS CAMPOS SOLICITANTE E FORNECEDOR CONFORME SOLICITADO
+      // 2. Limpa Solicitante e Fornecedor
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
 
-      // 3. Atualiza numeração da OC, tabelas e dashboard
+      // 3. Atualiza controles
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
       renderizarTabelaRecentes();
 
-      // Mostra o card de sucesso na mesma página
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
       document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Campos limpos para o próximo lançamento.`;
@@ -1093,7 +1076,7 @@ html_code = f"""
     function renderizarTabelaRecentes() {{
       const recentBody = document.getElementById('recentEntriesBody');
       if (rawOrdersData.length === 0) {{
-        recentBody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td></tr>';
+        recentBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td></tr>';
         return;
       }}
 
@@ -1114,7 +1097,6 @@ html_code = f"""
           <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
           <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{item.qtAprovada}} un</td>
           <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
-          <td class="py-2.5 px-3 text-right font-bold text-indigo-700">${{formatCurrency(item.vendaTotal || (item.custoTotal * 1.70))}}</td>
         </tr>
       `).join('');
       lucide.createIcons();
@@ -1122,7 +1104,7 @@ html_code = f"""
     renderizarTabelaRecentes();
 
     // ==============================================================
-    // FUNÇÕES DE IMPRESSÃO
+    // FUNÇÕES DE IMPRESSÃO (EXIBINDO APENAS O VALOR DE CUSTO)
     // ==============================================================
     function imprimirUltimaOC() {{
       if (!ultimaOCSalva) {{
@@ -1135,7 +1117,6 @@ html_code = f"""
     function imprimirOCEspecifica(numeroOC) {{
       const ocData = todasOCsEmitidas[numeroOC];
       if (!ocData) {{
-        // Constrói com base nos itens cadastrados na base
         const itens = rawOrdersData.filter(i => i.oc === numeroOC);
         if (itens.length > 0) {{
           executarImpressao({{
@@ -1165,15 +1146,12 @@ html_code = f"""
       let somaQt = 0;
       let somaAtendida = 0;
       let somaCusto = 0;
-      let somaVenda = 0;
 
+      // Monta as linhas contendo APENAS CUSTO UNITÁRIO E CUSTO TOTAL
       tbody.innerHTML = dadosOC.itens.map((item, idx) => {{
         somaQt += item.qt;
         somaAtendida += item.qtAprovada;
         somaCusto += item.custoTotal;
-        const vTot = item.vendaTotal || (item.custoTotal * 1.70);
-        const vUnit = item.vendaUnit || (item.custoUnit * 1.70);
-        somaVenda += vTot;
 
         return `
           <tr class="border-b border-slate-200">
@@ -1183,9 +1161,7 @@ html_code = f"""
             <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
             <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
             <td class="py-2 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
-            <td class="py-2 px-3 border border-slate-300 text-right font-semibold text-emerald-800">${{formatCurrency(vUnit)}}</td>
-            <td class="py-2 px-3 border border-slate-300 text-right font-bold text-amber-900">${{formatCurrency(item.custoTotal)}}</td>
-            <td class="py-2 px-3 border border-slate-300 text-right font-bold text-indigo-900">${{formatCurrency(vTot)}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
           </tr>
         `;
       }}).join('');
@@ -1193,7 +1169,6 @@ html_code = f"""
       document.getElementById('printOCTotalQt').innerText = `${{somaQt}} un`;
       document.getElementById('printOCTotalAtendida').innerText = `${{somaAtendida}} un`;
       document.getElementById('printOCTotalValor').innerText = formatCurrency(somaCusto);
-      document.getElementById('printOCTotalVenda').innerText = formatCurrency(somaVenda);
 
       const printArea = document.getElementById('printArea');
       printArea.classList.remove('hidden');
