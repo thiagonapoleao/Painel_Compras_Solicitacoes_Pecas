@@ -32,17 +32,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# CARREGAMENTO EXATO DO ARQUIVO "Logotipo.PNG" NA MESMA PASTA DO APP.PY
+# CARREGAMENTO DO ARQUIVO "Logotipo.PNG" NA MESMA PASTA DO APP.PY
 # ==============================================================================
 def obter_logo_base64():
-    """Localiza especificamente o Logotipo.PNG na pasta atual e converte para base64."""
     pastas_busca = [
         os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else "",
         os.getcwd(),
         "."
     ]
     
-    # Lista de nomes com prioridade para Logotipo.PNG
     nomes_alvo = [
         "Logotipo.PNG", "Logotipo.png", "logotipo.PNG", "logotipo.png",
         "LOGOTIPO.PNG", "logo.PNG", "logo.png"
@@ -60,7 +58,6 @@ def obter_logo_base64():
         if caminho_encontrado:
             break
             
-    # Se ainda não encontrou diretamente, faz varredura insensível a maiúsculas/minúsculas
     if not caminho_encontrado:
         for pasta in pastas_busca:
             if not pasta or not os.path.isdir(pasta):
@@ -250,23 +247,22 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- Header Superior com Logotipo da Master Café -->
+  <!-- Header Superior com Apenas o Logotipo -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-3">
-        <!-- Logotipo da Master Café -->
-        <div class="flex items-center justify-center p-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" style="height: 52px; min-width: 52px;">
-          <img id="headerLogoImg" src="{logo_base64_src}" alt="Master Café" class="max-h-12 w-auto object-contain" onerror="this.style.display='none'; document.getElementById('headerFallbackIcon').style.display='flex';">
+      <div class="flex items-center gap-4">
+        <!-- Renderização do Logotipo sem o texto "Master Café" -->
+        <div class="flex items-center justify-center p-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" style="height: 54px; min-width: 54px;">
+          <img id="headerLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-12 w-auto object-contain" onerror="this.style.display='none'; document.getElementById('headerFallbackIcon').style.display='flex';">
           <div id="headerFallbackIcon" style="display: {'none' if logo_base64_src else 'flex'};" class="w-10 h-10 bg-amber-700 text-white rounded-lg items-center justify-center font-black text-sm">
-            MC
+            ☕
           </div>
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            Master Café
-            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">Gestão de Peças</span>
+            Painel de Gestão de Peças & Compras
           </h1>
-          <p class="text-xs text-slate-500">Painel de Compras, Ordens de Serviço & Estoque · {total_itens_carregados} peças na base</p>
+          <p class="text-xs text-slate-500">Controle Operacional, Ordens de Serviço & Estoque · {total_itens_carregados} peças na base</p>
         </div>
       </div>
       
@@ -741,17 +737,17 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (COM LOGO DA MASTER CAFÉ) ==================== -->
+    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (COM LOGO E SEM TEXTO MASTER CAFÉ) ==================== -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
         
-        <!-- Topo da Impressão com o Logotipo -->
+        <!-- Topo da Impressão: Somente o Logotipo e Identificação da OC -->
         <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
           <div class="flex items-center gap-4">
-            <img id="printLogoImg" src="{logo_base64_src}" alt="Master Café" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
+            <img id="printLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
             <div>
-              <h1 class="text-2xl font-black uppercase tracking-tight">Master Café</h1>
-              <p class="text-xs text-slate-600 font-bold uppercase tracking-wider">Ordem de Compra de Peças & Suprimentos</p>
+              <h1 class="text-2xl font-black uppercase tracking-tight">ORDEM DE COMPRA</h1>
+              <p class="text-xs text-slate-600 font-bold uppercase tracking-wider">Peças & Suprimentos</p>
             </div>
           </div>
           <div class="text-right">
@@ -1323,8 +1319,8 @@ html_code = f"""
             <td class="py-2 px-3 border border-slate-300">${{item.peca}}</td>
             <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
             <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
-            <td class="py-2 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
-            <td class="py-2 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
           </tr>
         `;
       }}).join('');
