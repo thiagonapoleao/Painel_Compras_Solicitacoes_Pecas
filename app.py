@@ -3,10 +3,8 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 
-# ==============================================================================
-# COLE AQUI A URL GERADA NA IMPLANTAÇÃO DO SEU GOOGLE APPS SCRIPT (OPÇÃO 1)
-# ==============================================================================
-APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzb4ImFjlQOJ6KCQ7SIUbPouF2kTX0jIKZIMlNT7N9EvawoQxyU5jecpxnLMVILSW7w/exec"
+# Link oficial do Google Apps Script Web App integrado
+APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
@@ -155,7 +153,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Gravação direta no Google Planilhas · Fornecedor único · Impressão sem valor de venda</p>
+          <p class="text-xs text-slate-500">Gravação Direta na Planilha · Fornecedor Único · {total_itens_carregados} itens sincronizados</p>
         </div>
       </div>
       
@@ -413,7 +411,7 @@ html_code = f"""
 
         <form id="orderForm" onsubmit="handleFinalSubmit(event)" class="space-y-6">
           
-          <!-- DADOS GERAIS DO CABEÇALHO DA OC (FORNECEDOR É ÚNICO NO CABEÇALHO) -->
+          <!-- CABEÇALHO DA OC (FORNECEDOR É ÚNICO NO CABEÇALHO) -->
           <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
             <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
             <div>
@@ -455,13 +453,13 @@ html_code = f"""
               <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
             </div>
 
-            <!-- Solicitante (Será limpo após salvar) -->
+            <!-- Solicitante -->
             <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
             </div>
 
-            <!-- FORNECEDOR (ÚNICO POR PEDIDO - Será limpo após salvar) -->
+            <!-- FORNECEDOR (ÚNICO POR PEDIDO - COM PRÉ-LISTA DA COLUNA F) -->
             <div class="md:col-span-3 lg:col-span-6 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200">
               <label class="block text-xs font-bold text-blue-900 mb-1">
                 Fornecedor (Único para este Pedido de Compra) *
@@ -519,7 +517,7 @@ html_code = f"""
                 <input type="number" step="0.01" min="0" id="itemCustoUnit" placeholder="0,00" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Valor de Venda Unitário Calculado (+70%) para uso interno -->
+              <!-- Valor de Venda Unitário (+70%) para uso interno -->
               <div>
                 <label class="block text-xs font-semibold text-emerald-700 mb-1">Valor Venda Unit. (+70%) [Interno]</label>
                 <input type="text" id="itemVendaUnitPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-50/60 px-3 py-2 text-emerald-900 cursor-not-allowed">
@@ -718,7 +716,7 @@ html_code = f"""
     Chart.register(ChartDataLabels);
 
     // ==============================================================
-    // CONFIGURAÇÃO DA URL DO WEB APP (GOOGLE APPS SCRIPT)
+    // CONFIGURAÇÃO DA URL OFICIAL DO WEB APP (GOOGLE APPS SCRIPT)
     // ==============================================================
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
 
@@ -995,7 +993,7 @@ html_code = f"""
     atualizarProximoNumeroOC();
 
     // ==============================================================================
-    // AQUI FICA A GRAVAÇÃO VIA JAVASCRIPT (OPÇÃO 1 - FETCH NO APPS SCRIPT)
+    // SALVAMENTO E ENVIO VIA JAVASCRIPT FETCH PARA O APPS SCRIPT
     // ==============================================================================
     function handleFinalSubmit(e) {{
       e.preventDefault();
@@ -1031,21 +1029,23 @@ html_code = f"""
       todasOCsEmitidas[oc] = dadosOCSalva;
       ultimaOCSalva = dadosOCSalva;
 
-      // DISPARO DO FETCH PARA A PLANILHA DO GOOGLE APPS SCRIPT (OPÇÃO 1)
-      if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== "COLE_AQUI_A_URL_DO_SEU_WEB_APP_APPS_SCRIPT") {{
+      // DISPARO CORRIGIDO PARA O APPS SCRIPT SEM BLOQUEIO DE CORS
+      if (APPS_SCRIPT_URL) {{
         fetch(APPS_SCRIPT_URL, {{
           method: "POST",
           mode: "no-cors",
-          headers: {{ "Content-Type": "application/json" }},
+          headers: {{
+            "Content-Type": "text/plain;charset=utf-8"
+          }},
           body: JSON.stringify(dadosOCSalva)
-        }}).then(() => {{
-          console.log("Ordem " + oc + " enviada com sucesso para a planilha Google Sheets!");
-        }}).catch(err => {{
-          console.error("Erro ao enviar dados para o Google Apps Script:", err);
+        }}).then(function() {{
+          console.log("Ordem " + oc + " enviada com sucesso para o Apps Script.");
+        }}).catch(function(err) {{
+          console.error("Falha na chamada fetch:", err);
         }});
       }}
 
-      // Salva os itens localmente para alimentar o Dashboard e a lista
+      // Atualiza os registros locais para atualizar na hora os painéis
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1075,7 +1075,7 @@ html_code = f"""
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
 
-      // Atualiza telas
+      // Atualiza numeração da OC e telas
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
