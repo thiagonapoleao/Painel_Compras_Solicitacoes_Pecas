@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
+import urllib.parse
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
@@ -11,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Oculta menus e bordas padrão do Streamlit
+# Oculta menus padrão do Streamlit
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -27,81 +28,86 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# URL para exportação direta em CSV da aba 'Base de Dados' (gid=270834817)
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/export?format=csv&gid=270834817"
+# IDs e URLs da Planilha do Google Sheets
+SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
+GID_BASE = "270834817" # Aba: Base de Dados
 
-@st.cache_data(ttl=300)
-def carregar_base_de_dados():
-    """Tenta ler online diretamente da planilha. Se não conseguir acesso, usa a base oficial sincronizada."""
+# Endereços para leitura direta via Google Sheets CSV / gviz
+URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
+URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
+
+def buscar_dados_planilha_ao_vivo():
+    """
+    Lê diretamente da planilha 'Base de Dados' do Google Sheets em tempo real.
+    Coluna A: Código da Peça
+    Coluna B: Descrição da Peça / Produto
+    Coluna F: Fornecedor
+    """
+    df = None
+    erros = []
+
+    # Tentativa 1: Exportação padrão CSV com gid
     try:
-        df = pd.read_csv(SHEET_CSV_URL)
-        col_cod = df.columns[0]   # Coluna A: Produto / Código
-        col_desc = df.columns[1]  # Coluna B: Descrição
-        col_cat = df.columns[2]   # Coluna C: Grupo
-        col_forn = df.columns[5]  # Coluna F: FORNECEDOR
+        df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
+    except Exception as e:
+        erros.append(str(e))
 
-        lista = []
-        for _, row in df.iterrows():
-            c = str(row[col_cod]).strip() if pd.notna(row[col_cod]) else ""
-            d = str(row[col_desc]).strip() if pd.notna(row[col_desc]) else ""
-            f = str(row[col_forn]).strip() if pd.notna(row[col_forn]) else "EVOCA"
-            g = str(row[col_cat]).strip() if pd.notna(row[col_cat]) else "8 PEÇAS"
-            
-            if c and d and c.lower() != "nan" and d.lower() != "nan":
-                lista.append({
-                    "codigo": c,
-                    "descricao": d,
-                    "fornecedor": f,
-                    "categoria": g
-                })
-        if len(lista) > 0:
-            return lista
-    except Exception:
-        pass
+    # Tentativa 2: Google Visualization API (GViz CSV)
+    if df is None or df.empty:
+        try:
+            df = pd.read_csv(URL_GVIZ_DIRECT, dtype=str)
+        except Exception as e:
+            erros.append(str(e))
 
-    # Base oficial extraída diretamente da aba 'Base de Dados' (gid=270834817)
-    return [
-        {"codigo": "2290", "descricao": "ABERTURA PLASTICA CENTRAL SAIDA", "categoria": "8 PEÇAS", "fornecedor": "ANDRE MEKAR"},
-        {"codigo": "534", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA", "categoria": "8 PEÇAS", "fornecedor": "ANGELO OCS"},
-        {"codigo": "534-INOX", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA ( INOX )", "categoria": "8 PEÇAS", "fornecedor": "AUTO ELETRICA 3C"},
-        {"codigo": "700", "descricao": "ACABABAMENTO TUBO DO VAPOR PRETO", "categoria": "8 PEÇAS", "fornecedor": "BIANCHI FERNANDO"},
-        {"codigo": "1442", "descricao": "MAQUINA DE CAFE SOFIA 2 GRUPOS", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "BIANCHI VENDING BRASIL S.A"},
-        {"codigo": "2672", "descricao": "MAQ. CAFE EXPRESSO OPERA", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA BRAZIL"},
-        {"codigo": "2617", "descricao": "MAQ. CAFE EXPRESSO KIKKO 220V", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00101", "descricao": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00102", "descricao": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00103", "descricao": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00104", "descricao": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS"},
-        {"codigo": "PEC-00105", "descricao": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO"},
-        {"codigo": "PEC-00106", "descricao": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT"},
-        {"codigo": "PEC-00107", "descricao": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT"},
-        {"codigo": "PEC-00108", "descricao": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC"},
-        {"codigo": "PEC-00109", "descricao": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON"},
-        {"codigo": "PEC-00110", "descricao": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00111", "descricao": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00112", "descricao": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00113", "descricao": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT"},
-        {"codigo": "PEC-00114", "descricao": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT"},
-        {"codigo": "PEC-00115", "descricao": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS"},
-        {"codigo": "PEC-00116", "descricao": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES"},
-        {"codigo": "PEC-00117", "descricao": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT"},
-        {"codigo": "PEC-00118", "descricao": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE"},
-        {"codigo": "PEC-00119", "descricao": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS"},
-        {"codigo": "PEC-00120", "descricao": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00121", "descricao": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
-        {"codigo": "PEC-00122", "descricao": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"}
-    ]
+    if df is None or df.empty:
+        st.error(
+            "⚠️ Não foi possível ler a planilha em tempo real. "
+            "Certifique-se de que a planilha está com acesso liberado em: "
+            "**Compartilhar > Qualquer pessoa com o link pode ler**."
+        )
+        return []
 
-dados_catalogo = carregar_base_de_dados()
-dados_catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
+    # Mapeamento dinâmico das colunas A, B e F (posições 0, 1 e 5)
+    # Coluna 0 (A): Código da Peça
+    # Coluna 1 (B): Descrição da Peça / Produto
+    # Coluna 2 (C): Categoria / Grupo
+    # Coluna 5 (F): Fornecedor
+    col_a = df.columns[0]
+    col_b = df.columns[1] if len(df.columns) > 1 else col_a
+    col_c = df.columns[2] if len(df.columns) > 2 else col_a
+    col_f = df.columns[5] if len(df.columns) > 5 else (df.columns[-1])
 
+    catalogo = []
+    for _, row in df.iterrows():
+        cod = str(row[col_a]).strip() if pd.notna(row[col_a]) else ""
+        desc = str(row[col_b]).strip() if pd.notna(row[col_b]) else ""
+        cat = str(row[col_c]).strip() if pd.notna(row[col_c]) else "Geral"
+        forn = str(row[col_f]).strip() if pd.notna(row[col_f]) else ""
+
+        # Ignora linhas vazias ou de cabeçalho repetido
+        if cod and desc and cod.lower() not in ["nan", "produto", "código", "codigo"]:
+            catalogo.append({
+                "codigo": cod,
+                "descricao": desc,
+                "categoria": cat,
+                "fornecedor": forn
+            })
+
+    return catalogo
+
+# Botão no sidebar/topo se quiser forçar atualização instantânea
+dados_catalogo = buscar_dados_planilha_ao_vivo()
+catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
+total_itens_carregados = len(dados_catalogo)
+
+# Código HTML/JS Completo Integrado
 html_code = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Executivo - Solicitações & Ordens de Compra de Peças</title>
+  <title>Dashboard Executivo - Solicitações & Ordens de Compra</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -144,7 +150,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-          <p class="text-xs text-slate-500">Formulários com Pré-listas integradas (Código, Descrição e Fornecedor)</p>
+          <p class="text-xs text-slate-500">Conexão 100% dinâmica com a planilha: {total_itens_carregados} itens lidos em tempo real</p>
         </div>
       </div>
       
@@ -152,15 +158,15 @@ html_code = f"""
       <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
         <button id="navDashboard" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-          Dashboard Executivo
+          Dashboard
         </button>
         <button id="navForm" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
           Nova Solicitação (OC)
         </button>
-        <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 ml-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {len(dados_catalogo)} Peças na Base
-        </span>
+        <button onclick="window.parent.location.reload()" title="Clique para recarregar novidades da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {total_itens_carregados} Peças Conectadas (Recarregar 🔄)
+        </button>
       </div>
     </div>
   </header>
@@ -175,7 +181,7 @@ html_code = f"""
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i>
-            <span>Filtros do Painel</span>
+            <span>Filtros do Painel de Solicitações</span>
           </div>
           <span id="activeFilterBadge" class="text-xs font-medium text-slate-500">Filtrando: Todos os registros</span>
         </div>
@@ -347,7 +353,7 @@ html_code = f"""
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição da Peça e Custos</p>
+            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição e Custo Total</p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -393,7 +399,7 @@ html_code = f"""
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Cada campo conta com sua pré-lista vinculada diretamente às colunas da planilha</p>
+              <p class="text-xs text-slate-500">Selecione nas pré-listas diretas da sua planilha para preenchimento automático</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -451,34 +457,34 @@ html_code = f"""
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
-            <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A -->
+            <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A DA PLANILHA -->
             <div>
               <label class="block text-xs font-bold text-slate-800 mb-1">
                 Código da Peça *
               </label>
-              <input list="listaCodigosPecas" id="formCodigoPeca" placeholder="Selecione ou digite o código..." required oninput="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input list="listaCodigosPecas" id="formCodigoPeca" placeholder="Clique duas vezes ou digite o código..." required oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
               <datalist id="listaCodigosPecas"></datalist>
-              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com os códigos da Coluna A</span>
+              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna A da Planilha</span>
             </div>
 
-            <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B -->
+            <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B DA PLANILHA -->
             <div class="col-span-1 md:col-span-2">
               <label class="block text-xs font-bold text-slate-800 mb-1">
                 Descrição da Peça / Produto *
               </label>
-              <input list="listaDescricoesPecas" id="formPeca" placeholder="Selecione ou digite a descrição do produto..." required oninput="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input list="listaDescricoesPecas" id="formPeca" placeholder="Clique duas vezes ou digite a descrição do produto..." required oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
               <datalist id="listaDescricoesPecas"></datalist>
-              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com os produtos da Coluna B</span>
+              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna B da Planilha</span>
             </div>
 
-            <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F -->
+            <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F DA PLANILHA -->
             <div>
               <label class="block text-xs font-bold text-slate-800 mb-1">
                 Fornecedor *
               </label>
-              <input list="listaFornecedores" id="formFornecedor" placeholder="Selecione ou digite o fornecedor..." required class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input list="listaFornecedores" id="formFornecedor" placeholder="Clique duas vezes ou selecione o fornecedor..." required class="w-full text-sm font-semibold rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm">
               <datalist id="listaFornecedores"></datalist>
-              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com fornecedores da Coluna F</span>
+              <span class="text-[10px] text-blue-600 font-medium mt-1 block">🔍 Lista conectada à Coluna F da Planilha</span>
             </div>
 
             <!-- Categoria -->
@@ -572,41 +578,41 @@ html_code = f"""
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     // ==============================================================
-    // BASE DE DADOS SINCRONIZADA DA PLANILHA (COLUNAS A, B e F)
+    // BASE DE DADOS CARREGADA 100% DIRETO DA PLANILHA DO GOOGLE
     // ==============================================================
-    const catalogoPecas = {dados_catalogo_json};
+    const catalogoPecas = {catalogo_json};
 
-    // 1. Preenche a Pré-lista de Códigos de Peça (Coluna A)
+    // 1. Popula Pré-lista do CÓDIGO DA PEÇA (Coluna A)
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
-    const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo))].sort();
+    const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
     codigosUnicos.forEach(cod => {{
       const opt = document.createElement('option');
       opt.value = cod;
       dlCodigos.appendChild(opt);
     }});
 
-    // 2. Preenche a Pré-lista de Descrição de Peça / Produto (Coluna B)
+    // 2. Popula Pré-lista de DESCRIÇÃO DA PEÇA / PRODUTO (Coluna B)
     const dlDescricoes = document.getElementById('listaDescricoesPecas');
     dlDescricoes.innerHTML = '';
-    const descricoesUnicas = [...new Set(catalogoPecas.map(p => p.descricao))].sort();
+    const descricoesUnicas = [...new Set(catalogoPecas.map(p => p.descricao).filter(Boolean))].sort();
     descricoesUnicas.forEach(desc => {{
       const opt = document.createElement('option');
       opt.value = desc;
       dlDescricoes.appendChild(opt);
     }});
 
-    // 3. Preenche a Pré-lista de Fornecedores (Coluna F)
+    // 3. Popula Pré-lista de FORNECEDORES (Coluna F)
     const dlFornecedores = document.getElementById('listaFornecedores');
     dlFornecedores.innerHTML = '';
-    const fornecedoresUnicos = [...new Set(catalogoPecas.map(p => p.fornecedor))].sort();
+    const fornecedoresUnicos = [...new Set(catalogoPecas.map(p => p.fornecedor).filter(Boolean))].sort();
     fornecedoresUnicos.forEach(forn => {{
       const opt = document.createElement('option');
       opt.value = forn;
       dlFornecedores.appendChild(opt);
     }});
 
-    // Ao selecionar ou digitar no campo Código da Peça
+    // Autopreenchimento ao selecionar/digitar Código
     function aoMudarCodigo() {{
       const codDigitado = document.getElementById('formCodigoPeca').value.trim();
       if (!codDigitado) return;
@@ -614,13 +620,17 @@ html_code = f"""
       const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
         document.getElementById('formPeca').value = itemAchado.descricao;
-        document.getElementById('formFornecedor').value = itemAchado.fornecedor;
-        document.getElementById('formCategoria').value = itemAchado.categoria || '8 PEÇAS';
+        if (itemAchado.fornecedor) {{
+          document.getElementById('formFornecedor').value = itemAchado.fornecedor;
+        }}
+        if (itemAchado.categoria) {{
+          document.getElementById('formCategoria').value = itemAchado.categoria;
+        }}
         calcQuantidades();
       }}
     }}
 
-    // Ao selecionar ou digitar no campo Descrição da Peça / Produto
+    // Autopreenchimento ao selecionar/digitar Descrição
     function aoMudarDescricao() {{
       const descDigitada = document.getElementById('formPeca').value.trim();
       if (!descDigitada) return;
@@ -628,8 +638,12 @@ html_code = f"""
       const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
         document.getElementById('formCodigoPeca').value = itemAchado.codigo;
-        document.getElementById('formFornecedor').value = itemAchado.fornecedor;
-        document.getElementById('formCategoria').value = itemAchado.categoria || '8 PEÇAS';
+        if (itemAchado.fornecedor) {{
+          document.getElementById('formFornecedor').value = itemAchado.fornecedor;
+        }}
+        if (itemAchado.categoria) {{
+          document.getElementById('formCategoria').value = itemAchado.categoria;
+        }}
         calcQuantidades();
       }}
     }}
@@ -641,16 +655,8 @@ html_code = f"""
       {{ oc: 'OC-2025-0003', ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 }},
       {{ oc: 'OC-2025-0004', ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00104', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 }},
       {{ oc: 'OC-2025-0005', ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', codigoPeca: 'PEC-00105', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 }},
-      {{ oc: 'OC-2025-0006', ano: '2025', mes: 'Agosto', data: '20/08/2025', solicitante: 'LUCAS', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 180.00 }},
-      {{ oc: 'OC-2025-0007', ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00108', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 }},
-      {{ oc: 'OC-2025-0008', ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00109', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 }},
-      {{ oc: 'OC-2025-0009', ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 }},
-      {{ oc: 'OC-2025-0010', ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 }},
-      {{ oc: 'OC-2025-0011', ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 }},
       {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00 }},
-      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: '534', peca: 'ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA', categoria: '8 PEÇAS', fornecedor: 'ANGELO OCS', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 12.50 }},
-      {{ oc: 'OC-2026-0003', ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 }},
-      {{ oc: 'OC-2026-0004', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 }}
+      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: '534', peca: 'ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA', categoria: '8 PEÇAS', fornecedor: 'ANGELO OCS', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 12.50 }}
     ];
 
     function recalcularCustos() {{
@@ -660,9 +666,7 @@ html_code = f"""
     }}
     recalcularCustos();
 
-    // ==========================================
-    // GERADOR DO NÚMERO DE OC (OC-AAAA-XXXX)
-    // ==========================================
+    // Gerador de OC: OC-AAAA-XXXX
     function gerarNumeroOC(anoSelecionado) {{
       const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
       let maiorSequencial = 0;
@@ -797,7 +801,7 @@ html_code = f"""
       populateDropdowns();
       updateDashboard();
 
-      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} gerada e salva com sucesso!`);
+      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} gerada e lançada com sucesso!`);
       switchPage('dashboard');
     }}
 
@@ -1070,4 +1074,5 @@ html_code = f"""
 </html>
 """
 
+# Renderiza no Streamlit
 components.html(html_code, height=2200, scrolling=True)
