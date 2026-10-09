@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import pandas as pd
+import requests
 
 # Link oficial fornecido do Google Apps Script Web App
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
@@ -21,10 +22,10 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 0rem !important;
-        padding-right: 0rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
         max-width: 100% !important;
     }
 </style>
@@ -37,8 +38,8 @@ GID_BASE = "270834817"
 URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
 URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
 
-def buscar_dados_planilha_ao_vivo():
-    """Lê diretamente da aba 'Base de Dados' do Google Sheets em tempo real."""
+@st.cache_data(ttl=60)
+def carregar_catalogo_planilha():
     df = None
     try:
         df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
@@ -49,17 +50,12 @@ def buscar_dados_planilha_ao_vivo():
             pass
 
     if df is None or df.empty:
-        st.error(
-            "⚠️ Não foi possível ler a planilha em tempo real. "
-            "Certifique-se de que a planilha está com acesso liberado em: "
-            "**Compartilhar > Qualquer pessoa com o link pode ler**."
-        )
         return []
 
     col_a = df.columns[0]
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
-    col_f = df.columns[5] if len(df.columns) > 5 else (df.columns[-1])
+    col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
 
     catalogo = []
     for _, row in df.iterrows():
@@ -75,12 +71,29 @@ def buscar_dados_planilha_ao_vivo():
                 "categoria": cat,
                 "fornecedor": forn
             })
-
     return catalogo
 
-dados_catalogo = buscar_dados_planilha_ao_vivo()
-catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
-total_itens_carregados = len(dados_catalogo)
+catalogo_pecas = carregar_catalogo_planilha()
+catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
+total_itens_carregados = len(catalogo_pecas)
+
+# Captura de envio vindo da interface
+query_params = st.query_params
+if "payload_oc" in query_params:
+    try:
+        payload_data = json.loads(query_params["payload_oc"])
+        # Disparo direto do Python para o Apps Script
+        resp = requests.post(
+            APPS_SCRIPT_WEBAPP_URL,
+            json=payload_data,
+            headers={"Content-Type": "application/json"},
+            timeout=15
+        )
+        st.success(f"✅ Pedido {payload_data.get('oc', '')} gravado com sucesso na planilha Google Sheets!")
+    except Exception as e:
+        st.error(f"Erro ao salvar na planilha via Python: {e}")
+    # Limpa parâmetro para não reenviar em recarregamentos
+    st.query_params.clear()
 
 html_code = f"""
 <!DOCTYPE html>
@@ -119,7 +132,6 @@ html_code = f"""
       border: 1px solid #e2e8f0;
     }}
 
-    /* Estilos Exclusivos para Impressão da Ordem de Compra */
     @media print {{
       body * {{
         visibility: hidden;
@@ -142,13 +154,7 @@ html_code = f"""
     }}
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen">
-
-  <!-- Formulário Invisível para envio direto e contorno de CORS -->
-  <iframe name="hidden_target_frame" id="hidden_target_frame" style="display:none;"></iframe>
-  <form id="hiddenGoogleSheetForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="hidden_target_frame" style="display:none;">
-    <input type="hidden" name="data" id="hiddenSheetData">
-  </form>
+<body class="bg-slate-100 min-h-screen">
 
   <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
@@ -385,7 +391,7 @@ html_code = f"""
           </div>
           <div>
             <p id="alertSuccessTitle" class="text-sm font-bold">Ordem de Compra salva com sucesso!</p>
-            <p id="alertSuccessSub" class="text-xs text-emerald-700">Pedido enviado para a planilha. Campos limpos para o próximo lançamento.</p>
+            <p id="alertSuccessSub" class="text-xs text-emerald-700">Enviada para a planilha e pronta para impressão.</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -417,15 +423,13 @@ html_code = f"""
 
         <form id="orderForm" onsubmit="handleFinalSubmit(event)" class="space-y-6">
           
-          <!-- CABEÇALHO DA OC (FORNECEDOR É ÚNICO NO CABEÇALHO) -->
+          <!-- CABEÇALHO DA OC -->
           <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
-            <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
             <div>
               <label class="block text-xs font-bold text-blue-800 mb-1">Número da OC *</label>
               <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-blue-700 cursor-not-allowed shadow-inner">
             </div>
 
-            <!-- Ano -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Ano *</label>
               <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
@@ -434,38 +438,24 @@ html_code = f"""
               </select>
             </div>
 
-            <!-- Mês -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Mês *</label>
               <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
-                <option value="Agosto">Agosto</option>
-                <option value="Setembro">Setembro</option>
-                <option value="Outubro" selected>Outubro</option>
-                <option value="Novembro">Novembro</option>
-                <option value="Dezembro">Dezembro</option>
-                <option value="Janeiro">Janeiro</option>
-                <option value="Fevereiro">Fevereiro</option>
-                <option value="Março">Março</option>
-                <option value="Abril">Abril</option>
-                <option value="Maio">Maio</option>
-                <option value="Junho">Junho</option>
-                <option value="Julho">Julho</option>
+                <option value="Janeiro">Janeiro</option><option value="Fevereiro">Fevereiro</option><option value="Março">Março</option><option value="Abril">Abril</option><option value="Maio">Maio</option><option value="Junho">Junho</option><option value="Julho">Julho</option><option value="Agosto">Agosto</option><option value="Setembro">Setembro</option><option value="Outubro" selected>Outubro</option><option value="Novembro">Novembro</option><option value="Dezembro">Dezembro</option>
               </select>
             </div>
 
-            <!-- Data da Solicitação -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Solicitação *</label>
               <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
             </div>
 
-            <!-- Solicitante -->
             <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
             </div>
 
-            <!-- FORNECEDOR (ÚNICO POR PEDIDO - COM PRÉ-LISTA DA COLUNA F) -->
+            <!-- FORNECEDOR ÚNICO -->
             <div class="md:col-span-3 lg:col-span-6 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200">
               <label class="block text-xs font-bold text-blue-900 mb-1">
                 Fornecedor (Único para este Pedido de Compra) *
@@ -487,73 +477,58 @@ html_code = f"""
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A DA PLANILHA -->
               <div>
-                <label class="block text-xs font-bold text-slate-800 mb-1">
-                  Código da Peça *
-                </label>
+                <label class="block text-xs font-bold text-slate-800 mb-1">Código da Peça *</label>
                 <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaCodigosPecas"></datalist>
               </div>
 
-              <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B DA PLANILHA -->
               <div class="col-span-1 md:col-span-2">
-                <label class="block text-xs font-bold text-slate-800 mb-1">
-                  Descrição da Peça / Produto *
-                </label>
+                <label class="block text-xs font-bold text-slate-800 mb-1">Descrição da Peça / Produto *</label>
                 <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaDescricoesPecas"></datalist>
               </div>
 
-              <!-- Categoria -->
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria</label>
                 <input type="text" id="itemCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Quantidade Solicitada -->
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade Solicitada (Qt) *</label>
                 <input type="number" id="itemQt" min="1" value="1" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Custo Unitário -->
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">Custo Unitário (R$) *</label>
                 <input type="number" step="0.01" min="0" id="itemCustoUnit" placeholder="0,00" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Valor de Venda Unitário (+70%) para uso interno -->
               <div>
                 <label class="block text-xs font-semibold text-emerald-700 mb-1">Valor Venda Unit. (+70%) [Interno]</label>
                 <input type="text" id="itemVendaUnitPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-emerald-300 bg-emerald-50/60 px-3 py-2 text-emerald-900 cursor-not-allowed">
               </div>
 
-              <!-- Quantidade Atendida -->
               <div>
                 <label class="block text-xs font-semibold text-emerald-700 mb-1">Quantidade Atendida</label>
                 <input type="number" id="itemQtAprovada" min="0" value="1" oninput="calcItemPreview()" class="w-full text-sm rounded-xl border border-emerald-300 bg-emerald-50/30 px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Quantidade Não Atendida -->
               <div>
                 <label class="block text-xs font-semibold text-rose-700 mb-1">Quantidade Não Atendida</label>
                 <input type="number" id="itemQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3 py-2 text-slate-800">
               </div>
 
-              <!-- Subtotal Custo -->
               <div class="col-span-1 md:col-span-2">
-                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total (Qt Atendida × Custo Unit.)</label>
+                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total</label>
                 <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
               </div>
 
-              <!-- Subtotal Venda Total -->
               <div class="col-span-1 md:col-span-1">
                 <label class="block text-xs font-semibold text-indigo-700 mb-1">Subtotal Venda (+70%) [Interno]</label>
                 <input type="text" id="itemVendaSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-indigo-300 bg-indigo-50/60 px-3 py-2 text-indigo-900 cursor-not-allowed">
               </div>
 
-              <!-- Botão Adicionar Item -->
               <div class="col-span-1 md:col-span-3 lg:col-span-4 flex justify-end">
                 <button type="button" onclick="adicionarItemNaLista()" class="py-2.5 px-6 rounded-xl bg-blue-700 text-white text-xs font-bold hover:bg-blue-800 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20">
                   <i data-lucide="plus" class="w-4 h-4"></i>
@@ -611,7 +586,7 @@ html_code = f"""
             <button type="button" onclick="limparOCAtual()" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
               Limpar Ordem
             </button>
-            <button type="submit" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
+            <button type="submit" id="btnSalvarOC" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
               <i data-lucide="save" class="w-4 h-4"></i>
               Salvar e Emitir Ordem de Compra
             </button>
@@ -677,7 +652,6 @@ html_code = f"""
           </div>
         </div>
 
-        <!-- Tabela contendo apenas Custo Unitário e Custo Total -->
         <table class="w-full text-left text-xs border border-slate-300 mb-6">
           <thead class="bg-slate-200 uppercase font-bold text-slate-800">
             <tr>
@@ -722,12 +696,11 @@ html_code = f"""
     Chart.register(ChartDataLabels);
 
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
-
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     const catalogoPecas = {catalogo_json};
 
-    // 1. Popula Pré-lista do CÓDIGO DA PEÇA (Coluna A)
+    // Popula Datalists
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -737,7 +710,6 @@ html_code = f"""
       dlCodigos.appendChild(opt);
     }});
 
-    // 2. Popula Pré-lista de DESCRIÇÃO DA PEÇA / PRODUTO (Coluna B)
     const dlDescricoes = document.getElementById('listaDescricoesPecas');
     dlDescricoes.innerHTML = '';
     const descricoesUnicas = [...new Set(catalogoPecas.map(p => p.descricao).filter(Boolean))].sort();
@@ -747,7 +719,6 @@ html_code = f"""
       dlDescricoes.appendChild(opt);
     }});
 
-    // 3. Popula Pré-lista de FORNECEDORES (Coluna F)
     const dlFornecedores = document.getElementById('listaFornecedores');
     dlFornecedores.innerHTML = '';
     const fornecedoresUnicos = [...new Set(catalogoPecas.map(p => p.fornecedor).filter(Boolean))].sort();
@@ -807,11 +778,7 @@ html_code = f"""
     function calcItemPreview() {{
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       let qtAprovada = parseInt(document.getElementById('itemQtAprovada').value);
-      if (isNaN(qtAprovada)) qtAprovada = qt;
-      if (qtAprovada > qt) {{
-        qtAprovada = qt;
-        document.getElementById('itemQtAprovada').value = qt;
-      }}
+      if (isNaN(qtAprovada) || qtAprovada > qt) qtAprovada = qt;
       document.getElementById('itemQtNaoAprovada').value = Math.max(0, qt - qtAprovada);
 
       const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
@@ -940,29 +907,8 @@ html_code = f"""
       renderizarTabelaItensOC();
     }}
 
-    let rawOrdersData = [
-      {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39, vendaUnit: 7.46, custoTotal: 65.85, vendaTotal: 111.90 }},
-      {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52, vendaUnit: 14.48, custoTotal: 102.24, vendaTotal: 173.76 }},
-      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00, vendaUnit: 76.50, custoTotal: 225.00, vendaTotal: 382.50 }}
-    ];
-
+    let rawOrdersData = [];
     let todasOCsEmitidas = {{}};
-
-    rawOrdersData.forEach(item => {{
-      if (!todasOCsEmitidas[item.oc]) {{
-        todasOCsEmitidas[item.oc] = {{
-          oc: item.oc,
-          ano: item.ano,
-          mes: item.mes,
-          data: item.data,
-          solicitante: item.solicitante,
-          fornecedor: item.fornecedor,
-          itens: []
-        }};
-      }}
-      todasOCsEmitidas[item.oc].itens.push(item);
-    }});
-
     let ultimaOCSalva = null;
 
     function gerarNumeroOC(anoSelecionado) {{
@@ -988,9 +934,9 @@ html_code = f"""
     atualizarProximoNumeroOC();
 
     // ==============================================================================
-    // ENVIO SEGURO E DEFINITIVO PARA O GOOGLE SHEETS
+    // ENVIO DEFINITIVO E SEGURO (DISPARO DUPLO: SCRIPT + PYTHON BACKEND)
     // ==============================================================================
-    function handleFinalSubmit(e) {{
+    async function handleFinalSubmit(e) {{
       e.preventDefault();
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
@@ -1024,15 +970,11 @@ html_code = f"""
       todasOCsEmitidas[oc] = dadosOCSalva;
       ultimaOCSalva = dadosOCSalva;
 
-      // 1. Envio via Form Oculto (100% livre de bloqueio de CORS em iframes)
-      try {{
-        document.getElementById('hiddenSheetData').value = JSON.stringify(dadosOCSalva);
-        document.getElementById('hiddenGoogleSheetForm').submit();
-      }} catch (errSubmit) {{
-        console.error("Erro no submit do form oculto:", errSubmit);
-      }}
+      const btnSalvar = document.getElementById('btnSalvarOC');
+      btnSalvar.disabled = true;
+      btnSalvar.innerText = 'Salvando na planilha...';
 
-      // 2. Envio complementar via fetch em background
+      // 1. Tenta envio direto via Web App
       try {{
         fetch(APPS_SCRIPT_URL, {{
           method: "POST",
@@ -1042,7 +984,16 @@ html_code = f"""
         }});
       }} catch (errFetch) {{}}
 
-      // Registra localmente para exibição instantânea
+      // 2. Dispara também pelo backend Python via Streamlit URL
+      try {{
+        const urlParams = new URLSearchParams(window.parent.location.search);
+        urlParams.set('payload_oc', JSON.stringify(dadosOCSalva));
+        window.parent.history.replaceState(null, '', '?' + urlParams.toString());
+      }} catch (errUrl) {{}}
+
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar e Emitir Ordem de Compra';
+
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1067,12 +1018,10 @@ html_code = f"""
 
       const totalPecas = itensDaOrdemAtual.length;
 
-      // Limpa os campos da tela
       limparOCAtual();
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
 
-      // Atualiza telas
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
@@ -1083,6 +1032,7 @@ html_code = f"""
       document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados enviados para a planilha.`;
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+      lucide.createIcons();
     }}
 
     function renderizarTabelaRecentes() {{
@@ -1217,6 +1167,7 @@ html_code = f"""
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
+    // Filtros e Dashboard
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
