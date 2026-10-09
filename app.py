@@ -32,7 +32,7 @@ SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cP
 
 @st.cache_data(ttl=300)
 def carregar_base_de_dados():
-    """Tenta ler online diretamente da planilha. Se não conseguir acesso, usa a base fiel extraída da aba."""
+    """Tenta ler online diretamente da planilha. Se não conseguir acesso, usa a base oficial sincronizada."""
     try:
         df = pd.read_csv(SHEET_CSV_URL)
         col_cod = df.columns[0]   # Coluna A: Produto / Código
@@ -144,7 +144,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-          <p class="text-xs text-slate-500">Aba: Base de Dados (Col A: Código | Col B: Descrição | Col F: Fornecedor)</p>
+          <p class="text-xs text-slate-500">Formulários com Pré-listas integradas (Código, Descrição e Fornecedor)</p>
         </div>
       </div>
       
@@ -159,7 +159,7 @@ html_code = f"""
           Nova Solicitação (OC)
         </button>
         <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 ml-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {len(dados_catalogo)} Itens na Base
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {len(dados_catalogo)} Peças na Base
         </span>
       </div>
     </div>
@@ -347,7 +347,7 @@ html_code = f"""
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado com Códigos (Coluna A), Nomes (Coluna B) e Custo</p>
+            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição da Peça e Custos</p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -365,8 +365,8 @@ html_code = f"""
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
               <tr>
-                <th class="py-3 px-4 rounded-l-lg">Cód. Peça (Col A)</th>
-                <th class="py-3 px-4">Descrição da Peça / Produto (Col B)</th>
+                <th class="py-3 px-4 rounded-l-lg">Código da Peça</th>
+                <th class="py-3 px-4">Descrição da Peça / Produto</th>
                 <th class="py-3 px-4">Categoria</th>
                 <th class="py-3 px-4 text-center">Qtde Total</th>
                 <th class="py-3 px-4 text-center text-emerald-600">Atendidas</th>
@@ -382,7 +382,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 2: FORMULÁRIO ==================== -->
+    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
     <div id="pageFormulario" class="hidden space-y-6">
       
       <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -392,8 +392,8 @@ html_code = f"""
               <i data-lucide="file-plus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação & Ordem de Compra</h2>
-              <p class="text-xs text-slate-500">Selecione uma peça na lista de pesquisa para preencher código, descrição e fornecedor automaticamente</p>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
+              <p class="text-xs text-slate-500">Cada campo conta com sua pré-lista vinculada diretamente às colunas da planilha</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -447,36 +447,38 @@ html_code = f"""
 
             <!-- Solicitante -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante / Setor *</label>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
-            <!-- CAMPO DE PESQUISA COM AUTOCOMPLETAR DA PLANILHA -->
-            <div class="col-span-1 md:col-span-3 bg-slate-50 p-4 rounded-xl border-2 border-blue-300">
-              <label class="block text-xs font-bold text-blue-900 mb-1">
-                🔍 Pesquisar Peça a ser Solicitada (Planilha Base de Dados) *
+            <!-- 1. CÓDIGO DA PEÇA COM PRÉ-LISTA DA COLUNA A -->
+            <div>
+              <label class="block text-xs font-bold text-slate-800 mb-1">
+                Código da Peça *
               </label>
-              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Clique duas vezes ou comece a digitar o código (ex: 2290, 534) ou descrição..." onchange="selecionarPecaPredefinida()" oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold shadow-sm">
-              <datalist id="listaPecasCadastradas"></datalist>
-              <p class="text-[11px] text-slate-500 mt-1">Ao selecionar uma peça, os campos abaixo (Código, Descrição e Fornecedor) serão preenchidos na hora.</p>
+              <input list="listaCodigosPecas" id="formCodigoPeca" placeholder="Selecione ou digite o código..." required oninput="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <datalist id="listaCodigosPecas"></datalist>
+              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com os códigos da Coluna A</span>
             </div>
 
-            <!-- Código da Peça (Coluna A) -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Código da Peça (Coluna A) *</label>
-              <input type="text" id="formCodigoPeca" placeholder="Ex: 2290" required class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
-            </div>
-
-            <!-- Descrição da Peça / Produto (Coluna B) -->
+            <!-- 2. DESCRIÇÃO DA PEÇA / PRODUTO COM PRÉ-LISTA DA COLUNA B -->
             <div class="col-span-1 md:col-span-2">
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto (Coluna B) *</label>
-              <input type="text" id="formPeca" placeholder="Ex: ABERTURA PLASTICA CENTRAL SAIDA" required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
+              <label class="block text-xs font-bold text-slate-800 mb-1">
+                Descrição da Peça / Produto *
+              </label>
+              <input list="listaDescricoesPecas" id="formPeca" placeholder="Selecione ou digite a descrição do produto..." required oninput="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <datalist id="listaDescricoesPecas"></datalist>
+              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com os produtos da Coluna B</span>
             </div>
 
-            <!-- Fornecedor (Coluna F) -->
+            <!-- 3. FORNECEDOR COM PRÉ-LISTA DA COLUNA F -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor (Coluna F) *</label>
-              <input type="text" id="formFornecedor" placeholder="Ex: EVOCA, PARAMOUNT, ANDRE MEKAR" required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
+              <label class="block text-xs font-bold text-slate-800 mb-1">
+                Fornecedor *
+              </label>
+              <input list="listaFornecedores" id="formFornecedor" placeholder="Selecione ou digite o fornecedor..." required class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-blue-50/20 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <datalist id="listaFornecedores"></datalist>
+              <span class="text-[10px] text-slate-400 mt-1 block">Pré-lista com fornecedores da Coluna F</span>
             </div>
 
             <!-- Categoria -->
@@ -542,8 +544,8 @@ html_code = f"""
                 <th class="py-2.5 px-3">Nº OC</th>
                 <th class="py-2.5 px-3">Data</th>
                 <th class="py-2.5 px-3">Solicitante</th>
-                <th class="py-2.5 px-3">Cód. Peça</th>
-                <th class="py-2.5 px-3">Peça / Produto</th>
+                <th class="py-2.5 px-3">Código da Peça</th>
+                <th class="py-2.5 px-3">Descrição da Peça / Produto</th>
                 <th class="py-2.5 px-3">Fornecedor</th>
                 <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                 <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
@@ -569,42 +571,65 @@ html_code = f"""
 
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
-    // ==========================================
-    // CARREGA BASE DE DADOS (COLUNAS A, B e F)
-    // ==========================================
-    const catalogoPecasPreCriada = {dados_catalogo_json};
+    // ==============================================================
+    // BASE DE DADOS SINCRONIZADA DA PLANILHA (COLUNAS A, B e F)
+    // ==============================================================
+    const catalogoPecas = {dados_catalogo_json};
 
-    // Monta as opções do datalist pesquisável
-    const datalist = document.getElementById('listaPecasCadastradas');
-    datalist.innerHTML = '';
-    catalogoPecasPreCriada.forEach(item => {{
+    // 1. Preenche a Pré-lista de Códigos de Peça (Coluna A)
+    const dlCodigos = document.getElementById('listaCodigosPecas');
+    dlCodigos.innerHTML = '';
+    const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo))].sort();
+    codigosUnicos.forEach(cod => {{
       const opt = document.createElement('option');
-      opt.value = `${{item.codigo}} | ${{item.descricao}} | ${{item.fornecedor}}`;
-      datalist.appendChild(opt);
+      opt.value = cod;
+      dlCodigos.appendChild(opt);
     }});
 
-    // Função que preenche Código (A), Descrição (B) e Fornecedor (F)
-    function selecionarPecaPredefinida() {{
-      const val = document.getElementById('formPesquisaPeca').value.trim();
-      if (!val) return;
+    // 2. Preenche a Pré-lista de Descrição de Peça / Produto (Coluna B)
+    const dlDescricoes = document.getElementById('listaDescricoesPecas');
+    dlDescricoes.innerHTML = '';
+    const descricoesUnicas = [...new Set(catalogoPecas.map(p => p.descricao))].sort();
+    descricoesUnicas.forEach(desc => {{
+      const opt = document.createElement('option');
+      opt.value = desc;
+      dlDescricoes.appendChild(opt);
+    }});
 
-      const valLower = val.toLowerCase();
-      const achado = catalogoPecasPreCriada.find(item => {{
-        const fullString = `${{item.codigo}} | ${{item.descricao}} | ${{item.fornecedor}}`.toLowerCase();
-        return (
-          item.codigo.toLowerCase() === valLower ||
-          item.descricao.toLowerCase() === valLower ||
-          fullString === valLower ||
-          fullString.startsWith(valLower) ||
-          fullString.includes(valLower)
-        );
-      }});
+    // 3. Preenche a Pré-lista de Fornecedores (Coluna F)
+    const dlFornecedores = document.getElementById('listaFornecedores');
+    dlFornecedores.innerHTML = '';
+    const fornecedoresUnicos = [...new Set(catalogoPecas.map(p => p.fornecedor))].sort();
+    fornecedoresUnicos.forEach(forn => {{
+      const opt = document.createElement('option');
+      opt.value = forn;
+      dlFornecedores.appendChild(opt);
+    }});
 
-      if (achado) {{
-        document.getElementById('formCodigoPeca').value = achado.codigo;
-        document.getElementById('formPeca').value = achado.descricao;
-        document.getElementById('formFornecedor').value = achado.fornecedor;
-        document.getElementById('formCategoria').value = achado.categoria || '8 PEÇAS';
+    // Ao selecionar ou digitar no campo Código da Peça
+    function aoMudarCodigo() {{
+      const codDigitado = document.getElementById('formCodigoPeca').value.trim();
+      if (!codDigitado) return;
+
+      const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
+      if (itemAchado) {{
+        document.getElementById('formPeca').value = itemAchado.descricao;
+        document.getElementById('formFornecedor').value = itemAchado.fornecedor;
+        document.getElementById('formCategoria').value = itemAchado.categoria || '8 PEÇAS';
+        calcQuantidades();
+      }}
+    }}
+
+    // Ao selecionar ou digitar no campo Descrição da Peça / Produto
+    function aoMudarDescricao() {{
+      const descDigitada = document.getElementById('formPeca').value.trim();
+      if (!descDigitada) return;
+
+      const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
+      if (itemAchado) {{
+        document.getElementById('formCodigoPeca').value = itemAchado.codigo;
+        document.getElementById('formFornecedor').value = itemAchado.fornecedor;
+        document.getElementById('formCategoria').value = itemAchado.categoria || '8 PEÇAS';
         calcQuantidades();
       }}
     }}
@@ -759,7 +784,6 @@ html_code = f"""
       recentBody.prepend(tr);
 
       // Limpar formulário
-      document.getElementById('formPesquisaPeca').value = '';
       document.getElementById('formCodigoPeca').value = '';
       document.getElementById('formPeca').value = '';
       document.getElementById('formFornecedor').value = '';
