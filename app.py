@@ -87,7 +87,7 @@ GID_ORDEM_COMPRA = "643448898"     # Aba: Ordem de Compra(Peças)
 URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE_PECAS}"
 URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=20)
 def carregar_catalogo_planilha():
     df = None
     try:
@@ -119,6 +119,7 @@ def carregar_catalogo_planilha():
             })
     return catalogo
 
+@st.cache_data(ttl=20)
 def obter_dados_ordens_e_proxima_oc():
     df = None
     try:
@@ -148,6 +149,8 @@ def obter_dados_ordens_e_proxima_oc():
                 continue
 
             match = re.search(r'OC-(\d{4})-(\d+)', oc_val, re.IGNORECASE)
+            seq_num = 0
+            ano_str = "2026"
             if match:
                 ano_str = match.group(1)
                 seq_num = int(match.group(2))
@@ -169,6 +172,8 @@ def obter_dados_ordens_e_proxima_oc():
 
             ocs_existentes.append({
                 "oc": oc_val,
+                "seq_num": seq_num,
+                "ano": ano_str,
                 "data": str(r.get(col_data, "")).strip(),
                 "solicitante": solic,
                 "fornecedor": str(r.get(col_forn, "")).strip(),
@@ -182,6 +187,9 @@ def obter_dados_ordens_e_proxima_oc():
                 "vendaUnit": venda_u if venda_u > 0 else (custo_u * 1.70),
                 "custoTotal": qt_ap * custo_u
             })
+
+    # ORDENAÇÃO DECRESCENTE POR PADRÃO: Maior ano e maior número de sequência primeiro
+    ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
 
     return ocs_existentes, maior_por_ano
 
@@ -247,11 +255,10 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- Header Superior com Apenas o Logotipo -->
+  <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
       <div class="flex items-center gap-4">
-        <!-- Renderização do Logotipo sem o texto "Master Café" -->
         <div class="flex items-center justify-center p-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" style="height: 54px; min-width: 54px;">
           <img id="headerLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-12 w-auto object-contain" onerror="this.style.display='none'; document.getElementById('headerFallbackIcon').style.display='flex';">
           <div id="headerFallbackIcon" style="display: {'none' if logo_base64_src else 'flex'};" class="w-10 h-10 bg-amber-700 text-white rounded-lg items-center justify-center font-black text-sm">
@@ -704,12 +711,46 @@ html_code = f"""
         </form>
       </section>
 
-      <!-- Histórico de Lançamentos Recentes com Botão de Imprimir e Editar -->
-      <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-          <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
-          Últimas Ordens de Compra Emitidas (Edição & Impressão)
-        </h3>
+      <!-- ============================================================== -->
+      <!-- TABELA COMPLETA DE TODAS AS OCS EM ORDEM DECRESCENTE COM PESQUISAS -->
+      <!-- ============================================================== -->
+      <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="list-ordered" class="w-4 h-4 text-blue-600"></i>
+              Todas as Ordens de Compra Registradas (Ordem Decrescente)
+            </h3>
+            <p class="text-xs text-slate-500">Histórico completo vindo da planilha ordenado do número mais recente para o mais antigo</p>
+          </div>
+          <span id="labelContadorOCs" class="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+            Carregando...
+          </span>
+        </div>
+
+        <!-- 2 CAMPOS DE PESQUISA INDEPENDENTES -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              🔍 Pesquisar por Ordem de Compra (OC)
+            </label>
+            <div class="relative">
+              <i data-lucide="hash" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="filtroSearchOC" placeholder="Digite o número da OC (Ex: 0002, 2026)..." oninput="filtrarTabelaHistorico()" class="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">
+              🔍 Pesquisar por Peça / Código / Descrição
+            </label>
+            <div class="relative">
+              <i data-lucide="package" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="filtroSearchPeca" placeholder="Digite o nome do produto ou código da peça..." oninput="filtrarTabelaHistorico()" class="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+            </div>
+          </div>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
@@ -741,7 +782,7 @@ html_code = f"""
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
         
-        <!-- Topo da Impressão: Somente o Logotipo e Identificação da OC -->
+        <!-- Topo da Impressão -->
         <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
           <div class="flex items-center gap-4">
             <img id="printLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
@@ -1218,7 +1259,7 @@ html_code = f"""
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
-      renderizarTabelaRecentes();
+      filtrarTabelaHistorico();
 
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = ehEdicao ? 
@@ -1230,14 +1271,42 @@ html_code = f"""
       lucide.createIcons();
     }}
 
-    function renderizarTabelaRecentes() {{
+    // ==============================================================================
+    // FILTRAGEM E RENDERIZAÇÃO DA TABELA HISTÓRICO COM OS 2 CAMPOS DE PESQUISA
+    // ==============================================================================
+    function filtrarTabelaHistorico() {{
+      const termoOC = (document.getElementById('filtroSearchOC')?.value || '').trim().toLowerCase();
+      const termoPeca = (document.getElementById('filtroSearchPeca')?.value || '').trim().toLowerCase();
+
+      // Filtra por OC e/ou por Peça
+      const filtrados = rawOrdersData.filter(item => {{
+        const matchOC = !termoOC || (item.oc && item.oc.toLowerCase().includes(termoOC));
+        const matchPeca = !termoPeca || (
+          (item.peca && item.peca.toLowerCase().includes(termoPeca)) ||
+          (item.codigoPeca && item.codigoPeca.toLowerCase().includes(termoPeca)) ||
+          (item.categoria && item.categoria.toLowerCase().includes(termoPeca))
+        );
+        return matchOC && matchPeca;
+      }});
+
+      renderizarTabelaRecentes(filtrados);
+    }}
+
+    function renderizarTabelaRecentes(listaItens = rawOrdersData) {{
       const recentBody = document.getElementById('recentEntriesBody');
-      if (rawOrdersData.length === 0) {{
-        recentBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td></tr>';
+      const badgeContador = document.getElementById('labelContadorOCs');
+
+      if (badgeContador) {{
+        const ocsUnicasFiltradas = new Set(listaItens.map(i => i.oc)).size;
+        badgeContador.innerText = `${{ocsUnicasFiltradas}} OC(s) · ${{listaItens.length}} item(ns)`;
+      }}
+
+      if (!listaItens || listaItens.length === 0) {{
+        recentBody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400 font-semibold">Nenhuma Ordem de Compra encontrada para os filtros informados.</td></tr>';
         return;
       }}
 
-      recentBody.innerHTML = rawOrdersData.slice(0, 25).map(item => `
+      recentBody.innerHTML = listaItens.map(item => `
         <tr class="hover:bg-slate-50 transition font-medium">
           <td class="py-2 px-3 whitespace-nowrap">
             <div class="flex items-center gap-1.5">
@@ -1264,7 +1333,7 @@ html_code = f"""
       `).join('');
       lucide.createIcons();
     }}
-    renderizarTabelaRecentes();
+    filtrarTabelaHistorico();
 
     function imprimirUltimaOC() {{
       if (!ultimaOCSalva) {{
