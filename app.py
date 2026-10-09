@@ -6,7 +6,7 @@ import pandas as pd
 # ==============================================================================
 # COLE AQUI A URL GERADA NA IMPLANTAÇÃO DO SEU GOOGLE APPS SCRIPT (OPÇÃO 1)
 # ==============================================================================
-APPS_SCRIPT_WEBAPP_URL = "COLE_AQUI_A_URL_DO_SEU_WEB_APP_APPS_SCRIPT"
+APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzb4ImFjlQOJ6KCQ7SIUbPouF2kTX0jIKZIMlNT7N9EvawoQxyU5jecpxnLMVILSW7w/exec"
 
 # Configuração da página Streamlit em modo Wide
 st.set_page_config(
