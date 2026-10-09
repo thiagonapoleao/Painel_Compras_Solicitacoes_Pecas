@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 
-# Link oficial do Web App
+# Link oficial do Google Apps Script Web App
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
 st.set_page_config(
@@ -34,7 +34,8 @@ GID_BASE = "270834817"
 URL_CSV_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE}"
 URL_GVIZ_DIRECT = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid={GID_BASE}"
 
-def buscar_dados_planilha_ao_vivo():
+@st.cache_data(ttl=60)
+def carregar_catalogo_planilha():
     df = None
     try:
         df = pd.read_csv(URL_CSV_DIRECT, dtype=str)
@@ -50,7 +51,7 @@ def buscar_dados_planilha_ao_vivo():
     col_a = df.columns[0]
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
-    col_f = df.columns[5] if len(df.columns) > 5 else (df.columns[-1])
+    col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
 
     catalogo = []
     for _, row in df.iterrows():
@@ -66,12 +67,11 @@ def buscar_dados_planilha_ao_vivo():
                 "categoria": cat,
                 "fornecedor": forn
             })
-
     return catalogo
 
-dados_catalogo = buscar_dados_planilha_ao_vivo()
-catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
-total_itens_carregados = len(dados_catalogo)
+catalogo_pecas = carregar_catalogo_planilha()
+catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
+total_itens_carregados = len(catalogo_pecas)
 
 html_code = f"""
 <!DOCTYPE html>
@@ -132,7 +132,7 @@ html_code = f"""
     }}
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen">
+<body class="bg-slate-100 min-h-screen">
 
   <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
@@ -143,7 +143,7 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Ordens de Compra</h1>
-          <p class="text-xs text-slate-500">Conexão direta com Google Sheets · {total_itens_carregados} itens lidos da planilha</p>
+          <p class="text-xs text-slate-500">Fornecedor Único · Envio Único sem Duplicação · {total_itens_carregados} peças sincronizadas</p>
         </div>
       </div>
       
@@ -418,18 +418,7 @@ html_code = f"""
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Mês *</label>
               <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
-                <option value="Agosto">Agosto</option>
-                <option value="Setembro">Setembro</option>
-                <option value="Outubro" selected>Outubro</option>
-                <option value="Novembro">Novembro</option>
-                <option value="Dezembro">Dezembro</option>
-                <option value="Janeiro">Janeiro</option>
-                <option value="Fevereiro">Fevereiro</option>
-                <option value="Março">Março</option>
-                <option value="Abril">Abril</option>
-                <option value="Maio">Maio</option>
-                <option value="Junho">Junho</option>
-                <option value="Julho">Julho</option>
+                <option value="Janeiro">Janeiro</option><option value="Fevereiro">Fevereiro</option><option value="Março">Março</option><option value="Abril">Abril</option><option value="Maio">Maio</option><option value="Junho">Junho</option><option value="Julho">Julho</option><option value="Agosto">Agosto</option><option value="Setembro">Setembro</option><option value="Outubro" selected>Outubro</option><option value="Novembro">Novembro</option><option value="Dezembro">Dezembro</option>
               </select>
             </div>
 
@@ -454,7 +443,7 @@ html_code = f"""
             </div>
           </div>
 
-          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM -->
+          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM (APENAS MONTA NA TELA, NÃO ENVIA PARA PLANILHA) -->
           <div class="p-5 rounded-2xl border-2 border-blue-200 bg-blue-50/20 space-y-4">
             <div class="flex items-center justify-between pb-2 border-b border-blue-100">
               <h3 class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2">
@@ -688,6 +677,7 @@ html_code = f"""
 
     const catalogoPecas = {catalogo_json};
 
+    // Popula Datalists
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -778,6 +768,9 @@ html_code = f"""
       document.getElementById('itemVendaSubtotalPreview').value = formatCurrency(subtotalVenda);
     }}
 
+    // ==============================================================================
+    // ADICIONAR PEÇA: APENAS ADICIONA NA MEMÓRIA DA TELA (SEM DISPARAR PARA PLANILHA)
+    // ==============================================================================
     let itensDaOrdemAtual = [];
 
     function adicionarItemNaLista() {{
@@ -806,6 +799,7 @@ html_code = f"""
         return;
       }}
 
+      // Apenas adiciona na tabela temporária na tela
       itensDaOrdemAtual.push({{
         codigoPeca,
         peca,
@@ -921,10 +915,14 @@ html_code = f"""
     atualizarProximoNumeroOC();
 
     // ==============================================================================
-    // ENVIO INFALÍVEL PARA O GOOGLE APPS SCRIPT (BEACON GET + POST)
+    // SALVAR ORDEM: DISPARO ÚNICO PARA A PLANILHA (SEM DUPLICAÇÃO)
     // ==============================================================================
+    let enviandoAgora = false;
+
     function handleFinalSubmit(e) {{
       e.preventDefault();
+
+      if (enviandoAgora) return; // Evita duplo clique
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
       if (!fornecedorPrincipal) {{
@@ -937,6 +935,8 @@ html_code = f"""
         alert('Atenção: Adicione pelo menos uma peça na ordem antes de salvar!');
         return;
       }}
+
+      enviandoAgora = true;
 
       const oc = document.getElementById('formNumeroOC').value;
       const ano = document.getElementById('formAno').value;
@@ -961,31 +961,23 @@ html_code = f"""
       btnSalvar.disabled = true;
       btnSalvar.innerText = 'Gravando na planilha...';
 
-      // 1. DISPARO VIA IMAGE BEACON (GET) - Imune a bloqueios de CORS e iframes
+      // DISPARO ÚNICO VIA GET (BEACON IMAGE) - NÃO GERA CONFLITO DE CORS NEM DUPLICA
       try {{
         const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
         const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
         const img = new Image();
         img.src = beaconUrl;
       }} catch (errBeacon) {{
-        console.error("Erro no envio via Beacon:", errBeacon);
+        console.error("Erro no envio:", errBeacon);
       }}
 
-      // 2. DISPARO COMPLEMENTAR VIA FETCH
-      try {{
-        fetch(APPS_SCRIPT_URL, {{
-          method: "POST",
-          mode: "no-cors",
-          headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
-          body: JSON.stringify(dadosOCSalva)
-        }});
-      }} catch (errFetch) {{}}
-
       setTimeout(() => {{
+        enviandoAgora = false;
         btnSalvar.disabled = false;
         btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar e Emitir Ordem de Compra';
-      }}, 600);
+      }}, 800);
 
+      // Registra uma única vez no histórico local
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1010,6 +1002,7 @@ html_code = f"""
 
       const totalPecas = itensDaOrdemAtual.length;
 
+      // Limpa a tela
       limparOCAtual();
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
@@ -1110,8 +1103,8 @@ html_code = f"""
             <td class="py-2 px-3 border border-slate-300">${{item.peca}}</td>
             <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
             <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
-            <td class="py-2 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
-            <td class="py-2 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
           </tr>
         `;
       }}).join('');
