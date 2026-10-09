@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import json
 import pandas as pd
 
-# Link oficial do Google Apps Script Web App integrado
+# Link oficial fornecido do Google Apps Script Web App
 APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyEr_l9ulBrh04iFybET96bMlLRydzF3epQSMZXBBr5rAbqBm2M4jW_zPrR3dDcqiUZGg/exec"
 
 # Configuração da página Streamlit em modo Wide
@@ -143,6 +143,12 @@ html_code = f"""
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- Formulário Invisível para envio direto e contorno de CORS -->
+  <iframe name="hidden_target_frame" id="hidden_target_frame" style="display:none;"></iframe>
+  <form id="hiddenGoogleSheetForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="hidden_target_frame" style="display:none;">
+    <input type="hidden" name="data" id="hiddenSheetData">
+  </form>
 
   <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
@@ -715,14 +721,10 @@ html_code = f"""
     lucide.createIcons();
     Chart.register(ChartDataLabels);
 
-    // ==============================================================
-    // CONFIGURAÇÃO DA URL OFICIAL DO WEB APP (GOOGLE APPS SCRIPT)
-    // ==============================================================
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
 
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
-    // Base de dados carregada da aba Base de Dados
     const catalogoPecas = {catalogo_json};
 
     // 1. Popula Pré-lista do CÓDIGO DA PEÇA (Coluna A)
@@ -822,9 +824,6 @@ html_code = f"""
       document.getElementById('itemVendaSubtotalPreview').value = formatCurrency(subtotalVenda);
     }}
 
-    // ==============================================================
-    // ADIÇÃO DE MÚLTIPLAS PEÇAS COM FORNECEDOR ÚNICO
-    // ==============================================================
     let itensDaOrdemAtual = [];
 
     function adicionarItemNaLista() {{
@@ -867,7 +866,6 @@ html_code = f"""
         vendaTotal: qtAprovada * vendaUnit
       }});
 
-      // Limpa os campos da peça adicionada
       document.getElementById('itemCodigoPeca').value = '';
       document.getElementById('itemPeca').value = '';
       document.getElementById('itemCategoria').value = '';
@@ -942,9 +940,6 @@ html_code = f"""
       renderizarTabelaItensOC();
     }}
 
-    // ==============================================================
-    // BASE DE DADOS DE ORDENS DE COMPRA
-    // ==============================================================
     let rawOrdersData = [
       {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39, vendaUnit: 7.46, custoTotal: 65.85, vendaTotal: 111.90 }},
       {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52, vendaUnit: 14.48, custoTotal: 102.24, vendaTotal: 173.76 }},
@@ -993,7 +988,7 @@ html_code = f"""
     atualizarProximoNumeroOC();
 
     // ==============================================================================
-    // SALVAMENTO E ENVIO VIA JAVASCRIPT FETCH PARA O APPS SCRIPT
+    // ENVIO SEGURO E DEFINITIVO PARA O GOOGLE SHEETS
     // ==============================================================================
     function handleFinalSubmit(e) {{
       e.preventDefault();
@@ -1029,23 +1024,25 @@ html_code = f"""
       todasOCsEmitidas[oc] = dadosOCSalva;
       ultimaOCSalva = dadosOCSalva;
 
-      // DISPARO CORRIGIDO PARA O APPS SCRIPT SEM BLOQUEIO DE CORS
-      if (APPS_SCRIPT_URL) {{
+      // 1. Envio via Form Oculto (100% livre de bloqueio de CORS em iframes)
+      try {{
+        document.getElementById('hiddenSheetData').value = JSON.stringify(dadosOCSalva);
+        document.getElementById('hiddenGoogleSheetForm').submit();
+      }} catch (errSubmit) {{
+        console.error("Erro no submit do form oculto:", errSubmit);
+      }}
+
+      // 2. Envio complementar via fetch em background
+      try {{
         fetch(APPS_SCRIPT_URL, {{
           method: "POST",
           mode: "no-cors",
-          headers: {{
-            "Content-Type": "text/plain;charset=utf-8"
-          }},
+          headers: {{ "Content-Type": "text/plain;charset=utf-8" }},
           body: JSON.stringify(dadosOCSalva)
-        }}).then(function() {{
-          console.log("Ordem " + oc + " enviada com sucesso para o Apps Script.");
-        }}).catch(function(err) {{
-          console.error("Falha na chamada fetch:", err);
         }});
-      }}
+      }} catch (errFetch) {{}}
 
-      // Atualiza os registros locais para atualizar na hora os painéis
+      // Registra localmente para exibição instantânea
       itensDaOrdemAtual.forEach(item => {{
         const novoRegistro = {{
           oc,
@@ -1075,7 +1072,7 @@ html_code = f"""
       document.getElementById('formSolicitante').value = '';
       document.getElementById('formFornecedor').value = '';
 
-      // Atualiza numeração da OC e telas
+      // Atualiza telas
       atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
@@ -1088,9 +1085,6 @@ html_code = f"""
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
     }}
 
-    // ==============================================================
-    // RENDERIZAÇÃO DA TABELA RECENTE COM BOTÃO DE IMPRIMIR NA FRENTE
-    // ==============================================================
     function renderizarTabelaRecentes() {{
       const recentBody = document.getElementById('recentEntriesBody');
       if (rawOrdersData.length === 0) {{
@@ -1121,9 +1115,6 @@ html_code = f"""
     }}
     renderizarTabelaRecentes();
 
-    // ==============================================================
-    // FUNÇÕES DE IMPRESSÃO (EXIBINDO APENAS O VALOR DE CUSTO)
-    // ==============================================================
     function imprimirUltimaOC() {{
       if (!ultimaOCSalva) {{
         alert('Nenhuma ordem de compra recente disponível para impressão.');
@@ -1226,7 +1217,6 @@ html_code = f"""
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
-    // Filtros e Dashboard
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
