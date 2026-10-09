@@ -92,7 +92,7 @@ html_code = """
         </button>
         <button id="navForm" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
-          Novo Lançamento
+          Novo Lançamento (OC)
         </button>
         <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 ml-1">
           <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Sincronizado
@@ -119,19 +119,17 @@ html_code = """
                 <span class="text-[10px] normal-case bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-300 font-semibold">Parâmetros Ativos</span>
               </h2>
               <div class="text-xs text-slate-600 mt-2 space-y-1.5 leading-relaxed">
-                <p>• <strong>Base de Dados Analisada:</strong> Foco exclusivo na aba de <em>Solicitações de Compra de Peças</em> e ordens de reposição de estoque.</p>
-                <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma exata da coluna <strong>"Custo"</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
-                <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por <strong>Ano</strong>, <strong>Mês</strong>, <strong>Categoria</strong> e <strong>Solicitante</strong> com recálculo automático em tempo real.</p>
-                <p>• <strong>Métricas em Cards:</strong> Total de solicitações, valor das compras (Custo), quantidade solicitada, <strong>peças atendidas</strong>, <strong>peças não atendidas</strong> e ticket médio.</p>
-                <p>• <strong>Gráficos de Destaque com Valores Exibidos:</strong> Top 5 solicitantes/locais internos para <strong>Agosto</strong> e <strong>Setembro</strong>, distribuição por categoria e custo por fornecedor exibindo os <strong>valores numéricos e em R$ diretamente nas barras/fatias</strong>.</p>
-                <p>• <strong>Tabela Resumo por Peça:</strong> Tabela detalhada agrupada por produto com pesquisa em tempo real, quantidades solicitadas/atendidas/não atendidas e valor financeiro.</p>
+                <p>• <strong>Padrão de Numeração de OC:</strong> Ordens geradas no formato <code>OC-AAAA-XXXX</code> (ex: <code>OC-2026-0001</code>).</p>
+                <p>• <strong>Catálogo Integrado de Peças:</strong> Tabela pré-carregada com Código da Peça (Col. A), Descrição do Produto (Col. B) e Fornecedor Padrão (Col. F).</p>
+                <p>• <strong>Regra de Cálculo de Valor Total:</strong> Soma da coluna <strong>Custo</strong> (quantidade aprovada/atendida × custo unitário do item).</p>
+                <p>• <strong>Filtros Dinâmicos no Painel:</strong> Seletores interativos por Ano, Mês, Categoria e Solicitante com recálculo em tempo real.</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Filtros Dinâmicos na Posição Superior (Grid de 5 colunas) -->
+      <!-- Filtros Dinâmicos -->
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -179,10 +177,9 @@ html_code = """
         </div>
       </section>
 
-      <!-- CARDS DE KPIS PRINCIPAIS (Inclui Peças Atendidas e Não Atendidas) -->
+      <!-- CARDS DE KPIS PRINCIPAIS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
-        <!-- KPI 1 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Valor Compras (Custo)</span>
@@ -196,7 +193,6 @@ html_code = """
           </div>
         </div>
 
-        <!-- KPI 2 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Pedidos</span>
@@ -206,11 +202,10 @@ html_code = """
           </div>
           <div class="mt-3">
             <span id="kpiTotalRequests" class="text-xl font-bold tracking-tight text-slate-800">0</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Ordens registradas</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Ordens (OCs) registradas</p>
           </div>
         </div>
 
-        <!-- KPI 3 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Qtde Solicitada</span>
@@ -224,7 +219,6 @@ html_code = """
           </div>
         </div>
 
-        <!-- KPI 4 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-emerald-200">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Peças Atendidas</span>
@@ -241,7 +235,6 @@ html_code = """
           </div>
         </div>
 
-        <!-- KPI 5 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-rose-200">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider">Não Atendidas</span>
@@ -258,7 +251,6 @@ html_code = """
           </div>
         </div>
 
-        <!-- KPI 6 -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Custo Médio / Pedido</span>
@@ -273,7 +265,7 @@ html_code = """
         </div>
       </section>
 
-      <!-- Top 5 Solicitantes em Agosto e Setembro com Valores Visíveis -->
+      <!-- Gráficos -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex justify-between items-center mb-4">
@@ -282,7 +274,7 @@ html_code = """
                 <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                 Top 5 Solicitantes / Locais Internos — Agosto
               </h3>
-              <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+              <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
             </div>
             <span class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Agosto</span>
           </div>
@@ -298,7 +290,7 @@ html_code = """
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
                 Top 5 Solicitantes / Locais Internos — Setembro
               </h3>
-              <p class="text-xs text-slate-500">Valores de peças solicitadas indicados no topo de cada barra</p>
+              <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
             </div>
             <span class="text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md">Setembro</span>
           </div>
@@ -308,7 +300,6 @@ html_code = """
         </div>
       </section>
 
-      <!-- Gráficos Visuais Adicionais: Categorias e Fornecedor com Valores -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex justify-between items-center mb-4">
@@ -337,7 +328,7 @@ html_code = """
         </div>
       </section>
 
-      <!-- TABELA COM RESUMO POR PEÇA SOLICITADA -->
+      <!-- TABELA RESUMO POR PEÇA -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
           <div>
@@ -345,13 +336,13 @@ html_code = """
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado por item, quantidades solicitadas, atendidas e custo total</p>
+            <p class="text-xs text-slate-500">Consolidado por código, produto, quantidades e custo total</p>
           </div>
 
           <div class="flex items-center gap-3">
             <div class="relative">
               <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-              <input type="text" id="tableSearch" placeholder="Buscar peça..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 sm:w-64">
+              <input type="text" id="tableSearch" placeholder="Buscar por código ou descrição..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-56 sm:w-72">
             </div>
             <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold">
               0 itens
@@ -363,7 +354,8 @@ html_code = """
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
               <tr>
-                <th class="py-3 px-4 rounded-l-lg">Peça / Produto Solicitado</th>
+                <th class="py-3 px-4 rounded-l-lg">Cód. Peça</th>
+                <th class="py-3 px-4">Descrição da Peça / Produto</th>
                 <th class="py-3 px-4">Categoria</th>
                 <th class="py-3 px-4 text-center">Qtde Total</th>
                 <th class="py-3 px-4 text-center text-emerald-600">Atendidas</th>
@@ -379,51 +371,6 @@ html_code = """
         </div>
       </section>
 
-      <!-- Insights e Alertas Executivos -->
-      <section class="bg-gradient-to-r from-blue-50 via-indigo-50 to-white border border-blue-200 rounded-2xl p-6">
-        <div class="flex items-center gap-2 mb-4">
-          <div class="p-2 rounded-lg bg-blue-600 text-white">
-            <i data-lucide="sparkles" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">Diagnósticos Automáticos de Compras</h2>
-            <p class="text-xs text-slate-500">Alertas identificados a partir do custo e da taxa de atendimento de peças</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
-            <div class="flex items-center gap-2 text-emerald-600 font-semibold mb-1">
-              <i data-lucide="check-check" class="w-4 h-4"></i>
-              <span>Taxa Global de Atendimento</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Mais de <strong class="text-slate-900">90% das peças demandadas</strong> foram aprovadas e atendidas nos prazos de compra, garantindo a manutenção contínua do parque de máquinas.
-            </p>
-          </div>
-
-          <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
-            <div class="flex items-center gap-2 text-rose-600 font-semibold mb-1">
-              <i data-lucide="alert-octagon" class="w-4 h-4"></i>
-              <span>Itens Não Atendidos / Reprovados</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              A principal causa de itens não atendidos decorre de <strong>pedidos duplicados</strong> ou <strong>peças com estoque remanescente</strong> identificado antes do envio à aprovação final de compra.
-            </p>
-          </div>
-
-          <div class="p-4 rounded-xl bg-white/80 border border-slate-200 shadow-sm">
-            <div class="flex items-center gap-2 text-blue-600 font-semibold mb-1">
-              <i data-lucide="trending-up" class="w-4 h-4"></i>
-              <span>Controle da Coluna Custo</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              A soma de custo reflete exatamente as quantidades aprovadas e adquiridas via <strong class="text-slate-900">EVOCA</strong> e <strong class="text-slate-900">PARAMOUNT</strong>, com conciliação financeira automatizada.
-            </p>
-          </div>
-        </div>
-      </section>
-
     </div>
 
     <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
@@ -436,22 +383,29 @@ html_code = """
               <i data-lucide="file-plus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Preencha os campos para alimentar diretamente a aba da planilha e atualizar os indicadores em tempo real</p>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação & Ordem de Compra</h2>
+              <p class="text-xs text-slate-500">Selecione uma peça pré-cadastrada ou pesquise para preencher dados automáticos de código e fornecedor</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-            Alimentação Direta da Base
+            Gerador Automático de OC
           </span>
         </div>
 
         <form id="orderForm" onsubmit="handleFormSubmit(event)" class="space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             
+            <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
+            <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-200">
+              <label class="block text-xs font-bold text-blue-800 mb-1">Número do Pedido de Compra (OC) *</label>
+              <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-lg border border-blue-300 bg-white px-3.5 py-2 text-blue-700 cursor-not-allowed shadow-inner">
+              <span class="text-[10px] text-blue-500 mt-1 block">Gerado sequencialmente no padrão OC-AAAA-XXXX</span>
+            </div>
+
             <!-- Ano -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Ano *</label>
-              <select id="formAno" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
@@ -463,7 +417,7 @@ html_code = """
               <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="Agosto">Agosto</option>
                 <option value="Setembro">Setembro</option>
-                <option value="Outubro">Outubro</option>
+                <option value="Outubro" selected>Outubro</option>
                 <option value="Novembro">Novembro</option>
                 <option value="Dezembro">Dezembro</option>
                 <option value="Janeiro">Janeiro</option>
@@ -476,7 +430,7 @@ html_code = """
               </select>
             </div>
 
-            <!-- Data da Compra -->
+            <!-- Data da Solicitação -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Solicitação / Compra *</label>
               <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -485,13 +439,34 @@ html_code = """
             <!-- Solicitante -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante / Setor Interno *</label>
-              <input type="text" id="formSolicitante" placeholder="Ex: WILLIAN NEVES, THIAGO, SAMANTHA" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago Ribeiro, Samantha Costa..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
-            <!-- Produto / Peça -->
+            <!-- PESQUISAR PEÇA NA TABELA PRÉ-CRIADA -->
+            <div class="col-span-1 md:col-span-2">
+              <label class="block text-xs font-semibold text-blue-700 mb-1">
+                🔍 Pesquisar Peça Pré-cadastrada (Planilha Base) *
+              </label>
+              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Digite o Código ou Descrição da Peça para autopreencher..." oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-300 bg-blue-50/30 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+              <datalist id="listaPecasCadastradas"></datalist>
+            </div>
+
+            <!-- Código da Peça (Coluna A) -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto *</label>
-              <input type="text" id="formPeca" placeholder="Ex: BOMBA DE AGUA 220V, GAXETA..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Código da Peça (Col. A) *</label>
+              <input type="text" id="formCodigoPeca" placeholder="Ex: PEC-00102" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Descrição da Peça / Produto (Coluna B) -->
+            <div class="col-span-1 md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto (Col. B) *</label>
+              <input type="text" id="formPeca" placeholder="Ex: Bomba de Água 220V Ulka, Gaxeta de Silicone..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Fornecedor (Coluna F) -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor (Col. F) *</label>
+              <input type="text" id="formFornecedor" placeholder="Ex: Evoca Brasil, Paramount Peças, Lucas Distribuidora..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Categoria -->
@@ -505,12 +480,6 @@ html_code = """
               </select>
             </div>
 
-            <!-- Fornecedor -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor *</label>
-              <input type="text" id="formFornecedor" placeholder="Ex: EVOCA, PARAMOUNT, LUCAS" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
             <!-- Quantidade Solicitada -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade Solicitada (Qt) *</label>
@@ -520,7 +489,7 @@ html_code = """
             <!-- Custo Unitário (R$) -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Custo Unitário (R$) *</label>
-              <input type="number" step="0.01" min="0" id="formCustoUnit" placeholder="0,00" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="number" step="0.01" min="0" id="formCustoUnit" placeholder="Ex: 195,00" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
 
             <!-- Quantidade Atendida -->
@@ -549,7 +518,7 @@ html_code = """
             </button>
             <button type="submit" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
               <i data-lucide="check" class="w-4 h-4"></i>
-              Salvar e Lançar Pedido
+              Salvar e Emitir Ordem de Compra
             </button>
           </div>
         </form>
@@ -559,16 +528,17 @@ html_code = """
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
-          Últimos Lançamentos Registrados na Sessão
+          Últimas Ordens de Compra Emitidas na Sessão
         </h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
               <tr>
+                <th class="py-2.5 px-3">Nº OC</th>
                 <th class="py-2.5 px-3">Data</th>
                 <th class="py-2.5 px-3">Solicitante</th>
+                <th class="py-2.5 px-3">Cód. Peça</th>
                 <th class="py-2.5 px-3">Peça / Produto</th>
-                <th class="py-2.5 px-3">Categoria</th>
                 <th class="py-2.5 px-3">Fornecedor</th>
                 <th class="py-2.5 px-3 text-center">Qt Pedida</th>
                 <th class="py-2.5 px-3 text-center text-emerald-600">Atendida</th>
@@ -577,7 +547,7 @@ html_code = """
             </thead>
             <tbody id="recentEntriesBody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="8" class="text-center py-4 text-slate-400">Nenhum novo lançamento realizado nesta sessão ainda.</td>
+                <td colspan="9" class="text-center py-4 text-slate-400">Nenhum novo lançamento realizado nesta sessão ainda.</td>
               </tr>
             </tbody>
           </table>
@@ -589,59 +559,101 @@ html_code = """
   </main>
 
   <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-400 border-t border-slate-200 mt-12">
-    Painel Dinâmico de Solicitações e Ordens de Compra de Peças · Análise completa com Peças Atendidas, Não Atendidas e Rótulos Numéricos nos Gráficos.
+    Painel de Solicitações e Ordens de Compra de Peças · Padrão OC-AAAA-XXXX com Catálogo Automatizado.
   </footer>
 
   <script>
     lucide.createIcons();
     Chart.register(ChartDataLabels);
 
-    // Data padrão de hoje no formulário
+    // Hoje como data padrão
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
-    // Base de Dados com Quantidade Solicitada, Aprovada (Atendida) e Não Aprovada
+    // ==========================================
+    // TABELA PRÉ-CRIADA DA PLANILHA (CATÁLOGO)
+    // Coluna A: Código da Peça | Coluna B: Descrição | Coluna F: Fornecedor
+    // ==========================================
+    const catalogoPecasPreCriada = [
+      { codigo: 'PEC-00101', descricao: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 4.39 },
+      { codigo: 'PEC-00102', descricao: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 8.52 },
+      { codigo: 'PEC-00103', descricao: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 334.00 },
+      { codigo: 'PEC-00104', descricao: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 75.18 },
+      { codigo: 'PEC-00105', descricao: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', custoPadrao: 72.00 },
+      { codigo: 'PEC-00106', descricao: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', custoPadrao: 195.00 },
+      { codigo: 'PEC-00107', descricao: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', custoPadrao: 195.00 },
+      { codigo: 'PEC-00108', descricao: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', custoPadrao: 26.50 },
+      { codigo: 'PEC-00109', descricao: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', custoPadrao: 10.50 },
+      { codigo: 'PEC-00110', descricao: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 91.04 },
+      { codigo: 'PEC-00111', descricao: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', custoPadrao: 18.50 },
+      { codigo: 'PEC-00112', descricao: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 280.00 },
+      { codigo: 'PEC-00113', descricao: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', custoPadrao: 9.80 },
+      { codigo: 'PEC-00114', descricao: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', custoPadrao: 9.50 },
+      { codigo: 'PEC-00115', descricao: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 65.00 },
+      { codigo: 'PEC-00116', descricao: 'PINCEL DE LIMPEZA', categoria: 'Multi Bebidas', fornecedor: 'WILLIAN NEVES', custoPadrao: 7.00 },
+      { codigo: 'PEC-00117', descricao: 'FILTRO BANANINHA C ENGATE RAPIDO', categoria: 'Hidraulica', fornecedor: 'PARAMOUNT', custoPadrao: 34.05 },
+      { codigo: 'PEC-00118', descricao: 'PRODUTO ROSA DESENGRAXANTE', categoria: 'Multi Bebidas', fornecedor: 'TAIS MICHELE', custoPadrao: 125.80 },
+      { codigo: 'PEC-00119', descricao: 'TORNEIRA METALICA', categoria: 'Acessorios', fornecedor: 'LUCAS', custoPadrao: 75.18 },
+      { codigo: 'PEC-00120', descricao: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 110.00 },
+      { codigo: 'PEC-00121', descricao: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 240.00 },
+      { codigo: 'PEC-00122', descricao: 'MOTOR DO MOINHO 110V', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', custoPadrao: 410.00 }
+    ];
+
+    // Popula a lista do Datalist para autocomplete
+    const datalist = document.getElementById('listaPecasCadastradas');
+    catalogoPecasPreCriada.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = `${p.codigo} - ${p.descricao}`;
+      datalist.appendChild(opt);
+    });
+
+    // Função para autopreencher quando seleciona do catálogo
+    function selecionarPecaPredefinida() {
+      const inputVal = document.getElementById('formPesquisaPeca').value.trim();
+      const achado = catalogoPecasPreCriada.find(p => 
+        inputVal.includes(p.codigo) || inputVal.toLowerCase() === p.descricao.toLowerCase() || inputVal === `${p.codigo} - ${p.descricao}`
+      );
+
+      if (achado) {
+        document.getElementById('formCodigoPeca').value = achado.codigo;
+        document.getElementById('formPeca').value = achado.descricao;
+        document.getElementById('formFornecedor').value = achado.fornecedor;
+        document.getElementById('formCategoria').value = achado.categoria;
+        if (!document.getElementById('formCustoUnit').value || parseFloat(document.getElementById('formCustoUnit').value) === 0) {
+          document.getElementById('formCustoUnit').value = achado.custoPadrao.toFixed(2);
+        }
+        calcQuantidades();
+      }
+    }
+
+    // Base de dados inicial com Número de OC formatado (OC-AAAA-XXXX)
     let rawOrdersData = [
-      { ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 },
-      { ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 },
-      { ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 },
-      { ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 },
-      { ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 },
-      { ano: '2025', mes: 'Agosto', data: '20/08/2025', solicitante: 'LUCAS', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 180.00 },
-      { ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 },
-      { ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 },
-      { ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 },
+      { oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 },
+      { oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 },
+      { oc: 'OC-2025-0003', ano: '2025', mes: 'Agosto', data: '12/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 334.00 },
+      { oc: 'OC-2025-0004', ano: '2025', mes: 'Agosto', data: '14/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00104', peca: 'TORNEIRA 3/4', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 8, qtAprovada: 7, qtNaoAprovada: 1, custoUnit: 75.18 },
+      { oc: 'OC-2025-0005', ano: '2025', mes: 'Agosto', data: '18/08/2025', solicitante: 'FABIO', codigoPeca: 'PEC-00105', peca: 'REMOVE GRUDE', categoria: 'Snaks', fornecedor: 'FABIO', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 72.00 },
+      { oc: 'OC-2025-0006', ano: '2025', mes: 'Agosto', data: '20/08/2025', solicitante: 'LUCAS', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 180.00 },
+      { oc: 'OC-2025-0007', ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00108', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 },
+      { oc: 'OC-2025-0008', ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00109', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 },
+      { oc: 'OC-2025-0009', ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 },
       
-      { ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 },
-      { ano: '2025', mes: 'Setembro', data: '10/09/2025', solicitante: 'ALAN', peca: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 3, qtAprovada: 3, qtNaoAprovada: 0, custoUnit: 280.00 },
-      { ano: '2025', mes: 'Setembro', data: '14/09/2025', solicitante: 'CESAR', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 40, qtAprovada: 38, qtNaoAprovada: 2, custoUnit: 9.80 },
-      { ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'WILLIAN NEVES', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 4.39 },
-      { ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'THIAGO', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 6, qtAprovada: 6, qtNaoAprovada: 0, custoUnit: 334.00 },
-      { ano: '2025', mes: 'Setembro', data: '21/09/2025', solicitante: 'DANI', peca: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 10, qtAprovada: 8, qtNaoAprovada: 2, custoUnit: 65.00 },
-      { ano: '2025', mes: 'Setembro', data: '23/09/2025', solicitante: 'SAMANTHA', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 35, qtAprovada: 35, qtNaoAprovada: 0, custoUnit: 9.50 },
-      { ano: '2025', mes: 'Setembro', data: '25/09/2025', solicitante: 'THIAGO', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 91.04 },
+      { oc: 'OC-2025-0010', ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 },
+      { oc: 'OC-2025-0011', ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 },
+      { oc: 'OC-2025-0012', ano: '2025', mes: 'Setembro', data: '10/09/2025', solicitante: 'ALAN', codigoPeca: 'PEC-00112', peca: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 3, qtAprovada: 3, qtNaoAprovada: 0, custoUnit: 280.00 },
+      { oc: 'OC-2025-0013', ano: '2025', mes: 'Setembro', data: '14/09/2025', solicitante: 'CESAR', codigoPeca: 'PEC-00113', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 40, qtAprovada: 38, qtNaoAprovada: 2, custoUnit: 9.80 },
+      { oc: 'OC-2025-0014', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 4.39 },
+      { oc: 'OC-2025-0015', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 6, qtAprovada: 6, qtNaoAprovada: 0, custoUnit: 334.00 },
+      { oc: 'OC-2025-0016', ano: '2025', mes: 'Setembro', data: '21/09/2025', solicitante: 'DANI', codigoPeca: 'PEC-00115', peca: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 10, qtAprovada: 8, qtNaoAprovada: 2, custoUnit: 65.00 },
+      { oc: 'OC-2025-0017', ano: '2025', mes: 'Setembro', data: '23/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 35, qtAprovada: 35, qtNaoAprovada: 0, custoUnit: 9.50 },
+      { oc: 'OC-2025-0018', ano: '2025', mes: 'Setembro', data: '25/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 91.04 },
 
-      { ano: '2025', mes: 'Outubro', data: '10/10/2025', solicitante: 'WILLIAN NEVES', peca: 'PINCEL DE LIMPEZA', categoria: 'Multi Bebidas', fornecedor: 'WILLIAN NEVES', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 7.00 },
-      { ano: '2025', mes: 'Outubro', data: '15/10/2025', solicitante: 'FLAVIO', peca: 'FILTRO BANANINHA C ENGATE RAPIDO', categoria: 'Hidraulica', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 27, qtNaoAprovada: 3, custoUnit: 34.05 },
-      { ano: '2025', mes: 'Outubro', data: '22/10/2025', solicitante: 'SAMANTHA', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 185.00 },
-
-      { ano: '2025', mes: 'Novembro', data: '03/11/2025', solicitante: 'FLAVIO', peca: 'PRODUTO ROSA DESENGRAXANTE', categoria: 'Multi Bebidas', fornecedor: 'TAIS MICHELE', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 125.80 },
-      { ano: '2025', mes: 'Novembro', data: '03/11/2025', solicitante: 'NAPOLEAO', peca: 'TORNEIRA METALICA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 75.18 },
-      { ano: '2025', mes: 'Novembro', data: '04/11/2025', solicitante: 'FABIO', peca: 'REMOVE GRUDE SPRAY', categoria: 'Snaks', fornecedor: 'FABIO', qt: 6, qtAprovada: 5, qtNaoAprovada: 1, custoUnit: 72.00 },
-
-      { ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', peca: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 110.00 },
-      { ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', peca: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 240.00 },
-      { ano: '2026', mes: 'Abril', data: '23/04/2026', solicitante: 'PEDRO', peca: 'CONTADOR VOLUMETRICO 1.2', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 115.00 },
-      { ano: '2026', mes: 'Abril', data: '24/04/2026', solicitante: 'LUCAS', peca: 'MOTOR DO MOINHO 110V', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 2, qtAprovada: 1, qtNaoAprovada: 1, custoUnit: 410.00 },
-      { ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { ano: '2026', mes: 'Agosto', data: '17/08/2026', solicitante: 'THIAGO', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { ano: '2026', mes: 'Agosto', data: '25/08/2026', solicitante: 'RYAN', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 7, qtAprovada: 6, qtNaoAprovada: 1, custoUnit: 195.00 },
-      { ano: '2026', mes: 'Agosto', data: '27/08/2026', solicitante: 'VITOR', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 },
-      { ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 20, qtAprovada: 18, qtNaoAprovada: 2, custoUnit: 18.50 },
-      { ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 25, qtAprovada: 25, qtNaoAprovada: 0, custoUnit: 9.80 },
-      { ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 30, qtNaoAprovada: 0, custoUnit: 9.50 },
-      { ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', peca: 'ANEL BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 28, qtNaoAprovada: 2, custoUnit: 9.80 }
+      { oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00120', peca: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 110.00 },
+      { oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00121', peca: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 240.00 },
+      { oc: 'OC-2026-0003', ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 },
+      { oc: 'OC-2026-0004', ano: '2026', mes: 'Agosto', data: '17/08/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 195.00 },
+      { oc: 'OC-2026-0005', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 },
+      { oc: 'OC-2026-0006', ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 20, qtAprovada: 18, qtNaoAprovada: 2, custoUnit: 18.50 },
+      { oc: 'OC-2026-0007', ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 30, qtNaoAprovada: 0, custoUnit: 9.50 }
     ];
 
     function recalcularCustos() {
@@ -650,6 +662,31 @@ html_code = """
       });
     }
     recalcularCustos();
+
+    // ==========================================
+    // GERADOR DO NÚMERO DE OC (OC-AAAA-XXXX)
+    // ==========================================
+    function gerarNumeroOC(anoSelecionado) {
+      const pedidosDoAno = rawOrdersData.filter(d => d.ano === anoSelecionado);
+      let maiorSequencial = 0;
+      pedidosDoAno.forEach(item => {
+        if (item.oc && item.oc.startsWith(`OC-${anoSelecionado}-`)) {
+          const partes = item.oc.split('-');
+          const seq = parseInt(partes[2]);
+          if (!isNaN(seq) && seq > maiorSequencial) {
+            maiorSequencial = seq;
+          }
+        }
+      });
+      const proximoSeq = String(maiorSequencial + 1).padStart(4, '0');
+      return `OC-${anoSelecionado}-${proximoSeq}`;
+    }
+
+    function atualizarProximoNumeroOC() {
+      const anoSelecionado = document.getElementById('formAno').value;
+      document.getElementById('formNumeroOC').value = gerarNumeroOC(anoSelecionado);
+    }
+    atualizarProximoNumeroOC();
 
     // Alternador de Páginas
     function switchPage(page) {
@@ -672,6 +709,7 @@ html_code = """
         btnForm.classList.remove('inactive');
         btnDash.classList.remove('active');
         btnDash.classList.add('inactive');
+        atualizarProximoNumeroOC();
       }
       lucide.createIcons();
     }
@@ -699,10 +737,12 @@ html_code = """
     function handleFormSubmit(e) {
       e.preventDefault();
 
+      const oc = document.getElementById('formNumeroOC').value;
       const ano = document.getElementById('formAno').value;
       const mes = document.getElementById('formMes').value;
       const dataStr = document.getElementById('formData').value;
       const solicitante = document.getElementById('formSolicitante').value.toUpperCase().trim();
+      const codigoPeca = document.getElementById('formCodigoPeca').value.toUpperCase().trim();
       const peca = document.getElementById('formPeca').value.toUpperCase().trim();
       const categoria = document.getElementById('formCategoria').value;
       const fornecedor = document.getElementById('formFornecedor').value.toUpperCase().trim();
@@ -712,10 +752,12 @@ html_code = """
       const custoUnit = parseFloat(document.getElementById('formCustoUnit').value) || 0;
 
       const novoRegistro = {
+        oc,
         ano,
         mes,
         data: dataStr,
         solicitante,
+        codigoPeca,
         peca,
         categoria,
         fornecedor,
@@ -731,16 +773,17 @@ html_code = """
 
       // Adiciona na tabela de lançamentos recentes
       const recentBody = document.getElementById('recentEntriesBody');
-      const emptyRow = recentBody.querySelector('td[colspan="8"]');
+      const emptyRow = recentBody.querySelector('td[colspan="9"]');
       if (emptyRow) recentBody.innerHTML = '';
 
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-50 transition font-medium';
       tr.innerHTML = `
+        <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${novoRegistro.oc}</td>
         <td class="py-2.5 px-3">${novoRegistro.data}</td>
         <td class="py-2.5 px-3 font-semibold text-slate-800">${novoRegistro.solicitante}</td>
-        <td class="py-2.5 px-3 font-semibold text-blue-700">${novoRegistro.peca}</td>
-        <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px]">${novoRegistro.categoria}</span></td>
+        <td class="py-2.5 px-3 font-mono text-slate-600">${novoRegistro.codigoPeca}</td>
+        <td class="py-2.5 px-3 font-semibold text-slate-800">${novoRegistro.peca}</td>
         <td class="py-2.5 px-3">${novoRegistro.fornecedor}</td>
         <td class="py-2.5 px-3 text-center font-bold">${novoRegistro.qt} un</td>
         <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${novoRegistro.qtAprovada} un</td>
@@ -748,15 +791,26 @@ html_code = """
       `;
       recentBody.prepend(tr);
 
-      // Recarrega dropdowns de filtro e reconstrói indicadores
+      // Limpa os campos do formulário para o próximo lançamento
+      document.getElementById('formPesquisaPeca').value = '';
+      document.getElementById('formCodigoPeca').value = '';
+      document.getElementById('formPeca').value = '';
+      document.getElementById('formFornecedor').value = '';
+      document.getElementById('formQt').value = '1';
+      document.getElementById('formQtAprovada').value = '1';
+      document.getElementById('formQtNaoAprovada').value = '0';
+      document.getElementById('formCustoUnit').value = '';
+      document.getElementById('formCustoTotalPreview').value = 'R$ 0,00';
+
+      atualizarProximoNumeroOC();
       populateDropdowns();
       updateDashboard();
 
-      alert('✅ Pedido lançado com sucesso na base de dados! O Dashboard foi atualizado.');
+      alert(`✅ Ordem de Compra ${novoRegistro.oc} lançada com sucesso! O Dashboard foi atualizado.`);
       switchPage('dashboard');
     }
 
-    // Elementos DOM de Filtro e KPIs
+    // Elementos DOM
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -1070,8 +1124,10 @@ html_code = """
       const grouped = {};
 
       dataList.forEach(item => {
-        if (!grouped[item.peca]) {
-          grouped[item.peca] = {
+        const key = item.codigoPeca || item.peca;
+        if (!grouped[key]) {
+          grouped[key] = {
+            codigoPeca: item.codigoPeca || '—',
             peca: item.peca,
             categoria: item.categoria,
             qtTotal: 0,
@@ -1081,11 +1137,11 @@ html_code = """
             custoTotal: 0
           };
         }
-        grouped[item.peca].qtTotal += item.qt;
-        grouped[item.peca].qtAtendida += item.qtAprovada;
-        grouped[item.peca].qtNaoAtendida += item.qtNaoAprovada;
-        grouped[item.peca].pedidosCount += 1;
-        grouped[item.peca].custoTotal += item.custoTotal;
+        grouped[key].qtTotal += item.qt;
+        grouped[key].qtAtendida += item.qtAprovada;
+        grouped[key].qtNaoAtendida += item.qtNaoAprovada;
+        grouped[key].pedidosCount += 1;
+        grouped[key].custoTotal += item.custoTotal;
       });
 
       let itemsArray = Object.values(grouped);
@@ -1093,17 +1149,18 @@ html_code = """
       if (searchTerm) {
         itemsArray = itemsArray.filter(i => 
           i.peca.toLowerCase().includes(searchTerm) || 
+          i.codigoPeca.toLowerCase().includes(searchTerm) ||
           i.categoria.toLowerCase().includes(searchTerm)
         );
       }
 
       itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
-      tableCountBadge.innerText = `${itemsArray.length} peças`;
+      tableCountBadge.innerText = `${itemsArray.length} itens`;
 
       if (itemsArray.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="8" class="text-center py-8 text-slate-400">
+            <td colspan="9" class="text-center py-8 text-slate-400">
               Nenhuma peça encontrada com os filtros selecionados.
             </td>
           </tr>
@@ -1115,6 +1172,9 @@ html_code = """
         const unitAvg = item.qtAtendida > 0 ? (item.custoTotal / item.qtAtendida) : 0;
         return `
           <tr class="hover:bg-slate-50 transition">
+            <td class="py-3 px-4 font-mono font-semibold text-blue-600">
+              ${item.codigoPeca}
+            </td>
             <td class="py-3 px-4 font-semibold text-slate-800">
               ${item.peca}
             </td>
