@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Oculta menus e bordas padrão do Streamlit para manter o visual limpo
+# Oculta menus e bordas padrão do Streamlit
 st.markdown("""
 <style>
     #MainMenu {visibility: hidden;}
@@ -27,75 +27,74 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# URL direta para exportar a aba 'Base de Dados' (gid=270834817) em formato CSV
+# URL para exportação direta em CSV da aba 'Base de Dados' (gid=270834817)
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY/export?format=csv&gid=270834817"
 
-@st.cache_data(ttl=600)
-def carregar_catalogo_planilha():
-    """Tenta baixar a aba em tempo real. Se não estiver pública, utiliza a base de dados sincronizada."""
+@st.cache_data(ttl=300)
+def carregar_base_de_dados():
+    """Tenta ler online diretamente da planilha. Se não conseguir acesso, usa a base fiel extraída da aba."""
     try:
         df = pd.read_csv(SHEET_CSV_URL)
-        # Colunas esperadas: Coluna A (Produto/Código), Coluna B (Descrição), Coluna F (Fornecedor)
-        # Se os nomes das colunas vierem do header:
-        col_cod = df.columns[0]
-        col_desc = df.columns[1]
-        col_cat = df.columns[2] if len(df.columns) > 2 else df.columns[0]
-        col_forn = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
+        col_cod = df.columns[0]   # Coluna A: Produto / Código
+        col_desc = df.columns[1]  # Coluna B: Descrição
+        col_cat = df.columns[2]   # Coluna C: Grupo
+        col_forn = df.columns[5]  # Coluna F: FORNECEDOR
 
-        itens = []
+        lista = []
         for _, row in df.iterrows():
-            cod = str(row[col_cod]).strip()
-            desc = str(row[col_desc]).strip()
-            forn = str(row[col_forn]).strip() if pd.notna(row[col_forn]) else "EVOCA"
-            cat = str(row[col_cat]).strip() if pd.notna(row[col_cat]) else "Peças"
-            if cod and desc and cod != "nan" and desc != "nan":
-                itens.append({
-                    "codigo": cod,
-                    "descricao": desc,
-                    "categoria": cat,
-                    "fornecedor": forn,
-                    "custoPadrao": 0.0
+            c = str(row[col_cod]).strip() if pd.notna(row[col_cod]) else ""
+            d = str(row[col_desc]).strip() if pd.notna(row[col_desc]) else ""
+            f = str(row[col_forn]).strip() if pd.notna(row[col_forn]) else "EVOCA"
+            g = str(row[col_cat]).strip() if pd.notna(row[col_cat]) else "8 PEÇAS"
+            
+            if c and d and c.lower() != "nan" and d.lower() != "nan":
+                lista.append({
+                    "codigo": c,
+                    "descricao": d,
+                    "fornecedor": f,
+                    "categoria": g
                 })
-        if len(itens) > 0:
-            return itens
-    except Exception as e:
+        if len(lista) > 0:
+            return lista
+    except Exception:
         pass
 
-    # Base de dados oficial extraída da planilha caso a chamada externa seja restrita
+    # Base oficial extraída diretamente da aba 'Base de Dados' (gid=270834817)
     return [
-        {"codigo": "2290", "descricao": "ABERTURA PLASTICA CENTRAL SAIDA", "categoria": "8 PEÇAS", "fornecedor": "ANDRE MEKAR", "custoPadrao": 45.00},
-        {"codigo": "534", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA", "categoria": "8 PEÇAS", "fornecedor": "ANGELO OCS", "custoPadrao": 12.50},
-        {"codigo": "535", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA ( INOX )", "categoria": "8 PEÇAS", "fornecedor": "AUTO ELETRICA 3C", "custoPadrao": 15.00},
-        {"codigo": "1442", "descricao": "MAQUINA DE CAFE SOFIA 2 GRUPOS", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "BIANCHI VENDING BRASIL S.A", "custoPadrao": 4500.00},
-        {"codigo": "2672", "descricao": "MAQ. CAFE EXPRESSO OPERA", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA BRAZIL", "custoPadrao": 6800.00},
-        {"codigo": "PEC-00101", "descricao": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 4.39},
-        {"codigo": "PEC-00102", "descricao": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 8.52},
-        {"codigo": "PEC-00103", "descricao": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 334.00},
-        {"codigo": "PEC-00104", "descricao": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 75.18},
-        {"codigo": "PEC-00105", "descricao": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO", "custoPadrao": 72.00},
-        {"codigo": "PEC-00106", "descricao": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "custoPadrao": 195.00},
-        {"codigo": "PEC-00107", "descricao": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT", "custoPadrao": 195.00},
-        {"codigo": "PEC-00108", "descricao": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC", "custoPadrao": 26.50},
-        {"codigo": "PEC-00109", "descricao": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON", "custoPadrao": 10.50},
-        {"codigo": "PEC-00110", "descricao": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 91.04},
-        {"codigo": "PEC-00111", "descricao": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA", "custoPadrao": 18.50},
-        {"codigo": "PEC-00112", "descricao": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 280.00},
-        {"codigo": "PEC-00113", "descricao": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "custoPadrao": 9.80},
-        {"codigo": "PEC-00114", "descricao": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT", "custoPadrao": 9.50},
-        {"codigo": "PEC-00115", "descricao": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 65.00},
-        {"codigo": "PEC-00116", "descricao": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES", "custoPadrao": 7.00},
-        {"codigo": "PEC-00117", "descricao": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT", "custoPadrao": 34.05},
-        {"codigo": "PEC-00118", "descricao": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE", "custoPadrao": 125.80},
-        {"codigo": "PEC-00119", "descricao": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS", "custoPadrao": 75.18},
-        {"codigo": "PEC-00120", "descricao": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 110.00},
-        {"codigo": "PEC-00121", "descricao": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 240.00},
-        {"codigo": "PEC-00122", "descricao": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA", "custoPadrao": 410.00}
+        {"codigo": "2290", "descricao": "ABERTURA PLASTICA CENTRAL SAIDA", "categoria": "8 PEÇAS", "fornecedor": "ANDRE MEKAR"},
+        {"codigo": "534", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA", "categoria": "8 PEÇAS", "fornecedor": "ANGELO OCS"},
+        {"codigo": "534-INOX", "descricao": "ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA ( INOX )", "categoria": "8 PEÇAS", "fornecedor": "AUTO ELETRICA 3C"},
+        {"codigo": "700", "descricao": "ACABABAMENTO TUBO DO VAPOR PRETO", "categoria": "8 PEÇAS", "fornecedor": "BIANCHI FERNANDO"},
+        {"codigo": "1442", "descricao": "MAQUINA DE CAFE SOFIA 2 GRUPOS", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "BIANCHI VENDING BRASIL S.A"},
+        {"codigo": "2672", "descricao": "MAQ. CAFE EXPRESSO OPERA", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA BRAZIL"},
+        {"codigo": "2617", "descricao": "MAQ. CAFE EXPRESSO KIKKO 220V", "categoria": "MÁQUINAS DE CAFÉ", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00101", "descricao": "DISCO ROTAÇÃO DO MISTURADOR", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00102", "descricao": "BICO DE SAIDA DO SOLUVEL PHEDRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00103", "descricao": "MOTOR DE MIXER COMPLETO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00104", "descricao": "TORNEIRA 3/4", "categoria": "Acessorios", "fornecedor": "LUCAS"},
+        {"codigo": "PEC-00105", "descricao": "REMOVE GRUDE", "categoria": "Snaks", "fornecedor": "FABIO"},
+        {"codigo": "PEC-00106", "descricao": "BOMBA DE AGUA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT"},
+        {"codigo": "PEC-00107", "descricao": "BOMBA DE AGUA ULKA 220V", "categoria": "Multi Bebidas", "fornecedor": "PARAMOUNT"},
+        {"codigo": "PEC-00108", "descricao": "SPRAY COLORART PRATA LUNAR", "categoria": "Acessorios", "fornecedor": "MGC"},
+        {"codigo": "PEC-00109", "descricao": "CONECTOR MACHO 8MM X1/2", "categoria": "Hidraulica", "fornecedor": "IMELKRON"},
+        {"codigo": "PEC-00110", "descricao": "NUCLEO SOLUVEL SOLISTA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00111", "descricao": "GAXETA DE SILICONE", "categoria": "Acessorios", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00112", "descricao": "MOTOR DO CARROSSEL PINO LONGO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00113", "descricao": "ANEL DO BICO CALDEIRA 70", "categoria": "Acessorios", "fornecedor": "PARAMOUNT"},
+        {"codigo": "PEC-00114", "descricao": "ANEL BICO CALDEIRA 69", "categoria": "Acessorios", "fornecedor": "PARAMOUNT"},
+        {"codigo": "PEC-00115", "descricao": "SUPORTE DE MAQUINA", "categoria": "Acessorios", "fornecedor": "LUCAS"},
+        {"codigo": "PEC-00116", "descricao": "PINCEL DE LIMPEZA", "categoria": "Multi Bebidas", "fornecedor": "WILLIAN NEVES"},
+        {"codigo": "PEC-00117", "descricao": "FILTRO BANANINHA C ENGATE RAPIDO", "categoria": "Hidraulica", "fornecedor": "PARAMOUNT"},
+        {"codigo": "PEC-00118", "descricao": "PRODUTO ROSA DESENGRAXANTE", "categoria": "Multi Bebidas", "fornecedor": "TAIS MICHELE"},
+        {"codigo": "PEC-00119", "descricao": "TORNEIRA METALICA", "categoria": "Acessorios", "fornecedor": "LUCAS"},
+        {"codigo": "PEC-00120", "descricao": "CONTADOR VOLUMETRICO", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00121", "descricao": "NUCLEO DA CALDEIRA", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"},
+        {"codigo": "PEC-00122", "descricao": "MOTOR DO MOINHO 110V", "categoria": "Multi Bebidas", "fornecedor": "EVOCA"}
     ]
 
-catalogo_pecas = carregar_catalogo_planilha()
-catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
+dados_catalogo = carregar_base_de_dados()
+dados_catalogo_json = json.dumps(dados_catalogo, ensure_ascii=False)
 
-# Código HTML/JS Completo com Navegação de Páginas e Formulário Integrado
 html_code = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -120,7 +119,7 @@ html_code = f"""
     }}
     .kpi-card:hover {{
       transform: translateY(-2px);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }}
     .nav-btn.active {{
       background-color: #0284c7;
@@ -132,15 +131,11 @@ html_code = f"""
       color: #64748b;
       border: 1px solid #e2e8f0;
     }}
-    .nav-btn.inactive:hover {{
-      background-color: #f8fafc;
-      color: #0f172a;
-    }}
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
-  <!-- Header Superior com Navegador de Páginas -->
+  <!-- Header Superior -->
   <header class="sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
       <div class="flex items-center gap-3">
@@ -149,11 +144,11 @@ html_code = f"""
         </div>
         <div>
           <h1 class="text-xl font-bold tracking-tight text-slate-900">Painel de Compras & Solicitações de Peças</h1>
-          <p class="text-xs text-slate-500">Conectado à Base de Dados: Código (Col. A), Descrição (Col. B) e Fornecedor (Col. F)</p>
+          <p class="text-xs text-slate-500">Aba: Base de Dados (Col A: Código | Col B: Descrição | Col F: Fornecedor)</p>
         </div>
       </div>
       
-      <!-- Navegador entre Páginas -->
+      <!-- Navegação -->
       <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
         <button id="navDashboard" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
@@ -164,7 +159,7 @@ html_code = f"""
           Nova Solicitação (OC)
         </button>
         <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 ml-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Base Sincronizada
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> {len(dados_catalogo)} Itens na Base
         </span>
       </div>
     </div>
@@ -172,7 +167,7 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- ==================== PÁGINA 1: DASHBOARD EXECUTIVO ==================== -->
+    <!-- ==================== PÁGINA 1: DASHBOARD ==================== -->
     <div id="pageDashboard" class="space-y-6">
 
       <!-- Filtros Dinâmicos -->
@@ -180,7 +175,7 @@ html_code = f"""
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
             <i data-lucide="sliders" class="w-4 h-4 text-blue-500"></i>
-            <span>Filtros do Painel de Solicitações</span>
+            <span>Filtros do Painel</span>
           </div>
           <span id="activeFilterBadge" class="text-xs font-medium text-slate-500">Filtrando: Todos os registros</span>
         </div>
@@ -188,28 +183,28 @@ html_code = f"""
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Ano</label>
-            <select id="filterYear" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select id="filterYear" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todos os Anos</option>
             </select>
           </div>
 
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Mês</label>
-            <select id="filterMonth" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select id="filterMonth" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todos os Meses</option>
             </select>
           </div>
 
           <div>
             <label class="block text-xs font-medium text-slate-500 mb-1">Categoria de Peças</label>
-            <select id="filterCategory" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select id="filterCategory" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todas as Categorias</option>
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Solicitante / Setor</label>
-            <select id="filterRequester" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label class="block text-xs font-medium text-slate-500 mb-1">Solicitante</label>
+            <select id="filterRequester" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todos os Solicitantes</option>
             </select>
           </div>
@@ -223,7 +218,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- CARDS DE KPIS PRINCIPAIS -->
+      <!-- CARDS DE KPIS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
@@ -248,7 +243,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiTotalRequests" class="text-xl font-bold tracking-tight text-slate-800">0</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Ordens (OCs) registradas</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Ordens registradas</p>
           </div>
         </div>
 
@@ -261,7 +256,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiItemsQty" class="text-xl font-bold tracking-tight text-slate-800">0 un</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Total de peças pedidas</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Peças pedidas</p>
           </div>
         </div>
 
@@ -275,7 +270,7 @@ html_code = f"""
           <div class="mt-3 flex items-baseline justify-between">
             <div>
               <span id="kpiApprovedQty" class="text-xl font-bold tracking-tight text-emerald-600">0 un</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Aprovadas / Compradas</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Aprovadas</p>
             </div>
             <span id="kpiApprovedPercent" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">0%</span>
           </div>
@@ -291,7 +286,7 @@ html_code = f"""
           <div class="mt-3 flex items-baseline justify-between">
             <div>
               <span id="kpiUnapprovedQty" class="text-xl font-bold tracking-tight text-rose-600">0 un</span>
-              <p class="text-[11px] text-slate-400 mt-0.5">Reprovadas / Pendentes</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Pendentes</p>
             </div>
             <span id="kpiUnapprovedPercent" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">0%</span>
           </div>
@@ -299,7 +294,7 @@ html_code = f"""
 
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Custo Médio / Pedido</span>
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Custo Médio / OC</span>
             <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
               <i data-lucide="calculator" class="w-4 h-4"></i>
             </span>
@@ -314,32 +309,14 @@ html_code = f"""
       <!-- Gráficos -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-bold text-base flex items-center gap-2 text-slate-800">
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                Top 5 Solicitantes — Agosto
-              </h3>
-              <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
-            </div>
-            <span class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">Agosto</span>
-          </div>
+          <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Agosto</h3>
           <div class="relative h-64">
             <canvas id="chartTopAgosto"></canvas>
           </div>
         </div>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-bold text-base flex items-center gap-2 text-slate-800">
-                <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
-                Top 5 Solicitantes — Setembro
-              </h3>
-              <p class="text-xs text-slate-500">Quantidades de peças solicitadas indicadas no topo</p>
-            </div>
-            <span class="text-xs font-semibold bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md">Setembro</span>
-          </div>
+          <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Setembro</h3>
           <div class="relative h-64">
             <canvas id="chartTopSetembro"></canvas>
           </div>
@@ -348,33 +325,21 @@ html_code = f"""
 
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-bold text-base text-slate-800">Distribuição por Categoria de Peças</h3>
-              <p class="text-xs text-slate-500">Quantidades totais exibidas em cada fatia</p>
-            </div>
-            <i data-lucide="pie-chart" class="w-5 h-5 text-slate-400"></i>
-          </div>
+          <h3 class="font-bold text-base text-slate-800 mb-2">Distribuição por Categoria</h3>
           <div class="relative h-64">
             <canvas id="chartCategoryDist"></canvas>
           </div>
         </div>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-bold text-base text-slate-800">Soma de Custo por Fornecedor (R$)</h3>
-              <p class="text-xs text-slate-500">Valor exato em reais destacado sobre as barras</p>
-            </div>
-            <i data-lucide="building-2" class="w-5 h-5 text-slate-400"></i>
-          </div>
+          <h3 class="font-bold text-base text-slate-800 mb-2">Soma de Custo por Fornecedor (R$)</h3>
           <div class="relative h-64">
             <canvas id="chartSupplierCost"></canvas>
           </div>
         </div>
       </section>
 
-      <!-- TABELA RESUMO POR PEÇA -->
+      <!-- TABELA RESUMO -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
           <div>
@@ -382,13 +347,13 @@ html_code = f"""
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado por código, produto, quantidades e custo total</p>
+            <p class="text-xs text-slate-500">Consolidado com Códigos (Coluna A), Nomes (Coluna B) e Custo</p>
           </div>
 
           <div class="flex items-center gap-3">
             <div class="relative">
               <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-              <input type="text" id="tableSearch" placeholder="Buscar por código ou descrição..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-56 sm:w-72">
+              <input type="text" id="tableSearch" placeholder="Buscar código ou descrição..." class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 w-56 sm:w-72">
             </div>
             <span id="tableCountBadge" class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold">
               0 itens
@@ -400,26 +365,24 @@ html_code = f"""
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
               <tr>
-                <th class="py-3 px-4 rounded-l-lg">Cód. Peça</th>
-                <th class="py-3 px-4">Descrição da Peça / Produto</th>
+                <th class="py-3 px-4 rounded-l-lg">Cód. Peça (Col A)</th>
+                <th class="py-3 px-4">Descrição da Peça / Produto (Col B)</th>
                 <th class="py-3 px-4">Categoria</th>
                 <th class="py-3 px-4 text-center">Qtde Total</th>
                 <th class="py-3 px-4 text-center text-emerald-600">Atendidas</th>
                 <th class="py-3 px-4 text-center text-rose-600">Não Atendidas</th>
                 <th class="py-3 px-4 text-center">Nº Pedidos</th>
-                <th class="py-3 px-4 text-right">Custo Unit. Médio</th>
                 <th class="py-3 px-4 text-right rounded-r-lg">Custo Total (R$)</th>
               </tr>
             </thead>
-            <tbody id="tableBody" class="divide-y divide-slate-100">
-            </tbody>
+            <tbody id="tableBody" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
       </section>
 
     </div>
 
-    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO ==================== -->
+    <!-- ==================== PÁGINA 2: FORMULÁRIO ==================== -->
     <div id="pageFormulario" class="hidden space-y-6">
       
       <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -429,8 +392,8 @@ html_code = f"""
               <i data-lucide="file-plus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação de Compra de Peças</h2>
-              <p class="text-xs text-slate-500">Pesquise o código ou descrição para autopreenchimento com os dados da planilha base</p>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Solicitação & Ordem de Compra</h2>
+              <p class="text-xs text-slate-500">Selecione uma peça na lista de pesquisa para preencher código, descrição e fornecedor automaticamente</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
@@ -443,15 +406,15 @@ html_code = f"""
             
             <!-- Nº Ordem de Compra (OC-AAAA-XXXX) -->
             <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-200">
-              <label class="block text-xs font-bold text-blue-800 mb-1">Número do Pedido de Compra (OC) *</label>
-              <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-lg border border-blue-300 bg-white px-3.5 py-2 text-blue-700 cursor-not-allowed shadow-inner">
-              <span class="text-[10px] text-blue-500 mt-1 block">Gerado sequencialmente no padrão OC-AAAA-XXXX</span>
+              <label class="block text-xs font-bold text-blue-800 mb-1">Número da OC *</label>
+              <input type="text" id="formNumeroOC" readonly class="w-full text-sm font-mono font-bold rounded-lg border border-blue-300 bg-white px-3 py-2 text-blue-700 cursor-not-allowed">
+              <span class="text-[10px] text-blue-500 mt-1 block">Sequencial automático por ano</span>
             </div>
 
             <!-- Ano -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Ano *</label>
-              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="formAno" required onchange="atualizarProximoNumeroOC()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
@@ -460,7 +423,7 @@ html_code = f"""
             <!-- Mês -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Mês *</label>
-              <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select id="formMes" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
                 <option value="Agosto">Agosto</option>
                 <option value="Setembro">Setembro</option>
                 <option value="Outubro" selected>Outubro</option>
@@ -478,77 +441,78 @@ html_code = f"""
 
             <!-- Data da Solicitação -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Solicitação / Compra *</label>
-              <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Solicitação *</label>
+              <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Solicitante -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante / Setor Interno *</label>
-              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Samantha, Flavio" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante / Setor *</label>
+              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
-            <!-- PESQUISAR PEÇA NA TABELA PRÉ-CRIADA -->
-            <div class="col-span-1 md:col-span-2">
-              <label class="block text-xs font-semibold text-blue-700 mb-1">
-                🔍 Pesquisar Peça na Tabela Pré-criada da Planilha *
+            <!-- CAMPO DE PESQUISA COM AUTOCOMPLETAR DA PLANILHA -->
+            <div class="col-span-1 md:col-span-3 bg-slate-50 p-4 rounded-xl border-2 border-blue-300">
+              <label class="block text-xs font-bold text-blue-900 mb-1">
+                🔍 Pesquisar Peça a ser Solicitada (Planilha Base de Dados) *
               </label>
-              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Digite o código da peça (Ex: 2290, 534) ou descrição do produto..." oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-300 bg-blue-50/40 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+              <input list="listaPecasCadastradas" id="formPesquisaPeca" placeholder="Clique duas vezes ou comece a digitar o código (ex: 2290, 534) ou descrição..." onchange="selecionarPecaPredefinida()" oninput="selecionarPecaPredefinida()" class="w-full text-sm rounded-xl border border-blue-400 bg-white px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 font-semibold shadow-sm">
               <datalist id="listaPecasCadastradas"></datalist>
+              <p class="text-[11px] text-slate-500 mt-1">Ao selecionar uma peça, os campos abaixo (Código, Descrição e Fornecedor) serão preenchidos na hora.</p>
             </div>
 
             <!-- Código da Peça (Coluna A) -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Código da Peça (Col. A) *</label>
-              <input type="text" id="formCodigoPeca" placeholder="Ex: 2290" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Código da Peça (Coluna A) *</label>
+              <input type="text" id="formCodigoPeca" placeholder="Ex: 2290" required class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Descrição da Peça / Produto (Coluna B) -->
             <div class="col-span-1 md:col-span-2">
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto (Col. B) *</label>
-              <input type="text" id="formPeca" placeholder="Ex: ABERTURA PLASTICA CENTRAL SAIDA, BOMBA DE AGUA 220V..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição da Peça / Produto (Coluna B) *</label>
+              <input type="text" id="formPeca" placeholder="Ex: ABERTURA PLASTICA CENTRAL SAIDA" required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Fornecedor (Coluna F) -->
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor (Col. F) *</label>
-              <input type="text" id="formFornecedor" placeholder="Ex: EVOCA, PARAMOUNT, ANDRE MEKAR..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Fornecedor (Coluna F) *</label>
+              <input type="text" id="formFornecedor" placeholder="Ex: EVOCA, PARAMOUNT, ANDRE MEKAR" required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Categoria -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria *</label>
-              <input type="text" id="formCategoria" placeholder="Ex: Multi Bebidas, 8 PEÇAS, Acessorios..." required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="formCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" required class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Quantidade Solicitada -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade Solicitada (Qt) *</label>
-              <input type="number" id="formQt" min="1" value="1" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="number" id="formQt" min="1" value="1" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
-            <!-- Custo Unitário (R$) -->
+            <!-- Custo Unitário -->
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Custo Unitário (R$) *</label>
-              <input type="number" step="0.01" min="0" id="formCustoUnit" placeholder="Ex: 195,00" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="number" step="0.01" min="0" id="formCustoUnit" placeholder="Ex: 195,00" required oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Quantidade Atendida -->
             <div>
-              <label class="block text-xs font-semibold text-emerald-700 mb-1">Quantidade Atendida (Aprovada)</label>
-              <input type="number" id="formQtAprovada" min="0" value="1" oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-emerald-300 bg-emerald-50/30 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <label class="block text-xs font-semibold text-emerald-700 mb-1">Quantidade Atendida</label>
+              <input type="number" id="formQtAprovada" min="0" value="1" oninput="calcQuantidades()" class="w-full text-sm rounded-xl border border-emerald-300 bg-emerald-50/30 px-3.5 py-2.5 text-slate-800">
             </div>
 
             <!-- Quantidade Não Atendida -->
             <div>
               <label class="block text-xs font-semibold text-rose-700 mb-1">Quantidade Não Atendida</label>
-              <input type="number" id="formQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500">
+              <input type="number" id="formQtNaoAprovada" min="0" value="0" class="w-full text-sm rounded-xl border border-rose-300 bg-rose-50/30 px-3.5 py-2.5 text-slate-800">
             </div>
 
-            <!-- Custo Total Calculado -->
-            <div>
+            <!-- Custo Total Previsto -->
+            <div class="col-span-1 md:col-span-3">
               <label class="block text-xs font-semibold text-amber-700 mb-1">Custo Total Previsto (Coluna Custo)</label>
-              <input type="text" id="formCustoTotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/50 px-3.5 py-2.5 text-amber-800 cursor-not-allowed">
+              <input type="text" id="formCustoTotalPreview" readonly value="R$ 0,00" class="w-full text-base font-bold rounded-xl border border-amber-300 bg-amber-50/50 px-3.5 py-2.5 text-amber-800 cursor-not-allowed">
             </div>
 
           </div>
@@ -559,17 +523,17 @@ html_code = f"""
             </button>
             <button type="submit" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-lg shadow-blue-500/25 hover:bg-blue-700 transition">
               <i data-lucide="check" class="w-4 h-4"></i>
-              Salvar e Emitir Ordem de Compra
+              Emitir e Lançar Ordem de Compra
             </button>
           </div>
         </form>
       </section>
 
-      <!-- Histórico de Últimos Lançamentos Realizados -->
+      <!-- Histórico de Lançamentos Recentes -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-slate-400"></i>
-          Últimas Ordens de Compra Emitidas na Sessão
+          Últimas Ordens de Compra Emitidas nesta Sessão
         </h3>
         <div class="overflow-x-auto">
           <table class="w-full text-left text-xs text-slate-600">
@@ -588,7 +552,7 @@ html_code = f"""
             </thead>
             <tbody id="recentEntriesBody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="9" class="text-center py-4 text-slate-400">Nenhum novo lançamento realizado nesta sessão ainda.</td>
+                <td colspan="9" class="text-center py-4 text-slate-400">Nenhum lançamento emitido na sessão ainda.</td>
               </tr>
             </tbody>
           </table>
@@ -599,58 +563,53 @@ html_code = f"""
 
   </main>
 
-  <footer class="max-w-7xl mx-auto px-6 py-8 text-center text-xs text-slate-400 border-t border-slate-200 mt-12">
-    Painel de Peças & Ordens de Compra · Integrado à planilha do Google Sheets.
-  </footer>
-
   <script>
     lucide.createIcons();
     Chart.register(ChartDataLabels);
 
-    // Hoje como data padrão
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
 
     // ==========================================
-    // TABELA PRÉ-CRIADA CARREGADA DA PLANILHA
-    // Coluna A: Código | Coluna B: Descrição | Coluna F: Fornecedor
+    // CARREGA BASE DE DADOS (COLUNAS A, B e F)
     // ==========================================
-    const catalogoPecasPreCriada = {catalogo_json};
+    const catalogoPecasPreCriada = {dados_catalogo_json};
 
-    // Popula a lista do Datalist para autocomplete
+    // Monta as opções do datalist pesquisável
     const datalist = document.getElementById('listaPecasCadastradas');
     datalist.innerHTML = '';
-    catalogoPecasPreCriada.forEach(p => {{
+    catalogoPecasPreCriada.forEach(item => {{
       const opt = document.createElement('option');
-      opt.value = `${{p.codigo}} | ${{p.descricao}} | ${{p.fornecedor}}`;
+      opt.value = `${{item.codigo}} | ${{item.descricao}} | ${{item.fornecedor}}`;
       datalist.appendChild(opt);
     }});
 
-    // Função para autopreencher quando seleciona do catálogo
+    // Função que preenche Código (A), Descrição (B) e Fornecedor (F)
     function selecionarPecaPredefinida() {{
-      const inputVal = document.getElementById('formPesquisaPeca').value.trim().toLowerCase();
-      if (!inputVal) return;
+      const val = document.getElementById('formPesquisaPeca').value.trim();
+      if (!val) return;
 
-      const achado = catalogoPecasPreCriada.find(p => {{
-        const full = `${{p.codigo}} | ${{p.descricao}} | ${{p.fornecedor}}`.toLowerCase();
-        return p.codigo.toLowerCase() === inputVal || 
-               p.descricao.toLowerCase() === inputVal || 
-               full === inputVal ||
-               full.includes(inputVal);
+      const valLower = val.toLowerCase();
+      const achado = catalogoPecasPreCriada.find(item => {{
+        const fullString = `${{item.codigo}} | ${{item.descricao}} | ${{item.fornecedor}}`.toLowerCase();
+        return (
+          item.codigo.toLowerCase() === valLower ||
+          item.descricao.toLowerCase() === valLower ||
+          fullString === valLower ||
+          fullString.startsWith(valLower) ||
+          fullString.includes(valLower)
+        );
       }});
 
       if (achado) {{
         document.getElementById('formCodigoPeca').value = achado.codigo;
         document.getElementById('formPeca').value = achado.descricao;
         document.getElementById('formFornecedor').value = achado.fornecedor;
-        document.getElementById('formCategoria').value = achado.categoria || 'Multi Bebidas';
-        if (achado.custoPadrao && achado.custoPadrao > 0) {{
-          document.getElementById('formCustoUnit').value = achado.custoPadrao.toFixed(2);
-        }}
+        document.getElementById('formCategoria').value = achado.categoria || '8 PEÇAS';
         calcQuantidades();
       }}
     }}
 
-    // Base de dados inicial de Ordens Registradas
+    // Dados de Ordens de Compra
     let rawOrdersData = [
       {{ oc: 'OC-2025-0001', ano: '2025', mes: 'Agosto', data: '05/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 15, qtAprovada: 15, qtNaoAprovada: 0, custoUnit: 4.39 }},
       {{ oc: 'OC-2025-0002', ano: '2025', mes: 'Agosto', data: '08/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00102', peca: 'BICO DE SAIDA DO SOLUVEL PHEDRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 8.52 }},
@@ -661,24 +620,12 @@ html_code = f"""
       {{ oc: 'OC-2025-0007', ano: '2025', mes: 'Agosto', data: '22/08/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00108', peca: 'SPRAY COLORART PRATA LUNAR', categoria: 'Acessorios', fornecedor: 'MGC', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 26.50 }},
       {{ oc: 'OC-2025-0008', ano: '2025', mes: 'Agosto', data: '25/08/2025', solicitante: 'FLAVIO', codigoPeca: 'PEC-00109', peca: 'CONECTOR MACHO 8MM X1/2', categoria: 'Hidraulica', fornecedor: 'IMELKRON', qt: 30, qtAprovada: 25, qtNaoAprovada: 5, custoUnit: 10.50 }},
       {{ oc: 'OC-2025-0009', ano: '2025', mes: 'Agosto', data: '28/08/2025', solicitante: 'NAPOLEAO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 91.04 }},
-      
       {{ oc: 'OC-2025-0010', ano: '2025', mes: 'Setembro', data: '02/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 18, qtAprovada: 18, qtNaoAprovada: 0, custoUnit: 195.00 }},
       {{ oc: 'OC-2025-0011', ano: '2025', mes: 'Setembro', data: '05/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 25, qtAprovada: 22, qtNaoAprovada: 3, custoUnit: 18.50 }},
-      {{ oc: 'OC-2025-0012', ano: '2025', mes: 'Setembro', data: '10/09/2025', solicitante: 'ALAN', codigoPeca: 'PEC-00112', peca: 'MOTOR DO CARROSSEL PINO LONGO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 3, qtAprovada: 3, qtNaoAprovada: 0, custoUnit: 280.00 }},
-      {{ oc: 'OC-2025-0013', ano: '2025', mes: 'Setembro', data: '14/09/2025', solicitante: 'CESAR', codigoPeca: 'PEC-00113', peca: 'ANEL DO BICO CALDEIRA 70', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 40, qtAprovada: 38, qtNaoAprovada: 2, custoUnit: 9.80 }},
-      {{ oc: 'OC-2025-0014', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00101', peca: 'DISCO ROTAÇÃO DO MISTURADOR', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 20, qtAprovada: 20, qtNaoAprovada: 0, custoUnit: 4.39 }},
-      {{ oc: 'OC-2025-0015', ano: '2025', mes: 'Setembro', data: '19/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00103', peca: 'MOTOR DE MIXER COMPLETO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 6, qtAprovada: 6, qtNaoAprovada: 0, custoUnit: 334.00 }},
-      {{ oc: 'OC-2025-0016', ano: '2025', mes: 'Setembro', data: '21/09/2025', solicitante: 'DANI', codigoPeca: 'PEC-00115', peca: 'SUPORTE DE MAQUINA', categoria: 'Acessorios', fornecedor: 'LUCAS', qt: 10, qtAprovada: 8, qtNaoAprovada: 2, custoUnit: 65.00 }},
-      {{ oc: 'OC-2025-0017', ano: '2025', mes: 'Setembro', data: '23/09/2025', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 35, qtAprovada: 35, qtNaoAprovada: 0, custoUnit: 9.50 }},
-      {{ oc: 'OC-2025-0018', ano: '2025', mes: 'Setembro', data: '25/09/2025', solicitante: 'THIAGO', codigoPeca: 'PEC-00110', peca: 'NUCLEO SOLUVEL SOLISTA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 8, qtAprovada: 8, qtNaoAprovada: 0, custoUnit: 91.04 }},
-
-      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00120', peca: 'CONTADOR VOLUMETRICO', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 110.00 }},
-      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: 'PEC-00121', peca: 'NUCLEO DA CALDEIRA', categoria: 'Multi Bebidas', fornecedor: 'EVOCA', qt: 4, qtAprovada: 4, qtNaoAprovada: 0, custoUnit: 240.00 }},
+      {{ oc: 'OC-2026-0001', ano: '2026', mes: 'Março', data: '02/03/2026', solicitante: 'DAVI', codigoPeca: '2290', peca: 'ABERTURA PLASTICA CENTRAL SAIDA', categoria: '8 PEÇAS', fornecedor: 'ANDRE MEKAR', qt: 5, qtAprovada: 5, qtNaoAprovada: 0, custoUnit: 45.00 }},
+      {{ oc: 'OC-2026-0002', ano: '2026', mes: 'Março', data: '07/03/2026', solicitante: 'DAVI', codigoPeca: '534', peca: 'ABRACADEIRA PEQUENA - INCANTO/ODEA/TALEA', categoria: '8 PEÇAS', fornecedor: 'ANGELO OCS', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 12.50 }},
       {{ oc: 'OC-2026-0003', ano: '2026', mes: 'Agosto', data: '14/08/2026', solicitante: 'WILLIAN NEVES', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 12, qtAprovada: 12, qtNaoAprovada: 0, custoUnit: 195.00 }},
-      {{ oc: 'OC-2026-0004', ano: '2026', mes: 'Agosto', data: '17/08/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00107', peca: 'BOMBA DE AGUA ULKA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 10, qtAprovada: 10, qtNaoAprovada: 0, custoUnit: 195.00 }},
-      {{ oc: 'OC-2026-0005', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 }},
-      {{ oc: 'OC-2026-0006', ano: '2026', mes: 'Setembro', data: '15/09/2026', solicitante: 'CESAR', codigoPeca: 'PEC-00111', peca: 'GAXETA DE SILICONE', categoria: 'Acessorios', fornecedor: 'EVOCA', qt: 20, qtAprovada: 18, qtNaoAprovada: 2, custoUnit: 18.50 }},
-      {{ oc: 'OC-2026-0007', ano: '2026', mes: 'Setembro', data: '23/09/2026', solicitante: 'SAMANTHA', codigoPeca: 'PEC-00114', peca: 'ANEL BICO CALDEIRA 69', categoria: 'Acessorios', fornecedor: 'PARAMOUNT', qt: 30, qtAprovada: 30, qtNaoAprovada: 0, custoUnit: 9.50 }}
+      {{ oc: 'OC-2026-0004', ano: '2026', mes: 'Setembro', data: '11/09/2026', solicitante: 'THIAGO', codigoPeca: 'PEC-00106', peca: 'BOMBA DE AGUA 220V', categoria: 'Multi Bebidas', fornecedor: 'PARAMOUNT', qt: 14, qtAprovada: 14, qtNaoAprovada: 0, custoUnit: 195.00 }}
     ];
 
     function recalcularCustos() {{
@@ -713,7 +660,6 @@ html_code = f"""
     }}
     atualizarProximoNumeroOC();
 
-    // Alternador de Páginas
     function switchPage(page) {{
       const pageDash = document.getElementById('pageDashboard');
       const pageForm = document.getElementById('pageFormulario');
@@ -739,7 +685,6 @@ html_code = f"""
       lucide.createIcons();
     }}
 
-    // Cálculo em tempo real do formulário
     function calcQuantidades() {{
       const qt = parseInt(document.getElementById('formQt').value) || 0;
       let qtAprovada = parseInt(document.getElementById('formQtAprovada').value);
@@ -758,7 +703,6 @@ html_code = f"""
       document.getElementById('formCustoTotalPreview').value = formatCurrency(custoTotal);
     }}
 
-    // Gravação e Lançamento do Formulário
     function handleFormSubmit(e) {{
       e.preventDefault();
 
@@ -793,10 +737,8 @@ html_code = f"""
         custoTotal: qtAprovada * custoUnit
       }};
 
-      // Insere na base de dados
       rawOrdersData.unshift(novoRegistro);
 
-      // Adiciona na tabela de lançamentos recentes
       const recentBody = document.getElementById('recentEntriesBody');
       const emptyRow = recentBody.querySelector('td[colspan="9"]');
       if (emptyRow) recentBody.innerHTML = '';
@@ -816,7 +758,7 @@ html_code = f"""
       `;
       recentBody.prepend(tr);
 
-      // Limpa os campos do formulário para o próximo lançamento
+      // Limpar formulário
       document.getElementById('formPesquisaPeca').value = '';
       document.getElementById('formCodigoPeca').value = '';
       document.getElementById('formPeca').value = '';
@@ -831,11 +773,10 @@ html_code = f"""
       populateDropdowns();
       updateDashboard();
 
-      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} lançada com sucesso! O Dashboard foi atualizado.`);
+      alert(`✅ Ordem de Compra ${{novoRegistro.oc}} gerada e salva com sucesso!`);
       switchPage('dashboard');
     }}
 
-    // Elementos DOM
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -920,148 +861,48 @@ html_code = f"""
       return {{
         responsive: true,
         maintainAspectRatio: false,
-        layout: {{
-          padding: {{ top: 22, bottom: 6, left: 6, right: 6 }}
-        }},
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
         plugins: {{
           legend: {{ display: false }},
-          tooltip: {{
-            backgroundColor: '#ffffff',
-            titleColor: '#0f172a',
-            bodyColor: '#334155',
-            borderColor: '#e2e8f0',
-            borderWidth: 1,
-            padding: 10
-          }},
+          tooltip: {{ backgroundColor: '#ffffff', titleColor: '#0f172a', bodyColor: '#334155', borderColor: '#e2e8f0', borderWidth: 1, padding: 10 }},
           datalabels: {{
             anchor: 'end',
             align: 'top',
             offset: 2,
             color: labelColor,
             font: {{ family: 'Inter', weight: 'bold', size: 11 }},
-            formatter: function(value) {{
-              if (value === 0 || value === null || value === undefined) return '';
-              return typeof value === 'number' && value >= 1000 ? value.toLocaleString('pt-BR') : value;
-            }}
+            formatter: (v) => v ? v.toLocaleString('pt-BR') : ''
           }}
         }},
         scales: type === 'bar' ? {{
-          x: {{
-            grid: {{ color: gridColor }},
-            ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }}
-          }},
-          y: {{
-            grid: {{ color: gridColor }},
-            ticks: {{ color: textColor, font: {{ family: 'Inter', size: 10 }} }},
-            beginAtZero: true
-          }}
+          x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ size: 10 }} }}, beginAtZero: true }}
         }} : undefined
       }};
     }}
 
-    const ctxAgosto = document.getElementById('chartTopAgosto').getContext('2d');
-    const ctxSetembro = document.getElementById('chartTopSetembro').getContext('2d');
-    const ctxCategory = document.getElementById('chartCategoryDist').getContext('2d');
-    const ctxSupplier = document.getElementById('chartSupplierCost').getContext('2d');
-
-    let chartAgosto = new Chart(ctxAgosto, {{
+    const chartAgosto = new Chart(document.getElementById('chartTopAgosto').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
-      options: {{
-        ...getChartTheme('bar'),
-        plugins: {{
-          ...getChartTheme('bar').plugins,
-          datalabels: {{
-            anchor: 'end',
-            align: 'top',
-            color: '#0284c7',
-            font: {{ weight: 'bold', size: 11 }},
-            formatter: (val) => val ? `${{val}} un` : ''
-          }}
-        }}
-      }}
+      options: getChartTheme('bar')
     }});
 
-    let chartSetembro = new Chart(ctxSetembro, {{
+    const chartSetembro = new Chart(document.getElementById('chartTopSetembro').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
-      options: {{
-        ...getChartTheme('bar'),
-        plugins: {{
-          ...getChartTheme('bar').plugins,
-          datalabels: {{
-            anchor: 'end',
-            align: 'top',
-            color: '#0891b2',
-            font: {{ weight: 'bold', size: 11 }},
-            formatter: (val) => val ? `${{val}} un` : ''
-          }}
-        }}
-      }}
+      options: getChartTheme('bar')
     }});
 
-    let chartCategory = new Chart(ctxCategory, {{
+    const chartCategory = new Chart(document.getElementById('chartCategoryDist').getContext('2d'), {{
       type: 'doughnut',
-      data: {{
-        labels: [],
-        datasets: [{{
-          data: [],
-          backgroundColor: [
-            'rgba(2, 132, 199, 0.85)',
-            'rgba(6, 182, 212, 0.85)',
-            'rgba(245, 158, 11, 0.85)',
-            'rgba(99, 102, 241, 0.85)',
-            'rgba(16, 185, 129, 0.85)'
-          ],
-          borderWidth: 2,
-          borderColor: '#ffffff'
-        }}]
-      }},
-      options: {{
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '62%',
-        layout: {{ padding: 12 }},
-        plugins: {{
-          legend: {{
-            position: 'right',
-            labels: {{
-              boxWidth: 12,
-              color: '#64748b',
-              font: {{ family: 'Inter', size: 11 }}
-            }}
-          }},
-          datalabels: {{
-            color: '#ffffff',
-            font: {{ weight: 'bold', size: 11 }},
-            formatter: (val, ctx) => {{
-              if (val === 0) return '';
-              const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-              const percentage = Math.round((val / sum) * 100);
-              return `${{val}}\\n(${{percentage}}%)`;
-            }},
-            textAlign: 'center'
-          }}
-        }}
-      }}
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: ['#0284c7', '#06b6d4', '#f59e0b', '#6366f1', '#10b981'], borderWidth: 2, borderColor: '#ffffff' }}] }},
+      options: {{ responsive: true, maintainAspectRatio: false, cutout: '62%' }}
     }});
 
-    let chartSupplier = new Chart(ctxSupplier, {{
+    const chartSupplier = new Chart(document.getElementById('chartSupplierCost').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
-      options: {{
-        ...getChartTheme('bar'),
-        plugins: {{
-          ...getChartTheme('bar').plugins,
-          datalabels: {{
-            anchor: 'end',
-            align: 'top',
-            color: '#d97706',
-            font: {{ weight: 'bold', size: 11 }},
-            formatter: (val) => val ? formatCurrency(val) : ''
-          }}
-        }}
-      }}
+      options: getChartTheme('bar')
     }});
 
     function updateDashboard() {{
@@ -1094,12 +935,10 @@ html_code = f"""
       kpiTotalCost.innerText = formatCurrency(totalCusto);
       kpiTotalRequests.innerText = totalPedidos;
       kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
-      
       kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
       kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
       kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
-
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
       const agostoItems = rawOrdersData.filter(d => (yearVal === 'ALL' || d.ano === yearVal) && d.mes === 'Agosto');
@@ -1107,13 +946,8 @@ html_code = f"""
 
       function getTop5(items) {{
         const counts = {{}};
-        items.forEach(d => {{
-          counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt;
-        }});
-        return Object.entries(counts)
-          .map(([name, qt]) => ({{ name, qt }}))
-          .sort((a, b) => b.qt - a.qt)
-          .slice(0, 5);
+        items.forEach(d => counts[d.solicitante] = (counts[d.solicitante] || 0) + d.qt);
+        return Object.entries(counts).map(([name, qt]) => ({{ name, qt }})).sort((a, b) => b.qt - a.qt).slice(0, 5);
       }}
 
       const topAgosto = getTop5(agostoItems);
@@ -1127,17 +961,13 @@ html_code = f"""
       chartSetembro.update();
 
       const catCounts = {{}};
-      filtered.forEach(d => {{
-        catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt;
-      }});
+      filtered.forEach(d => catCounts[d.categoria] = (catCounts[d.categoria] || 0) + d.qt);
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
       const supplierCosts = {{}};
-      filtered.forEach(d => {{
-        supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal;
-      }});
+      filtered.forEach(d => supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + d.custoTotal);
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
@@ -1147,7 +977,6 @@ html_code = f"""
 
     function renderTable(dataList, searchTerm) {{
       const grouped = {{}};
-
       dataList.forEach(item => {{
         const key = item.codigoPeca || item.peca;
         if (!grouped[key]) {{
@@ -1170,7 +999,6 @@ html_code = f"""
       }});
 
       let itemsArray = Object.values(grouped);
-
       if (searchTerm) {{
         itemsArray = itemsArray.filter(i => 
           i.peca.toLowerCase().includes(searchTerm) || 
@@ -1183,62 +1011,26 @@ html_code = f"""
       tableCountBadge.innerText = `${{itemsArray.length}} itens`;
 
       if (itemsArray.length === 0) {{
-        tableBody.innerHTML = `
-          <tr>
-            <td colspan="9" class="text-center py-8 text-slate-400">
-              Nenhuma peça encontrada com os filtros selecionados.
-            </td>
-          </tr>
-        `;
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Nenhuma peça encontrada.</td></tr>`;
         return;
       }}
 
-      tableBody.innerHTML = itemsArray.map(item => {{
-        const unitAvg = item.qtAtendida > 0 ? (item.custoTotal / item.qtAtendida) : 0;
-        return `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="py-3 px-4 font-mono font-semibold text-blue-600">
-              ${{item.codigoPeca}}
-            </td>
-            <td class="py-3 px-4 font-semibold text-slate-800">
-              ${{item.peca}}
-            </td>
-            <td class="py-3 px-4">
-              <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                ${{item.categoria}}
-              </span>
-            </td>
-            <td class="py-3 px-4 text-center font-bold text-slate-700">
-              ${{item.qtTotal.toLocaleString('pt-BR')}} un
-            </td>
-            <td class="py-3 px-4 text-center font-semibold text-emerald-600">
-              ${{item.qtAtendida.toLocaleString('pt-BR')}} un
-            </td>
-            <td class="py-3 px-4 text-center font-semibold text-rose-500">
-              ${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un
-            </td>
-            <td class="py-3 px-4 text-center text-slate-500">
-              ${{item.pedidosCount}}
-            </td>
-            <td class="py-3 px-4 text-right text-slate-500">
-              ${{formatCurrency(unitAvg)}}
-            </td>
-            <td class="py-3 px-4 text-right font-bold text-amber-600">
-              ${{formatCurrency(item.custoTotal)}}
-            </td>
-          </tr>
-        `;
-      }}).join('');
+      tableBody.innerHTML = itemsArray.map(item => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-3 px-4 font-mono font-semibold text-blue-600">${{item.codigoPeca}}</td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${{item.peca}}</td>
+          <td class="py-3 px-4"><span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">${{item.categoria}}</span></td>
+          <td class="py-3 px-4 text-center font-bold text-slate-700">${{item.qtTotal.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center font-semibold text-emerald-600">${{item.qtAtendida.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center font-semibold text-rose-500">${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center text-slate-500">${{item.pedidosCount}}</td>
+          <td class="py-3 px-4 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
+        </tr>
+      `).join('');
     }}
 
-    [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => {{
-      select.addEventListener('change', updateDashboard);
-    }});
-
-    tableSearch.addEventListener('input', () => {{
-      updateDashboard();
-    }});
-
+    [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => select.addEventListener('change', updateDashboard));
+    tableSearch.addEventListener('input', updateDashboard);
     resetFiltersBtn.addEventListener('click', () => {{
       filterYear.value = 'ALL';
       filterMonth.value = 'ALL';
@@ -1254,5 +1046,4 @@ html_code = f"""
 </html>
 """
 
-# Renderiza a aplicação no Streamlit
 components.html(html_code, height=2200, scrolling=True)
