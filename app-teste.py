@@ -81,9 +81,9 @@ def obter_logo_base64():
 logo_base64_src = obter_logo_base64()
 
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE_PECAS = "270834817"       # Aba: Base de Dados (catálogo e técnicos na coluna I)
-GID_ORDEM_COMPRA = "643448898"      # Aba: Ordem de Compra(Peças)
-GID_RETIRADA_PECAS = "1232857188"   # Aba: Retirada de Peças
+GID_BASE_PECAS = "270834817"
+GID_ORDEM_COMPRA = "643448898"
+GID_RETIRADA_PECAS = "1232857188"
 
 URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE_PECAS}"
 URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
@@ -104,7 +104,6 @@ def carregar_catalogo_planilha():
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
     col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
-    
     col_i = df.columns[8] if len(df.columns) > 8 else None
 
     catalogo = []
@@ -351,7 +350,7 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA (FIXADO NO TOPO) -->
+    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA (POSICIONADO NO TOPO) -->
     <div id="modalBaixaPendencia" style="display: none;" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 overflow-y-auto">
       <div id="modalBaixaCard" class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 my-auto sm:my-0">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -361,7 +360,7 @@ html_code = f"""
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Atualizar Status de Devolução</h3>
-              <p class="text-xs text-slate-500">Registrar baixa de peça pendente</p>
+              <p class="text-xs text-slate-500">Registrar alteração na planilha</p>
             </div>
           </div>
           <button type="button" onclick="fecharModalBaixa()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
@@ -381,6 +380,7 @@ html_code = f"""
           <select id="modalNovoStatus" class="w-full text-xs font-bold rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             <option value="Sim" selected>Sim (Peça Devolvida ao Almoxarifado)</option>
             <option value="Instalação Nova">Instalação Nova (Instalada em Campo)</option>
+            <option value="Não">Não (Continuar Pendente)</option>
           </select>
         </div>
 
@@ -401,7 +401,6 @@ html_code = f"""
     <!-- ============================================================== -->
     <div id="pageDashboardRetiradas" class="space-y-6">
 
-      <!-- Filtros Dashboard de Retiradas -->
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -629,7 +628,6 @@ html_code = f"""
     <!-- ==================== PÁGINA 1: DASHBOARD SOLICITAÇÕES ==================== -->
     <div id="pageDashboard" class="hidden space-y-6">
 
-      <!-- Filtros Dinâmicos -->
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -1552,7 +1550,6 @@ html_code = f"""
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
       
-      // Rola suavemente até o topo para foco imediato no modal
       const modalBox = document.getElementById('modalBaixaCard');
       if (modalBox) {{
         modalBox.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
@@ -1576,8 +1573,9 @@ html_code = f"""
       const novoStatus = document.getElementById('modalNovoStatus').value;
       const btn = document.getElementById('btnConfirmarBaixa');
       btn.disabled = true;
-      document.getElementById('btnConfirmarBaixaText').innerText = 'Gravando...';
+      document.getElementById('btnConfirmarBaixaText').innerText = 'Gravando na planilha...';
 
+      // Monta o payload unificado para o Google Apps Script
       const payloadAtualizacao = {{
         tipo: "atualizar_status_retirada",
         action: "atualizar_status_retirada",
@@ -1617,6 +1615,7 @@ html_code = f"""
         console.warn("Aviso ao enviar baixa para a planilha:", err);
       }}
 
+      // Atualiza o registro em memória local imediatamente
       itemEmBaixa.devolvida = novoStatus;
       const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
       if (target) {{
@@ -1631,8 +1630,8 @@ html_code = f"""
 
       const alertBox = document.getElementById('alertRetiradaSuccess');
       if (alertBox) {{
-        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Status de devolução atualizado com sucesso!`;
-        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{itemEmBaixa.os}} · Peça: ${{itemEmBaixa.codigo}} · Devolução definida como "${{novoStatus}}".`;
+        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Status alterado com sucesso!`;
+        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{itemEmBaixa.os}} · Peça: ${{itemEmBaixa.codigo}} gravada como "${{novoStatus}}" na planilha.`;
         alertBox.classList.remove('hidden');
         alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       }}
