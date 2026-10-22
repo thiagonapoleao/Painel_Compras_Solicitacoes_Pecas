@@ -188,9 +188,7 @@ def obter_dados_ordens_e_proxima_oc():
                 "custoTotal": qt_ap * custo_u
             })
 
-    # ORDENAÇÃO DECRESCENTE POR PADRÃO: Maior ano e maior número de sequência primeiro
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
-
     return ocs_existentes, maior_por_ano
 
 catalogo_pecas = carregar_catalogo_planilha()
@@ -417,16 +415,36 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- Gráficos -->
+      <!-- ============================================================== -->
+      <!-- GRÁFICOS: TOP 10 PEÇAS MAIS SOLICITADAS (QUANTIDADE E CUSTO) -->
+      <!-- ============================================================== -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Agosto</h3>
-          <div class="relative h-64"><canvas id="chartTopAgosto"></canvas></div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-sky-600"></i>
+                Top 10 Peças Mais Solicitadas (Quantidade)
+              </h3>
+              <p class="text-xs text-slate-400">Total de unidades demandadas por peça no período filtrado</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">Unidades</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartTopPecasQt"></canvas></div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 class="font-bold text-base text-slate-800 mb-2">Top 5 Solicitantes — Setembro</h3>
-          <div class="relative h-64"><canvas id="chartTopSetembro"></canvas></div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>
+                Top 10 Peças por Impacto Financeiro (Custo Total)
+              </h3>
+              <p class="text-xs text-slate-400">Peças com maior representatividade financeira no período</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">R$ Total</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartTopPecasCusto"></canvas></div>
         </div>
       </section>
 
@@ -778,11 +796,10 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC (COM LOGO E SEM TEXTO MASTER CAFÉ) ==================== -->
+    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC ==================== -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
         
-        <!-- Topo da Impressão -->
         <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
           <div class="flex items-center gap-4">
             <img id="printLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
@@ -1271,14 +1288,10 @@ html_code = f"""
       lucide.createIcons();
     }}
 
-    // ==============================================================================
-    // FILTRAGEM E RENDERIZAÇÃO DA TABELA HISTÓRICO COM OS 2 CAMPOS DE PESQUISA
-    // ==============================================================================
     function filtrarTabelaHistorico() {{
       const termoOC = (document.getElementById('filtroSearchOC')?.value || '').trim().toLowerCase();
       const termoPeca = (document.getElementById('filtroSearchPeca')?.value || '').trim().toLowerCase();
 
-      // Filtra por OC e/ou por Peça
       const filtrados = rawOrdersData.filter(item => {{
         const matchOC = !termoOC || (item.oc && item.oc.toLowerCase().includes(termoOC));
         const matchPeca = !termoPeca || (
@@ -1485,43 +1498,72 @@ html_code = f"""
     }}
     populateDropdowns();
 
-    function getChartTheme(type = 'bar') {{
-      const textColor = '#64748b';
-      const labelColor = '#0f172a';
-      const gridColor = 'rgba(226, 232, 240, 0.8)';
+    // Configuração de Estilo Padronizada para Gráficos
+    function getHorizontalBarOptions(isCurrency = false) {{
+      const textColor = '#475569';
+      const gridColor = 'rgba(226, 232, 240, 0.7)';
       return {{
+        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        layout: {{ padding: {{ right: 40, left: 10, top: 10, bottom: 10 }} }},
         plugins: {{
           legend: {{ display: false }},
-          tooltip: {{ backgroundColor: '#ffffff', titleColor: '#0f172a', bodyColor: '#334155', borderColor: '#e2e8f0', borderWidth: 1, padding: 10 }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => isCurrency ? 'Custo: ' + formatCurrency(context.raw) : 'Quantidade: ' + context.raw.toLocaleString('pt-BR') + ' un'
+            }}
+          }},
           datalabels: {{
             anchor: 'end',
-            align: 'top',
-            offset: 2,
-            color: labelColor,
-            font: {{ family: 'Inter', weight: 'bold', size: 11 }},
-            formatter: (v) => v ? v.toLocaleString('pt-BR') : ''
+            align: 'right',
+            offset: 4,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => {{
+              if (!v) return '';
+              return isCurrency ? formatCurrency(v) : v.toLocaleString('pt-BR');
+            }}
           }}
         }},
-        scales: type === 'bar' ? {{
-          x: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ size: 10 }} }} }},
-          y: {{ grid: {{ color: gridColor }}, ticks: {{ color: textColor, font: {{ size: 10 }} }}, beginAtZero: true }}
-        }} : undefined
+        scales: {{
+          x: {{
+            grid: {{ color: gridColor }},
+            ticks: {{
+              color: textColor,
+              font: {{ size: 10 }},
+              callback: (v) => isCurrency ? (v >= 1000 ? 'R$' + (v/1000).toFixed(0) + 'k' : 'R$' + v) : v
+            }},
+            beginAtZero: true
+          }},
+          y: {{
+            grid: {{ display: false }},
+            ticks: {{
+              color: textColor,
+              font: {{ size: 10, weight: '600' }}
+            }}
+          }}
+        }}
       }};
     }}
 
-    const chartAgosto = new Chart(document.getElementById('chartTopAgosto').getContext('2d'), {{
+    // Inicialização dos Gráficos Top 10 Peças
+    const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
       type: 'bar',
-      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 8 }}] }},
-      options: getChartTheme('bar')
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalBarOptions(false)
     }});
 
-    const chartSetembro = new Chart(document.getElementById('chartTopSetembro').getContext('2d'), {{
+    const chartTopPecasCusto = new Chart(document.getElementById('chartTopPecasCusto').getContext('2d'), {{
       type: 'bar',
-      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(6, 182, 212, 0.85)', borderRadius: 8 }}] }},
-      options: getChartTheme('bar')
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(16, 185, 129, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalBarOptions(true)
     }});
 
     const chartCategory = new Chart(document.getElementById('chartCategoryDist').getContext('2d'), {{
@@ -1533,9 +1575,30 @@ html_code = f"""
     const chartSupplier = new Chart(document.getElementById('chartSupplierCost').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
-      options: getChartTheme('bar')
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{ backgroundColor: '#ffffff', titleColor: '#0f172a', bodyColor: '#334155', borderColor: '#e2e8f0', borderWidth: 1, padding: 10 }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 11 }},
+            formatter: (v) => v ? formatCurrency(v) : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
     }});
 
+    // Atualização Geral dos Componentes do Dashboard
     function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
@@ -1553,6 +1616,7 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
+      // 1. Métricas KPIs
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
@@ -1573,18 +1637,53 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
+      // 2. Consolidação de Peças para os Gráficos Top 10
+      const pecasAgrupadas = {{}};
+      filtered.forEach(item => {{
+        const nomePeca = (item.peca || item.codigoPeca || 'Indefinida').trim();
+        if (!pecasAgrupadas[nomePeca]) {{
+          pecasAgrupadas[nomePeca] = {{ qt: 0, custo: 0 }};
+        }}
+        pecasAgrupadas[nomePeca].qt += (item.qt || 0);
+        pecasAgrupadas[nomePeca].custo += (item.custoTotal || 0);
+      }});
+
+      const listaAgrupada = Object.entries(pecasAgrupadas).map(([nome, vals]) => ({{
+        nome,
+        qt: vals.qt,
+        custo: vals.custo
+      }}));
+
+      // Função utilitária para encurtar legendas longas nos eixos
+      const truncarTexto = (txt, max = 28) => txt.length > max ? txt.substring(0, max) + '...' : txt;
+
+      // Top 10 por Quantidade
+      const top10Qt = [...listaAgrupada].sort((a, b) => b.qt - a.qt).slice(0, 10);
+      chartTopPecasQt.data.labels = top10Qt.map(p => truncarTexto(p.nome));
+      chartTopPecasQt.data.datasets[0].data = top10Qt.map(p => p.qt);
+      chartTopPecasQt.update();
+
+      // Top 10 por Custo Total
+      const top10Custo = [...listaAgrupada].sort((a, b) => b.custo - a.custo).slice(0, 10);
+      chartTopPecasCusto.data.labels = top10Custo.map(p => truncarTexto(p.nome));
+      chartTopPecasCusto.data.datasets[0].data = top10Custo.map(p => p.custo);
+      chartTopPecasCusto.update();
+
+      // 3. Distribuição por Categoria
       const catCounts = {{}};
       filtered.forEach(d => {{ if(d.categoria) catCounts[d.categoria] = (catCounts[d.categoria] || 0) + (d.qt || 0); }});
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
+      // 4. Fornecedor por Custo
       const supplierCosts = {{}};
       filtered.forEach(d => {{ if(d.fornecedor) supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + (d.custoTotal || 0); }});
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
 
+      // 5. Tabela Resumo Consolidada
       renderTable(filtered, searchVal);
     }}
 
