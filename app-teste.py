@@ -973,6 +973,9 @@ html_code = f"""
 
   </main>
 
+  <!-- ============================================================== -->
+  <!-- JAVASCRIPT UNIFICADO: OCS, RETIRADA DE PEÇAS & INTEGRAÇÃO GAS -->
+  <!-- ============================================================== -->
   <script>
     lucide.createIcons();
     Chart.register(ChartDataLabels);
@@ -980,17 +983,19 @@ html_code = f"""
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
     const GID_RETIRADA = "{GID_RETIRADA_PECAS}";
 
+    // Inicialização de datas nos formulários
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
     if (document.getElementById('retiradaData')) {{
       document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
     }}
 
     const catalogoPecas = {catalogo_json};
-
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
 
-    // Popula Datalists
+    // ==============================================================
+    // 1. POPULAR DATALISTS COMPARTILHADOS (CATÁLOGO DE PEÇAS)
+    // ==============================================================
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -1018,6 +1023,36 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
+    // ==============================================================
+    // 2. CAMADA DE TRANSPORTE UNIFICADA COM O GOOGLE APPS SCRIPT
+    // ==============================================================
+    async function enviarParaPlanilha(payload) {{
+      const jsonStr = JSON.stringify(payload);
+      const urlFinal = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
+
+      try {{
+        // Envio primário por fetch GET assíncrono (ignora bloqueio CORS padrão de redirecionamento do Google)
+        await fetch(urlFinal, {{
+          method: 'GET',
+          mode: 'no-cors'
+        }});
+        return true;
+      }} catch (errFetch) {{
+        console.warn("Fetch no-cors falhou, aplicando fallback via Image beacon:", errFetch);
+        try {{
+          const img = new Image();
+          img.src = urlFinal;
+          return true;
+        }} catch (errImg) {{
+          console.error("Falha no fallback de imagem:", errImg);
+          return false;
+        }}
+      }}
+    }}
+
+    // ==============================================================
+    // 3. SINCRONIZAÇÃO DE FORMULÁRIOS COM CATÁLOGO
+    // ==============================================================
     function aoMudarFornecedorPrincipal() {{
       const forn = document.getElementById('formFornecedor').value.trim();
       if (forn && itensDaOrdemAtual.length > 0) {{
@@ -1065,7 +1100,6 @@ html_code = f"""
       }}
     }}
 
-    // Sincronização Código/Descrição no Formulário de Retirada
     function aoMudarCodigoRetirada() {{
       const cod = document.getElementById('retiradaCodigo').value.trim();
       if (!cod) return;
@@ -1084,81 +1118,6 @@ html_code = f"""
       }}
     }}
 
-    function limparFormRetirada() {{
-      document.getElementById('retiradaForm').reset();
-      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
-      document.getElementById('retiradaNovaUsada').value = 'Nova';
-      document.getElementById('retiradaQuantidade').value = '1';
-      document.getElementById('retiradaDevolvida').value = 'Não';
-    }}
-
-    let enviandoRetirada = false;
-    function handleRetiradaSubmit(e) {{
-      e.preventDefault();
-      if (enviandoRetirada) return;
-
-      const data = document.getElementById('retiradaData').value;
-      const tecnico = document.getElementById('retiradaTecnico').value.trim();
-      const cliente = document.getElementById('retiradaCliente').value.trim();
-      const os = document.getElementById('retiradaOS').value.trim();
-      const codigo = document.getElementById('retiradaCodigo').value.trim();
-      const descricao = document.getElementById('retiradaDescricao').value.trim();
-      const novaUsada = document.getElementById('retiradaNovaUsada').value;
-      const quantidade = parseInt(document.getElementById('retiradaQuantidade').value) || 1;
-      const devolvida = document.getElementById('retiradaDevolvida').value;
-
-      if (!codigo || !descricao) {{
-        alert('Por favor, informe o Código e a Descrição da Peça.');
-        return;
-      }}
-
-      enviandoRetirada = true;
-      const btn = document.getElementById('btnSalvarRetirada');
-      btn.disabled = true;
-      document.getElementById('btnSalvarRetiradaText').innerText = 'Gravando na planilha...';
-
-      const payloadRetirada = {{
-        tipo: "retirada_pecas",
-        aba_gid: GID_RETIRADA,
-        aba_nome: "Retirada de Peças",
-        registro: {{
-          data: data,
-          tecnico: tecnico,
-          cliente: cliente,
-          os: os,
-          codigo: codigo,
-          descricao: descricao,
-          novaUsada: novaUsada,
-          quantidade: quantidade,
-          devolvida: devolvida
-        }}
-      }};
-
-      try {{
-        const jsonEncoded = encodeURIComponent(JSON.stringify(payloadRetirada));
-        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
-        const img = new Image();
-        img.src = beaconUrl;
-      }} catch (errBeacon) {{
-        console.error("Erro no envio de retirada:", errBeacon);
-      }}
-
-      setTimeout(() => {{
-        enviandoRetirada = false;
-        btn.disabled = false;
-        document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
-        
-        limparFormRetirada();
-        
-        const alertBox = document.getElementById('alertRetiradaSuccess');
-        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
-        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
-        alertBox.classList.remove('hidden');
-        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-        lucide.createIcons();
-      }}, 800);
-    }}
-
     function calcItemPreview() {{
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       let qtAprovada = parseInt(document.getElementById('itemQtAprovada').value);
@@ -1175,6 +1134,9 @@ html_code = f"""
       document.getElementById('itemVendaSubtotalPreview').value = formatCurrency(subtotalVenda);
     }}
 
+    // ==============================================================
+    // 4. LÓGICA DE MONTAGEM E EMISSÃO DE ORDENS DE COMPRA (OC)
+    // ==============================================================
     let itensDaOrdemAtual = [];
 
     function adicionarItemNaLista() {{
@@ -1376,9 +1338,8 @@ html_code = f"""
 
     let enviandoAgora = false;
 
-    function handleFinalSubmit(e) {{
+    async function handleFinalSubmit(e) {{
       e.preventDefault();
-
       if (enviandoAgora) return;
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
@@ -1394,7 +1355,6 @@ html_code = f"""
       }}
 
       enviandoAgora = true;
-
       const oc = document.getElementById('formNumeroOC').value;
       const ano = document.getElementById('formAno').value;
       const mes = document.getElementById('formMes').value;
@@ -1403,6 +1363,7 @@ html_code = f"""
       const ehEdicao = (ocEmEdicao !== null);
 
       const dadosOCSalva = {{
+        tipo: "ordem_compra",
         oc,
         ano,
         mes,
@@ -1420,21 +1381,15 @@ html_code = f"""
       btnSalvar.disabled = true;
       btnSalvar.innerText = ehEdicao ? 'Atualizando na planilha...' : 'Gravando na planilha...';
 
-      try {{
-        const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
-        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
-        const img = new Image();
-        img.src = beaconUrl;
-      }} catch (errBeacon) {{
-        console.error("Erro no envio:", errBeacon);
-      }}
+      // Executa o envio unificado
+      await enviarParaPlanilha(dadosOCSalva);
 
       setTimeout(() => {{
         enviandoAgora = false;
         btnSalvar.disabled = false;
         btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span id="btnSalvarText">' + 
           (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
-      }}, 800);
+      }}, 600);
 
       if (ehEdicao) {{
         rawOrdersData = rawOrdersData.filter(item => item.oc !== oc);
@@ -1496,6 +1451,81 @@ html_code = f"""
       lucide.createIcons();
     }}
 
+    // ==============================================================
+    // 5. LÓGICA DE SUBMISSÃO DA RETIRADA DE PEÇAS
+    // ==============================================================
+    function limparFormRetirada() {{
+      document.getElementById('retiradaForm').reset();
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+      document.getElementById('retiradaNovaUsada').value = 'Nova';
+      document.getElementById('retiradaQuantidade').value = '1';
+      document.getElementById('retiradaDevolvida').value = 'Não';
+    }}
+
+    let enviandoRetirada = false;
+    async function handleRetiradaSubmit(e) {{
+      e.preventDefault();
+      if (enviandoRetirada) return;
+
+      const data = document.getElementById('retiradaData').value;
+      const tecnico = document.getElementById('retiradaTecnico').value.trim();
+      const cliente = document.getElementById('retiradaCliente').value.trim();
+      const os = document.getElementById('retiradaOS').value.trim();
+      const codigo = document.getElementById('retiradaCodigo').value.trim().toUpperCase();
+      const descricao = document.getElementById('retiradaDescricao').value.trim().toUpperCase();
+      const novaUsada = document.getElementById('retiradaNovaUsada').value;
+      const quantidade = parseInt(document.getElementById('retiradaQuantidade').value) || 1;
+      const devolvida = document.getElementById('retiradaDevolvida').value;
+
+      if (!codigo || !descricao) {{
+        alert('Por favor, informe o Código e a Descrição da Peça.');
+        return;
+      }}
+
+      enviandoRetirada = true;
+      const btn = document.getElementById('btnSalvarRetirada');
+      btn.disabled = true;
+      document.getElementById('btnSalvarRetiradaText').innerText = 'Gravando na planilha...';
+
+      const payloadRetirada = {{
+        tipo: "retirada_pecas",
+        aba_gid: GID_RETIRADA,
+        aba_nome: "Retirada de Peças",
+        registro: {{
+          data: data,
+          tecnico: tecnico,
+          cliente: cliente,
+          os: os,
+          codigo: codigo,
+          descricao: descricao,
+          novaUsada: novaUsada,
+          quantidade: quantidade,
+          devolvida: devolvida
+        }}
+      }};
+
+      // Executa o envio unificado
+      await enviarParaPlanilha(payloadRetirada);
+
+      setTimeout(() => {{
+        enviandoRetirada = false;
+        btn.disabled = false;
+        document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
+        
+        limparFormRetirada();
+        
+        const alertBox = document.getElementById('alertRetiradaSuccess');
+        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
+        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
+        alertBox.classList.remove('hidden');
+        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+        lucide.createIcons();
+      }}, 600);
+    }}
+
+    // ==============================================================
+    // 6. HISTÓRICO & FILTRAGEM DE ORDENS DE COMPRA
+    // ==============================================================
     function filtrarTabelaHistorico() {{
       const termoOC = (document.getElementById('filtroSearchOC')?.value || '').trim().toLowerCase();
       const termoPeca = (document.getElementById('filtroSearchPeca')?.value || '').trim().toLowerCase();
@@ -1556,6 +1586,9 @@ html_code = f"""
     }}
     filtrarTabelaHistorico();
 
+    // ==============================================================
+    // 7. IMPRESSÃO DA OC
+    // ==============================================================
     function imprimirUltimaOC() {{
       if (!ultimaOCSalva) {{
         alert('Nenhuma ordem de compra recente disponível para impressão.');
@@ -1628,6 +1661,9 @@ html_code = f"""
       }}, 300);
     }}
 
+    // ==============================================================
+    // 8. CONTROLE DE ABAS E NAVEGAÇÃO
+    // ==============================================================
     function switchPage(page) {{
       const pageDash = document.getElementById('pageDashboard');
       const pageForm = document.getElementById('pageFormulario');
@@ -1637,7 +1673,6 @@ html_code = f"""
       const btnForm = document.getElementById('navForm');
       const btnRetirada = document.getElementById('navRetirada');
 
-      // Reseta classes nos botões
       [btnDash, btnForm, btnRetirada].forEach(b => {{
         if (b) {{
           b.classList.remove('active');
@@ -1645,7 +1680,6 @@ html_code = f"""
         }}
       }});
 
-      // Oculta todas as páginas
       pageDash.classList.add('hidden');
       pageForm.classList.add('hidden');
       pageRetirada.classList.add('hidden');
@@ -1672,6 +1706,9 @@ html_code = f"""
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
+    // ==============================================================
+    // 9. DASHBOARD: CARDS, GRÁFICOS & TABELA RESUMO
+    // ==============================================================
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -1720,7 +1757,6 @@ html_code = f"""
     }}
     populateDropdowns();
 
-    // Configuração de Estilo Padronizada para Gráficos
     function getHorizontalBarOptions(isCurrency = false) {{
       const textColor = '#475569';
       const gridColor = 'rgba(226, 232, 240, 0.7)';
@@ -1775,7 +1811,6 @@ html_code = f"""
       }};
     }}
 
-    // Inicialização dos Gráficos Top 10 Peças
     const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
@@ -1820,7 +1855,6 @@ html_code = f"""
       }}
     }});
 
-    // Atualização Geral dos Componentes do Dashboard
     function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
@@ -1838,7 +1872,6 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
-      // 1. Métricas KPIs
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
@@ -1859,7 +1892,6 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
-      // 2. Consolidação de Peças para os Gráficos Top 10
       const pecasAgrupadas = {{}};
       filtered.forEach(item => {{
         const nomePeca = (item.peca || item.codigoPeca || 'Indefinida').trim();
@@ -1878,33 +1910,28 @@ html_code = f"""
 
       const truncarTexto = (txt, max = 28) => txt.length > max ? txt.substring(0, max) + '...' : txt;
 
-      // Top 10 por Quantidade
       const top10Qt = [...listaAgrupada].sort((a, b) => b.qt - a.qt).slice(0, 10);
       chartTopPecasQt.data.labels = top10Qt.map(p => truncarTexto(p.nome));
       chartTopPecasQt.data.datasets[0].data = top10Qt.map(p => p.qt);
       chartTopPecasQt.update();
 
-      // Top 10 por Custo Total
       const top10Custo = [...listaAgrupada].sort((a, b) => b.custo - a.custo).slice(0, 10);
       chartTopPecasCusto.data.labels = top10Custo.map(p => truncarTexto(p.nome));
       chartTopPecasCusto.data.datasets[0].data = top10Custo.map(p => p.custo);
       chartTopPecasCusto.update();
 
-      // 3. Distribuição por Categoria
       const catCounts = {{}};
       filtered.forEach(d => {{ if(d.categoria) catCounts[d.categoria] = (catCounts[d.categoria] || 0) + (d.qt || 0); }});
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
-      // 4. Fornecedor por Custo
       const supplierCosts = {{}};
       filtered.forEach(d => {{ if(d.fornecedor) supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + (d.custoTotal || 0); }});
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
 
-      // 5. Tabela Resumo Consolidada
       renderTable(filtered, searchVal);
     }}
 
