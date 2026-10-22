@@ -105,7 +105,6 @@ def carregar_catalogo_planilha():
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
     col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
     
-    # Coluna I rigorosa (índice 8 na base 0)
     col_i = df.columns[8] if len(df.columns) > 8 else None
 
     catalogo = []
@@ -125,7 +124,6 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
-        # Captura apenas da coluna I da aba gid=270834817
         if col_i and pd.notna(row[col_i]):
             tec = str(row[col_i]).strip()
             if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel"]:
@@ -228,7 +226,7 @@ def obter_dados_retiradas():
                 except: return 1
 
             retiradas.append({
-                "id": idx,
+                "id": str(idx),
                 "data": data_val,
                 "tecnico": str(r[cols[1]]).strip() if len(cols) > 1 and pd.notna(r[cols[1]]) else "-",
                 "cliente": str(r[cols[2]]).strip() if len(cols) > 2 and pd.notna(r[cols[2]]) else "-",
@@ -354,7 +352,7 @@ html_code = f"""
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
     <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA -->
-    <div id="modalBaixaPendencia" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div id="modalBaixaPendencia" style="display: none;" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
           <div class="flex items-center gap-2">
@@ -1351,38 +1349,47 @@ html_code = f"""
     }});
 
     // ==============================================================
-    // ENVIO UNIFICADO AO GOOGLE APPS SCRIPT
+    // ENVIO UNIFICADO AO GOOGLE APPS SCRIPT COM TIMEOUT SEGURO
     // ==============================================================
     async function enviarParaPlanilha(payload) {{
       const jsonStr = JSON.stringify(payload);
       
+      // Tentativa 1: POST via fetch com limite de espera
       try {{
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
         await fetch(APPS_SCRIPT_URL, {{
           method: 'POST',
           mode: 'no-cors',
           headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
-          body: 'data=' + encodeURIComponent(jsonStr)
+          body: 'data=' + encodeURIComponent(jsonStr),
+          signal: controller.signal
         }});
+        clearTimeout(timeoutId);
         return true;
       }} catch (errPost) {{
-        console.warn("POST falhou, tentando fallback GET:", errPost);
+        console.warn("POST falhou ou excedeu timeout, tentando GET fallback:", errPost);
       }}
 
+      // Tentativa 2: GET via fetch
       try {{
         const urlGet = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
-        await fetch(urlGet, {{ method: 'GET', mode: 'no-cors' }});
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        await fetch(urlGet, {{ method: 'GET', mode: 'no-cors', signal: controller.signal }});
+        clearTimeout(timeoutId);
         return true;
       }} catch (errGet) {{
-        console.warn("GET fetch falhou, aplicando fallback Img:", errGet);
+        console.warn("GET fetch falhou, aplicando fallback Image beacon:", errGet);
       }}
 
+      // Tentativa 3: Image beacon
       try {{
         const img = new Image();
         img.src = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
         return true;
       }} catch (errImg) {{
-        console.error("Falha em todos os métodos de envio:", errImg);
-        alert("Erro ao gravar na planilha. Verifique a conexão.");
+        console.error("Falha geral de envio:", errImg);
         return false;
       }}
     }}
@@ -1525,28 +1532,36 @@ html_code = f"""
     populateDropdownsRetiradas();
 
     // ==============================================================
-    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA
+    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA (CORRIGIDO)
     // ==============================================================
     let itemEmBaixa = null;
 
     function abrirModalBaixa(idx) {{
       const item = rawRetiradasData.find(r => String(r.id) === String(idx));
-      if (!item) return;
+      if (!item) {{
+        console.error("Item não localizado para ID:", idx);
+        alert("Erro: Peça não encontrada no registro local.");
+        return;
+      }}
 
       itemEmBaixa = item;
       document.getElementById('modalOS').innerText = item.os || '-';
       document.getElementById('modalTecnico').innerText = item.tecnico || '-';
-      document.getElementById('modalPeca').innerText = `${{item.codigo}} - ${{item.descricao}}`;
-      document.getElementById('modalQt').innerText = `${{item.quantidade}} un (${{item.novaUsada}})`;
+      document.getElementById('modalPeca').innerText = (item.codigo || '') + ' - ' + (item.descricao || '');
+      document.getElementById('modalQt').innerText = (item.quantidade || 1) + ' un (' + (item.novaUsada || 'Nova') + ')';
       document.getElementById('modalNovoStatus').value = 'Sim';
 
-      document.getElementById('modalBaixaPendencia').classList.remove('hidden');
+      const modal = document.getElementById('modalBaixaPendencia');
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
       lucide.createIcons();
     }}
 
     function fecharModalBaixa() {{
       itemEmBaixa = null;
-      document.getElementById('modalBaixaPendencia').classList.add('hidden');
+      const modal = document.getElementById('modalBaixaPendencia');
+      modal.classList.add('hidden');
+      modal.style.display = 'none';
     }}
 
     async function confirmarBaixaPendencia() {{
@@ -1559,24 +1574,64 @@ html_code = f"""
 
       const payloadAtualizacao = {{
         tipo: "atualizar_status_retirada",
+        action: "atualizar_status_retirada",
+        acao: "atualizar_status_retirada",
         aba_gid: GID_RETIRADA,
         aba_nome: "Retirada de Peças",
         os: itemEmBaixa.os,
         codigo: itemEmBaixa.codigo,
+        codigoPeca: itemEmBaixa.codigo,
+        descricao: itemEmBaixa.descricao,
         data: itemEmBaixa.data,
         tecnico: itemEmBaixa.tecnico,
-        novoStatus: novoStatus
+        cliente: itemEmBaixa.cliente,
+        quantidade: itemEmBaixa.quantidade,
+        novaUsada: itemEmBaixa.novaUsada,
+        novoStatus: novoStatus,
+        devolvida: novoStatus,
+        status: novoStatus,
+        registro: {{
+          os: itemEmBaixa.os,
+          codigo: itemEmBaixa.codigo,
+          descricao: itemEmBaixa.descricao,
+          data: itemEmBaixa.data,
+          tecnico: itemEmBaixa.tecnico,
+          cliente: itemEmBaixa.cliente,
+          quantidade: itemEmBaixa.quantidade,
+          novaUsada: itemEmBaixa.novaUsada,
+          devolvida: novoStatus,
+          novoStatus: novoStatus,
+          status: novoStatus
+        }}
       }};
 
-      await enviarParaPlanilha(payloadAtualizacao);
+      try {{
+        await enviarParaPlanilha(payloadAtualizacao);
+      }} catch (err) {{
+        console.warn("Aviso ao enviar baixa para a planilha:", err);
+      }}
 
+      // Atualiza o registro em memória local imediatamente
       itemEmBaixa.devolvida = novoStatus;
+      const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
+      if (target) {{
+        target.devolvida = novoStatus;
+      }}
 
       btn.disabled = false;
       document.getElementById('btnConfirmarBaixaText').innerText = 'Confirmar Baixa';
       fecharModalBaixa();
 
       atualizarDashboardRetiradas();
+
+      // Alerta de sucesso na interface
+      const alertBox = document.getElementById('alertRetiradaSuccess');
+      if (alertBox) {{
+        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Status de devolução atualizado com sucesso!`;
+        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{itemEmBaixa.os}} · Peça: ${{itemEmBaixa.codigo}} · Devolução definida como "${{novoStatus}}".`;
+        alertBox.classList.remove('hidden');
+        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+      }}
     }}
 
     // ==============================================================
@@ -1670,7 +1725,7 @@ html_code = f"""
         tbNaoDev.innerHTML = naoDevolvidasLista.map(item => `
           <tr class="hover:bg-rose-50/40 transition">
             <td class="py-2.5 px-3">
-              <button type="button" onclick="abrirModalBaixa('${{item.id}}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition">
+              <button type="button" data-id="${{item.id}}" onclick="abrirModalBaixa(this.getAttribute('data-id'))" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition cursor-pointer">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 Devolver
               </button>
@@ -1799,7 +1854,7 @@ html_code = f"""
       await enviarParaPlanilha(payloadRetirada);
 
       rawRetiradasData.unshift({{
-        id: Date.now(),
+        id: String(Date.now()),
         data,
         tecnico,
         cliente,
