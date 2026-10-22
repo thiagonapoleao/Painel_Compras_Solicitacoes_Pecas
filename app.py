@@ -32,7 +32,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# CARREGAMENTO DO ARQUIVO "Logotipo.PNG" NA MESMA PASTA DO APP.PY
+# CARREGAMENTO DO ARQUIVO "Logotipo.PNG"
 # ==============================================================================
 def obter_logo_base64():
     pastas_busca = [
@@ -81,11 +81,13 @@ def obter_logo_base64():
 logo_base64_src = obter_logo_base64()
 
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE_PECAS = "270834817"      # Aba: Base de Dados (catálogo)
-GID_ORDEM_COMPRA = "643448898"     # Aba: Ordem de Compra(Peças)
+GID_BASE_PECAS = "270834817"       # Aba: Base de Dados (catálogo)
+GID_ORDEM_COMPRA = "643448898"      # Aba: Ordem de Compra(Peças)
+GID_RETIRADA_PECAS = "1232857188"   # Aba: Retirada de Peças
 
 URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE_PECAS}"
 URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
+URL_CSV_RETIRADAS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_RETIRADA_PECAS}"
 
 @st.cache_data(ttl=20)
 def carregar_catalogo_planilha():
@@ -191,6 +193,42 @@ def obter_dados_ordens_e_proxima_oc():
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
     return ocs_existentes, maior_por_ano
 
+@st.cache_data(ttl=20)
+def obter_dados_retiradas():
+    df = None
+    try:
+        df = pd.read_csv(URL_CSV_RETIRADAS, dtype=str)
+    except Exception:
+        pass
+
+    retiradas = []
+    if df is not None and not df.empty:
+        cols = list(df.columns)
+        for idx, r in df.iterrows():
+            data_val = str(r[cols[0]]).strip() if len(cols) > 0 and pd.notna(r[cols[0]]) else ""
+            if not data_val or data_val.lower() in ["data", "nan"]:
+                continue
+            
+            def to_int(v):
+                try: return int(float(str(v).replace(",", ".")))
+                except: return 1
+
+            retiradas.append({
+                "id": idx,
+                "data": data_val,
+                "tecnico": str(r[cols[1]]).strip() if len(cols) > 1 and pd.notna(r[cols[1]]) else "-",
+                "cliente": str(r[cols[2]]).strip() if len(cols) > 2 and pd.notna(r[cols[2]]) else "-",
+                "os": str(r[cols[3]]).strip() if len(cols) > 3 and pd.notna(r[cols[3]]) else "-",
+                "codigo": str(r[cols[4]]).strip() if len(cols) > 4 and pd.notna(r[cols[4]]) else "-",
+                "descricao": str(r[cols[5]]).strip() if len(cols) > 5 and pd.notna(r[cols[5]]) else "-",
+                "novaUsada": str(r[cols[6]]).strip() if len(cols) > 6 and pd.notna(r[cols[6]]) else "Nova",
+                "quantidade": to_int(r[cols[7]]) if len(cols) > 7 and pd.notna(r[cols[7]]) else 1,
+                "devolvida": str(r[cols[8]]).strip() if len(cols) > 8 and pd.notna(r[cols[8]]) else "Não"
+            })
+
+    retiradas.reverse()
+    return retiradas
+
 catalogo_pecas = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
@@ -199,13 +237,16 @@ ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
 ocs_planilha_json = json.dumps(ocs_planilha, ensure_ascii=False)
 max_seq_anos_json = json.dumps(max_seq_anos, ensure_ascii=False)
 
+retiradas_planilha = obter_dados_retiradas()
+retiradas_json = json.dumps(retiradas_planilha, ensure_ascii=False)
+
 html_code = f"""
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Executivo - Solicitações & Ordens de Compra</title>
+  <title>Dashboard Executivo - Solicitações & Retirada de Peças</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -271,16 +312,24 @@ html_code = f"""
         </div>
       </div>
       
-      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
+        <button id="navDashboardRetiradas" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboardRetiradas')">
+          <i data-lucide="package-search" class="w-4 h-4"></i>
+          Dashboard de Retiradas
+        </button>
         <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-          Dashboard
+          Dashboard Solicitações
         </button>
-        <button id="navForm" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
+        <button id="navForm" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
           Nova Solicitação (OC)
         </button>
-        <button onclick="window.parent.location.reload()" title="Clique para recarregar da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
+        <button id="navRetirada" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('retirada')">
+          <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+          Retirada de Peças
+        </button>
+        <button onclick="executarRefresh()" title="Clique para recarregar da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
           <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span> Sincronizar 🔄
         </button>
       </div>
@@ -289,7 +338,284 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- ==================== PÁGINA 1: DASHBOARD ==================== -->
+    <!-- ============================================================== -->
+    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA -->
+    <!-- ============================================================== -->
+    <div id="modalBaixaPendencia" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+              <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Atualizar Status de Devolução</h3>
+              <p class="text-xs text-slate-500">Registrar baixa de peça pendente</p>
+            </div>
+          </div>
+          <button type="button" onclick="fecharModalBaixa()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+            ✕
+          </button>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5 text-slate-600">
+          <p><strong class="text-slate-800">Ordem de Serviço:</strong> <span id="modalOS" class="font-mono font-bold text-blue-700">OS-0000</span></p>
+          <p><strong class="text-slate-800">Técnico:</strong> <span id="modalTecnico" class="font-semibold text-slate-700"></span></p>
+          <p><strong class="text-slate-800">Peça:</strong> <span id="modalPeca" class="font-bold text-slate-800"></span></p>
+          <p><strong class="text-slate-800">Quantidade:</strong> <span id="modalQt" class="font-bold text-rose-600"></span></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Novo Status da Peça *</label>
+          <select id="modalNovoStatus" class="w-full text-xs font-bold rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="Sim" selected>Sim (Peça Devolvida ao Almoxarifado)</option>
+            <option value="Instalação Nova">Instalação Nova (Instalada em Campo)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onclick="fecharModalBaixa()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Cancelar
+          </button>
+          <button type="button" id="btnConfirmarBaixa" onclick="confirmarBaixaPendencia()" class="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span id="btnConfirmarBaixaText">Confirmar Baixa</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- PÁGINA 0: DASHBOARD DE RETIRADAS (NOVO DASHBOARD INICIAL) -->
+    <!-- ============================================================== -->
+    <div id="pageDashboardRetiradas" class="space-y-6">
+
+      <!-- Filtros Dashboard de Retiradas -->
+      <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <i data-lucide="sliders" class="w-4 h-4 text-amber-500"></i>
+            <span>Filtros do Painel de Retiradas</span>
+          </div>
+          <span id="badgeFiltroRetirada" class="text-xs font-medium text-slate-500">Filtrando: Todos os registros</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Técnico</label>
+            <select id="filterRetiradaTecnico" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
+              <option value="ALL">Todos os Técnicos</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Status Devolução</label>
+            <select id="filterRetiradaDevolvida" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
+              <option value="ALL">Todos os Status</option>
+              <option value="Não">Não Devolvidas (Pendentes)</option>
+              <option value="Sim">Devolvidas</option>
+              <option value="Instalação Nova">Instalação Nova</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Condição</label>
+            <select id="filterRetiradaCondicao" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
+              <option value="ALL">Todas as Condições</option>
+              <option value="Nova">Nova</option>
+              <option value="Usada">Usada</option>
+            </select>
+          </div>
+
+          <div class="flex items-end">
+            <button id="btnLimparFiltrosRetirada" class="w-full py-2 px-4 rounded-xl border border-slate-300 bg-slate-100 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition flex items-center justify-center gap-1.5">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              Limpar Filtros
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- CARDS DE KPIS RETIRADAS -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Retiradas</span>
+            <span class="p-1.5 rounded-lg bg-blue-50 text-blue-600"><i data-lucide="package" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <span id="kpiRetiradaTotal" class="text-xl font-bold tracking-tight text-slate-800">0</span>
+            <p class="text-[11px] text-slate-400 mt-0.5">Registros na base</p>
+          </div>
+        </div>
+
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-rose-200">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider">Não Devolvidas</span>
+            <span class="p-1.5 rounded-lg bg-rose-50 text-rose-600"><i data-lucide="alert-circle" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div>
+              <span id="kpiRetiradaNaoDevolvidas" class="text-xl font-bold tracking-tight text-rose-600">0 un</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Pendentes de devolução</p>
+            </div>
+            <span id="kpiRetiradaNaoDevolvidasPct" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">0%</span>
+          </div>
+        </div>
+
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between border-emerald-200">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Peças Devolvidas</span>
+            <span class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><i data-lucide="check-circle" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3 flex items-baseline justify-between">
+            <div>
+              <span id="kpiRetiradaDevolvidas" class="text-xl font-bold tracking-tight text-emerald-600">0 un</span>
+              <p class="text-[11px] text-slate-400 mt-0.5">Retornaram ao almox.</p>
+            </div>
+            <span id="kpiRetiradaDevolvidasPct" class="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">0%</span>
+          </div>
+        </div>
+
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">Instalação Nova</span>
+            <span class="p-1.5 rounded-lg bg-indigo-50 text-indigo-600"><i data-lucide="sparkles" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <span id="kpiRetiradaInstalacao" class="text-xl font-bold tracking-tight text-indigo-600">0 un</span>
+            <p class="text-[11px] text-slate-400 mt-0.5">Instaladas em clientes</p>
+          </div>
+        </div>
+
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Técnicos Ativos</span>
+            <span class="p-1.5 rounded-lg bg-cyan-50 text-cyan-600"><i data-lucide="wrench" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <span id="kpiRetiradaTecnicos" class="text-xl font-bold tracking-tight text-slate-800">0</span>
+            <p class="text-[11px] text-slate-400 mt-0.5">Técnicos com retiradas</p>
+          </div>
+        </div>
+
+        <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Clientes Atendidos</span>
+            <span class="p-1.5 rounded-lg bg-amber-50 text-amber-600"><i data-lucide="map-pin" class="w-4 h-4"></i></span>
+          </div>
+          <div class="mt-3">
+            <span id="kpiRetiradaClientes" class="text-xl font-bold tracking-tight text-slate-800">0</span>
+            <p class="text-[11px] text-slate-400 mt-0.5">Locais únicos</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- GRÁFICOS DO DASHBOARD DE RETIRADAS -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-amber-600"></i>
+                Top 10 Peças Mais Retiradas (Quantidade)
+              </h3>
+              <p class="text-xs text-slate-400">Total de peças que saíram para atendimento</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Unidades</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartTopPecasRetiradas"></canvas></div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="users" class="w-4 h-4 text-blue-600"></i>
+                Retiradas por Técnico (Volume de Peças)
+              </h3>
+              <p class="text-xs text-slate-400">Distribuição do volume demandado por técnico</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Por Técnico</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartRetiradasPorTecnico"></canvas></div>
+        </div>
+      </section>
+
+      <!-- TABELA EXCLUSIVA: PEÇAS NÃO DEVOLVIDAS (COM OPÇÃO DE EDIÇÃO / BAIXA) -->
+      <section class="bg-white p-5 rounded-2xl border-2 border-rose-200 shadow-sm space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-rose-100">
+          <div>
+            <h2 class="text-base font-bold flex items-center gap-2 text-rose-700">
+              <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
+              Peças Não Devolvidas (Pendências com Técnicos)
+            </h2>
+            <p class="text-xs text-rose-500 font-medium">Clique no botão "Devolver" para dar baixa imediata na pendência</p>
+          </div>
+          <span id="badgeNaoDevolvidasCount" class="text-xs px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold">
+            0 pendência(s)
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-rose-50/70 uppercase font-semibold text-rose-800">
+              <tr>
+                <th class="py-3 px-3 rounded-l-lg">Ação</th>
+                <th class="py-3 px-3">Data</th>
+                <th class="py-3 px-3">Nº OS</th>
+                <th class="py-3 px-3">Técnico</th>
+                <th class="py-3 px-3">Cliente</th>
+                <th class="py-3 px-3">Código</th>
+                <th class="py-3 px-3">Descrição da Peça</th>
+                <th class="py-3 px-3 text-center">Condição</th>
+                <th class="py-3 px-3 text-center rounded-r-lg">Quantidade</th>
+              </tr>
+            </thead>
+            <tbody id="tableNaoDevolvidasBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TABELA GERAL DE TODAS AS RETIRADAS -->
+      <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold flex items-center gap-2 text-slate-800">
+              <i data-lucide="list" class="w-4 h-4 text-amber-500"></i>
+              Histórico Completo de Retiradas
+            </h2>
+            <p class="text-xs text-slate-500">Todas as saídas registradas na planilha</p>
+          </div>
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="searchRetiradasGeral" placeholder="Buscar técnico, OS, peça..." oninput="atualizarDashboardRetiradas()" class="text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 w-64">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
+              <tr>
+                <th class="py-2.5 px-3 rounded-l-lg">Data</th>
+                <th class="py-2.5 px-3">Técnico</th>
+                <th class="py-2.5 px-3">Cliente</th>
+                <th class="py-2.5 px-3 font-mono">OS</th>
+                <th class="py-2.5 px-3 font-mono">Código</th>
+                <th class="py-2.5 px-3">Descrição</th>
+                <th class="py-2.5 px-3 text-center">Condição</th>
+                <th class="py-2.5 px-3 text-center">Qt</th>
+                <th class="py-2.5 px-3 text-center rounded-r-lg">Status Devolução</th>
+              </tr>
+            </thead>
+            <tbody id="tableRetiradasGeralBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== PÁGINA 1: DASHBOARD SOLICITAÇÕES ==================== -->
     <div id="pageDashboard" class="hidden space-y-6">
 
       <!-- Filtros Dinâmicos -->
@@ -415,9 +741,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- ============================================================== -->
-      <!-- GRÁFICOS: TOP 10 PEÇAS MAIS SOLICITADAS (QUANTIDADE E CUSTO) -->
-      <!-- ============================================================== -->
+      <!-- GRÁFICOS: TOP 10 PEÇAS MAIS SOLICITADAS -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -460,7 +784,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- TABELA RESUMO -->
+      <!-- TABELA RESUMO SOLICITAÇÕES -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100">
           <div>
@@ -502,9 +826,8 @@ html_code = f"""
     </div>
 
     <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO ==================== -->
-    <div id="pageFormulario" class="space-y-6">
+    <div id="pageFormulario" class="hidden space-y-6">
 
-      <!-- Alerta de Modo de Edição Ativo -->
       <div id="alertEditMode" class="hidden p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex justify-between items-center shadow-sm">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-amber-500 text-white rounded-xl"><i data-lucide="edit-3" class="w-5 h-5"></i></div>
@@ -518,7 +841,6 @@ html_code = f"""
         </button>
       </div>
 
-      <!-- Notificação de Sucesso com Botão de Imprimir Imediato -->
       <div id="alertSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-emerald-600 text-white rounded-xl">
@@ -557,8 +879,6 @@ html_code = f"""
         </div>
 
         <form id="orderForm" onsubmit="handleFinalSubmit(event)" class="space-y-6">
-          
-          <!-- CABEÇALHO DA OC -->
           <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
             <div>
               <label class="block text-xs font-bold text-blue-800 mb-1">Número da OC *</label>
@@ -590,7 +910,6 @@ html_code = f"""
               <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
             </div>
 
-            <!-- FORNECEDOR ÚNICO -->
             <div class="md:col-span-3 lg:col-span-6 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200">
               <label class="block text-xs font-bold text-blue-900 mb-1">
                 Fornecedor (Único para este Pedido de Compra) *
@@ -601,7 +920,6 @@ html_code = f"""
             </div>
           </div>
 
-          <!-- ÁREA PARA ADICIONAR PEÇAS À ORDEM -->
           <div class="p-5 rounded-2xl border-2 border-blue-200 bg-blue-50/20 space-y-4">
             <div class="flex items-center justify-between pb-2 border-b border-blue-100">
               <h3 class="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2">
@@ -673,7 +991,6 @@ html_code = f"""
             </div>
           </div>
 
-          <!-- TABELA DE PEÇAS ADICIONADAS ANTES DE SALVAR -->
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -716,7 +1033,6 @@ html_code = f"""
             </div>
           </div>
 
-          <!-- BOTÕES FINAIS -->
           <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button type="button" onclick="limparOCAtual()" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
               Limpar Ordem
@@ -729,9 +1045,7 @@ html_code = f"""
         </form>
       </section>
 
-      <!-- ============================================================== -->
-      <!-- TABELA COMPLETA DE TODAS AS OCS EM ORDEM DECRESCENTE COM PESQUISAS -->
-      <!-- ============================================================== -->
+      <!-- HISTÓRICO DAS OCS -->
       <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
           <div>
@@ -746,7 +1060,6 @@ html_code = f"""
           </span>
         </div>
 
-        <!-- 2 CAMPOS DE PESQUISA INDEPENDENTES -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">
@@ -792,6 +1105,109 @@ html_code = f"""
             </tbody>
           </table>
         </div>
+      </section>
+
+    </div>
+
+    <!-- ==================== PÁGINA 3: FORMULÁRIO DE RETIRADA DE PEÇAS ==================== -->
+    <div id="pageRetirada" class="hidden space-y-6">
+
+      <div id="alertRetiradaSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-emerald-600 text-white rounded-xl">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p id="alertRetiradaSuccessTitle" class="text-sm font-bold">Retirada de Peça registrada com sucesso!</p>
+            <p id="alertRetiradaSuccessSub" class="text-xs text-emerald-700">Dados salvos com sucesso na aba Retirada de Peças.</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('alertRetiradaSuccess').classList.add('hidden')" class="px-3 py-2 rounded-xl hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition">
+          Fechar
+        </button>
+      </div>
+
+      <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-500/25">
+              <i data-lucide="package-minus" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Lançamento de Retirada de Peças</h2>
+              <p class="text-xs text-slate-500">Controle de Saída Técnico · Catálogo conectado diretamente à planilha</p>
+            </div>
+          </div>
+          <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            Aba: Retirada de Peças
+          </span>
+        </div>
+
+        <form id="retiradaForm" onsubmit="handleRetiradaSubmit(event)" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Retirada *</label>
+              <input type="date" id="retiradaData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
+              <input type="text" id="retiradaTecnico" placeholder="Nome do técnico responsável" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente *</label>
+              <input type="text" id="retiradaCliente" placeholder="Nome do cliente / ponto" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Número da OS *</label>
+              <input type="text" id="retiradaOS" placeholder="Ex: OS-12345" required class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-800 mb-1">Código da Peça *</label>
+              <input list="listaCodigosPecas" id="retiradaCodigo" placeholder="Digite ou selecione o código..." required oninput="aoMudarCodigoRetirada()" onchange="aoMudarCodigoRetirada()" class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div class="md:col-span-2 lg:col-span-3">
+              <label class="block text-xs font-bold text-slate-800 mb-1">Descrição da Peça *</label>
+              <input list="listaDescricoesPecas" id="retiradaDescricao" placeholder="Digite ou selecione a descrição..." required oninput="aoMudarDescricaoRetirada()" onchange="aoMudarDescricaoRetirada()" class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Nova / Usada *</label>
+              <select id="retiradaNovaUsada" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <option value="Nova" selected>Nova</option>
+                <option value="Usada">Usada</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade *</label>
+              <input type="number" id="retiradaQuantidade" min="1" value="1" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Devolvida *</label>
+              <select id="retiradaDevolvida" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <option value="Não" selected>Não</option>
+                <option value="Sim">Sim</option>
+                <option value="Instalação Nova">Instalação Nova</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button type="button" onclick="limparFormRetirada()" class="px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+              Limpar Campos
+            </button>
+            <button type="submit" id="btnSalvarRetirada" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-bold shadow-lg shadow-amber-500/25 hover:bg-amber-700 transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span id="btnSalvarRetiradaText">Gravar Retirada de Peça</span>
+            </button>
+          </div>
+        </form>
       </section>
 
     </div>
@@ -869,14 +1285,19 @@ html_code = f"""
     Chart.register(ChartDataLabels);
 
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
+    const GID_RETIRADA = "{GID_RETIRADA_PECAS}";
+
     document.getElementById('formData').value = new Date().toISOString().split('T')[0];
+    if (document.getElementById('retiradaData')) {{
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+    }}
 
     const catalogoPecas = {catalogo_json};
-
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
+    let rawRetiradasData = {retiradas_json};
 
-    // Popula Datalists
+    // Popula Datalists Catálogo
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -904,6 +1325,489 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
+    // ==============================================================
+    // ENVIO UNIFICADO AO GOOGLE APPS SCRIPT
+    // ==============================================================
+    async function enviarParaPlanilha(payload) {{
+      const jsonStr = JSON.stringify(payload);
+      
+      try {{
+        await fetch(APPS_SCRIPT_URL, {{
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
+          body: 'data=' + encodeURIComponent(jsonStr)
+        }});
+        return true;
+      }} catch (errPost) {{
+        console.warn("POST falhou, tentando fallback GET:", errPost);
+      }}
+
+      try {{
+        const urlGet = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
+        await fetch(urlGet, {{ method: 'GET', mode: 'no-cors' }});
+        return true;
+      }} catch (errGet) {{
+        console.warn("GET fetch falhou, aplicando fallback Img:", errGet);
+      }}
+
+      try {{
+        const img = new Image();
+        img.src = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
+        return true;
+      }} catch (errImg) {{
+        console.error("Falha em todos os métodos de envio:", errImg);
+        alert("Erro ao gravar na planilha. Verifique a conexão.");
+        return false;
+      }}
+    }}
+
+    // ==============================================================
+    // REFRESH PERSISTENTE
+    // ==============================================================
+    function executarRefresh() {{
+      const paginaAtual = sessionStorage.getItem('aba_ativa_atual') || 'dashboardRetiradas';
+      localStorage.setItem('restaurar_aba_pos_refresh', paginaAtual);
+      window.parent.location.reload();
+    }}
+
+    // ==============================================================
+    // CONTROLE DE NAVEGAÇÃO ENTRE TELAS
+    // ==============================================================
+    function switchPage(page) {{
+      sessionStorage.setItem('aba_ativa_atual', page);
+      localStorage.setItem('restaurar_aba_pos_refresh', page);
+
+      const pageDashRetiradas = document.getElementById('pageDashboardRetiradas');
+      const pageDash = document.getElementById('pageDashboard');
+      const pageForm = document.getElementById('pageFormulario');
+      const pageRetirada = document.getElementById('pageRetirada');
+
+      const btnDashRetiradas = document.getElementById('navDashboardRetiradas');
+      const btnDash = document.getElementById('navDashboard');
+      const btnForm = document.getElementById('navForm');
+      const btnRetirada = document.getElementById('navRetirada');
+
+      [btnDashRetiradas, btnDash, btnForm, btnRetirada].forEach(b => {{
+        if (b) {{
+          b.classList.remove('active');
+          b.classList.add('inactive');
+        }}
+      }});
+
+      pageDashRetiradas.classList.add('hidden');
+      pageDash.classList.add('hidden');
+      pageForm.classList.add('hidden');
+      pageRetirada.classList.add('hidden');
+
+      if (page === 'dashboardRetiradas') {{
+        pageDashRetiradas.classList.remove('hidden');
+        btnDashRetiradas.classList.add('active');
+        btnDashRetiradas.classList.remove('inactive');
+        atualizarDashboardRetiradas();
+      }} else if (page === 'dashboard') {{
+        pageDash.classList.remove('hidden');
+        btnDash.classList.add('active');
+        btnDash.classList.remove('inactive');
+        updateDashboard();
+      }} else if (page === 'formulario') {{
+        pageForm.classList.remove('hidden');
+        btnForm.classList.add('active');
+        btnForm.classList.remove('inactive');
+        atualizarProximoNumeroOC();
+      }} else if (page === 'retirada') {{
+        pageRetirada.classList.remove('hidden');
+        btnRetirada.classList.add('active');
+        btnRetirada.classList.remove('inactive');
+      }}
+      lucide.createIcons();
+    }}
+
+    // ==============================================================
+    // GRÁFICOS DO DASHBOARD DE RETIRADAS
+    // ==============================================================
+    function getHorizontalRetiradaBarOptions() {{
+      const textColor = '#475569';
+      const gridColor = 'rgba(226, 232, 240, 0.7)';
+      return {{
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ right: 40, left: 10, top: 10, bottom: 10 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => 'Quantidade: ' + context.raw.toLocaleString('pt-BR') + ' un'
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'right',
+            offset: 4,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => v ? v.toLocaleString('pt-BR') : ''
+          }}
+        }},
+        scales: {{
+          x: {{
+            grid: {{ color: gridColor }},
+            ticks: {{ color: textColor, font: {{ size: 10 }} }},
+            beginAtZero: true
+          }},
+          y: {{
+            grid: {{ display: false }},
+            ticks: {{ color: textColor, font: {{ size: 10, weight: '600' }} }}
+          }}
+        }}
+      }};
+    }}
+
+    const chartTopPecasRetiradas = new Chart(document.getElementById('chartTopPecasRetiradas').getContext('2d'), {{
+      type: 'bar',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(217, 119, 6, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalRetiradaBarOptions()
+    }});
+
+    const chartRetiradasPorTecnico = new Chart(document.getElementById('chartRetiradasPorTecnico').getContext('2d'), {{
+      type: 'bar',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalRetiradaBarOptions()
+    }});
+
+    const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
+    const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
+    const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
+
+    function populateDropdownsRetiradas() {{
+      const currentTec = filterRetTecnico.value;
+      const tecnicosUnicos = [...new Set(rawRetiradasData.map(r => r.tecnico).filter(Boolean))].sort();
+      filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
+      tecnicosUnicos.forEach(t => {{
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        filterRetTecnico.appendChild(opt);
+      }});
+      if (tecnicosUnicos.includes(currentTec)) filterRetTecnico.value = currentTec;
+    }}
+    populateDropdownsRetiradas();
+
+    // ==============================================================
+    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA
+    // ==============================================================
+    let itemEmBaixa = null;
+
+    function abrirModalBaixa(idx) {{
+      const item = rawRetiradasData.find(r => String(r.id) === String(idx));
+      if (!item) return;
+
+      itemEmBaixa = item;
+      document.getElementById('modalOS').innerText = item.os || '-';
+      document.getElementById('modalTecnico').innerText = item.tecnico || '-';
+      document.getElementById('modalPeca').innerText = `${{item.codigo}} - ${{item.descricao}}`;
+      document.getElementById('modalQt').innerText = `${{item.quantidade}} un (${{item.novaUsada}})`;
+      document.getElementById('modalNovoStatus').value = 'Sim';
+
+      document.getElementById('modalBaixaPendencia').classList.remove('hidden');
+      lucide.createIcons();
+    }}
+
+    function fecharModalBaixa() {{
+      itemEmBaixa = null;
+      document.getElementById('modalBaixaPendencia').classList.add('hidden');
+    }}
+
+    async function confirmarBaixaPendencia() {{
+      if (!itemEmBaixa) return;
+
+      const novoStatus = document.getElementById('modalNovoStatus').value;
+      const btn = document.getElementById('btnConfirmarBaixa');
+      btn.disabled = true;
+      document.getElementById('btnConfirmarBaixaText').innerText = 'Gravando...';
+
+      const payloadAtualizacao = {{
+        tipo: "atualizar_status_retirada",
+        aba_gid: GID_RETIRADA,
+        aba_nome: "Retirada de Peças",
+        os: itemEmBaixa.os,
+        codigo: itemEmBaixa.codigo,
+        data: itemEmBaixa.data,
+        tecnico: itemEmBaixa.tecnico,
+        novoStatus: novoStatus
+      }};
+
+      await enviarParaPlanilha(payloadAtualizacao);
+
+      // Atualiza localmente o item para atualização imediata
+      itemEmBaixa.devolvida = novoStatus;
+
+      btn.disabled = false;
+      document.getElementById('btnConfirmarBaixaText').innerText = 'Confirmar Baixa';
+      fecharModalBaixa();
+
+      atualizarDashboardRetiradas();
+    }}
+
+    // ==============================================================
+    // ATUALIZAÇÃO GERAL DO DASHBOARD DE RETIRADAS
+    // ==============================================================
+    function atualizarDashboardRetiradas() {{
+      const tecVal = filterRetTecnico.value;
+      const devVal = filterRetDevolvida.value;
+      const condVal = filterRetCondicao.value;
+      const searchVal = (document.getElementById('searchRetiradasGeral')?.value || '').trim().toLowerCase();
+
+      const filtrados = rawRetiradasData.filter(item => {{
+        const matchTec = (tecVal === 'ALL' || item.tecnico === tecVal);
+        const matchDev = (devVal === 'ALL' || item.devolvida.toLowerCase() === devVal.toLowerCase());
+        const matchCond = (condVal === 'ALL' || item.novaUsada.toLowerCase() === condVal.toLowerCase());
+        const matchSearch = !searchVal || (
+          (item.tecnico && item.tecnico.toLowerCase().includes(searchVal)) ||
+          (item.os && item.os.toLowerCase().includes(searchVal)) ||
+          (item.cliente && item.cliente.toLowerCase().includes(searchVal)) ||
+          (item.codigo && item.codigo.toLowerCase().includes(searchVal)) ||
+          (item.descricao && item.descricao.toLowerCase().includes(searchVal))
+        );
+        return matchTec && matchDev && matchCond && matchSearch;
+      }});
+
+      document.getElementById('badgeFiltroRetirada').innerText = `Filtrando: Técnico [${{tecVal}}] · Status [${{devVal}}] · Condição [${{condVal}}]`;
+
+      // KPIs Retiradas
+      const totalRet = filtrados.length;
+      let totalPecas = 0;
+      let naoDevolvidas = 0;
+      let devolvidas = 0;
+      let instalacoes = 0;
+
+      filtrados.forEach(r => {{
+        const q = parseInt(r.quantidade) || 1;
+        totalPecas += q;
+        const stLower = (r.devolvida || '').toLowerCase();
+        if (stLower === 'não' || stLower === 'nao') naoDevolvidas += q;
+        else if (stLower === 'sim') devolvidas += q;
+        else if (stLower.includes('instalação') || stLower.includes('instalacao')) instalacoes += q;
+      }});
+
+      const pctNaoDevolvidas = totalPecas > 0 ? Math.round((naoDevolvidas / totalPecas) * 100) : 0;
+      const pctDevolvidas = totalPecas > 0 ? Math.round((devolvidas / totalPecas) * 100) : 0;
+
+      document.getElementById('kpiRetiradaTotal').innerText = `${{totalRet}} (${{totalPecas}} un)`;
+      document.getElementById('kpiRetiradaNaoDevolvidas').innerText = `${{naoDevolvidas.toLocaleString('pt-BR')}} un`;
+      document.getElementById('kpiRetiradaNaoDevolvidasPct').innerText = `${{pctNaoDevolvidas}}%`;
+      document.getElementById('kpiRetiradaDevolvidas').innerText = `${{devolvidas.toLocaleString('pt-BR')}} un`;
+      document.getElementById('kpiRetiradaDevolvidasPct').innerText = `${{pctDevolvidas}}%`;
+      document.getElementById('kpiRetiradaInstalacao').innerText = `${{instalacoes.toLocaleString('pt-BR')}} un`;
+      document.getElementById('kpiRetiradaTecnicos').innerText = new Set(filtrados.map(r => r.tecnico)).size;
+      document.getElementById('kpiRetiradaClientes').innerText = new Set(filtrados.map(r => r.cliente)).size;
+
+      // Gráfico 1: Top 10 Peças Mais Retiradas
+      const pecasContagem = {{}};
+      filtrados.forEach(r => {{
+        const nome = (r.descricao || r.codigo || 'Peça').trim();
+        pecasContagem[nome] = (pecasContagem[nome] || 0) + (parseInt(r.quantidade) || 1);
+      }});
+      const truncar = (t, max = 28) => t.length > max ? t.substring(0, max) + '...' : t;
+      const top10Pecas = Object.entries(pecasContagem).map(([nome, qt]) => ({{ nome, qt }})).sort((a,b) => b.qt - a.qt).slice(0, 10);
+      chartTopPecasRetiradas.data.labels = top10Pecas.map(p => truncar(p.nome));
+      chartTopPecasRetiradas.data.datasets[0].data = top10Pecas.map(p => p.qt);
+      chartTopPecasRetiradas.update();
+
+      // Gráfico 2: Retiradas por Técnico
+      const tecContagem = {{}};
+      filtrados.forEach(r => {{
+        const t = (r.tecnico || 'Indefinido').trim();
+        tecContagem[t] = (tecContagem[t] || 0) + (parseInt(r.quantidade) || 1);
+      }});
+      const topTecnicos = Object.entries(tecContagem).map(([nome, qt]) => ({{ nome, qt }})).sort((a,b) => b.qt - a.qt).slice(0, 10);
+      chartRetiradasPorTecnico.data.labels = topTecnicos.map(t => truncar(t.nome));
+      chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
+      chartRetiradasPorTecnico.update();
+
+      // Tabela: Peças Não Devolvidas (Com Botão de Edição/Baixa)
+      const naoDevolvidasLista = filtrados.filter(r => {{
+        const d = (r.devolvida || '').toLowerCase();
+        return d === 'não' || d === 'nao';
+      }});
+      document.getElementById('badgeNaoDevolvidasCount').innerText = `${{naoDevolvidasLista.length}} pendência(s)`;
+
+      const tbNaoDev = document.getElementById('tableNaoDevolvidasBody');
+      if (naoDevolvidasLista.length === 0) {{
+        tbNaoDev.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-emerald-600 font-semibold">🎉 Nenhuma peça pendente de devolução para os filtros selecionados!</td></tr>';
+      }} else {{
+        tbNaoDev.innerHTML = naoDevolvidasLista.map(item => `
+          <tr class="hover:bg-rose-50/40 transition">
+            <td class="py-2.5 px-3">
+              <button type="button" onclick="abrirModalBaixa('${{item.id}}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Devolver
+              </button>
+            </td>
+            <td class="py-2.5 px-3 font-semibold text-slate-700">${{item.data}}</td>
+            <td class="py-2.5 px-3 font-mono font-bold text-rose-700">${{item.os}}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${{item.tecnico}}</td>
+            <td class="py-2.5 px-3">${{item.cliente}}</td>
+            <td class="py-2.5 px-3 font-mono font-bold text-slate-700">${{item.codigo}}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-800">${{item.descricao}}</td>
+            <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] ${{item.novaUsada === 'Nova' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}} font-bold">${{item.novaUsada}}</span></td>
+            <td class="py-2.5 px-3 text-center font-bold text-rose-600">${{item.quantidade}} un</td>
+          </tr>
+        `).join('');
+      }}
+
+      // Tabela Geral de Retiradas
+      const tbGeral = document.getElementById('tableRetiradasGeralBody');
+      if (filtrados.length === 0) {{
+        tbGeral.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 font-semibold">Nenhuma retirada encontrada.</td></tr>';
+      }} else {{
+        tbGeral.innerHTML = filtrados.map(item => {{
+          const dLower = (item.devolvida || '').toLowerCase();
+          let badgeClass = 'bg-rose-100 text-rose-800';
+          if (dLower === 'sim') badgeClass = 'bg-emerald-100 text-emerald-800';
+          else if (dLower.includes('instalação') || dLower.includes('instalacao')) badgeClass = 'bg-indigo-100 text-indigo-800';
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="py-2.5 px-3">${{item.data}}</td>
+              <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.tecnico}}</td>
+              <td class="py-2.5 px-3">${{item.cliente}}</td>
+              <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.os}}</td>
+              <td class="py-2.5 px-3 font-mono text-slate-600">${{item.codigo}}</td>
+              <td class="py-2.5 px-3 font-medium text-slate-800">${{item.descricao}}</td>
+              <td class="py-2.5 px-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700 font-semibold">${{item.novaUsada}}</span></td>
+              <td class="py-2.5 px-3 text-center font-bold text-slate-800">${{item.quantidade}} un</td>
+              <td class="py-2.5 px-3 text-center"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${{badgeClass}}">${{item.devolvida}}</span></td>
+            </tr>
+          `;
+        }}).join('');
+      }}
+      lucide.createIcons();
+    }}
+
+    [filterRetTecnico, filterRetDevolvida, filterRetCondicao].forEach(el => el.addEventListener('change', atualizarDashboardRetiradas));
+    document.getElementById('btnLimparFiltrosRetirada').addEventListener('click', () => {{
+      filterRetTecnico.value = 'ALL';
+      filterRetDevolvida.value = 'ALL';
+      filterRetCondicao.value = 'ALL';
+      document.getElementById('searchRetiradasGeral').value = '';
+      atualizarDashboardRetiradas();
+    }});
+
+    // ==============================================================
+    // RETIRADA: FORMULÁRIO E ENVIO
+    // ==============================================================
+    function aoMudarCodigoRetirada() {{
+      const cod = document.getElementById('retiradaCodigo').value.trim();
+      if (!cod) return;
+      const achado = catalogoPecas.find(p => p.codigo.toLowerCase() === cod.toLowerCase());
+      if (achado) {{
+        document.getElementById('retiradaDescricao').value = achado.descricao;
+      }}
+    }}
+
+    function aoMudarDescricaoRetirada() {{
+      const desc = document.getElementById('retiradaDescricao').value.trim();
+      if (!desc) return;
+      const achado = catalogoPecas.find(p => p.descricao.toLowerCase() === desc.toLowerCase());
+      if (achado) {{
+        document.getElementById('retiradaCodigo').value = achado.codigo;
+      }}
+    }}
+
+    function limparFormRetirada() {{
+      document.getElementById('retiradaForm').reset();
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+      document.getElementById('retiradaNovaUsada').value = 'Nova';
+      document.getElementById('retiradaQuantidade').value = '1';
+      document.getElementById('retiradaDevolvida').value = 'Não';
+    }}
+
+    let enviandoRetirada = false;
+    async function handleRetiradaSubmit(e) {{
+      e.preventDefault();
+      if (enviandoRetirada) return;
+
+      const data = document.getElementById('retiradaData').value;
+      const tecnico = document.getElementById('retiradaTecnico').value.trim();
+      const cliente = document.getElementById('retiradaCliente').value.trim();
+      const os = document.getElementById('retiradaOS').value.trim();
+      const codigo = document.getElementById('retiradaCodigo').value.trim().toUpperCase();
+      const descricao = document.getElementById('retiradaDescricao').value.trim().toUpperCase();
+      const novaUsada = document.getElementById('retiradaNovaUsada').value;
+      const quantidade = parseInt(document.getElementById('retiradaQuantidade').value) || 1;
+      const devolvida = document.getElementById('retiradaDevolvida').value;
+
+      if (!codigo || !descricao) {{
+        alert('Por favor, informe o Código e a Descrição da Peça.');
+        return;
+      }}
+
+      enviandoRetirada = true;
+      const btn = document.getElementById('btnSalvarRetirada');
+      btn.disabled = true;
+      document.getElementById('btnSalvarRetiradaText').innerText = 'Gravando na planilha...';
+
+      const payloadRetirada = {{
+        tipo: "retirada_pecas",
+        aba_gid: GID_RETIRADA,
+        aba_nome: "Retirada de Peças",
+        registro: {{
+          data: data,
+          tecnico: tecnico,
+          cliente: cliente,
+          os: os,
+          codigo: codigo,
+          descricao: descricao,
+          novaUsada: novaUsada,
+          quantidade: quantidade,
+          devolvida: devolvida
+        }}
+      }};
+
+      await enviarParaPlanilha(payloadRetirada);
+
+      rawRetiradasData.unshift({{
+        id: Date.now(),
+        data,
+        tecnico,
+        cliente,
+        os,
+        codigo,
+        descricao,
+        novaUsada,
+        quantidade,
+        devolvida
+      }});
+
+      setTimeout(() => {{
+        enviandoRetirada = false;
+        btn.disabled = false;
+        document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
+        
+        limparFormRetirada();
+        populateDropdownsRetiradas();
+        atualizarDashboardRetiradas();
+        
+        const alertBox = document.getElementById('alertRetiradaSuccess');
+        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
+        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
+        alertBox.classList.remove('hidden');
+        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+        lucide.createIcons();
+      }}, 600);
+    }}
+
+    // ==============================================================
+    // OC: FORMULÁRIO, PREVIEWS & GRAVAÇÃO
+    // ==============================================================
     function aoMudarFornecedorPrincipal() {{
       const forn = document.getElementById('formFornecedor').value.trim();
       if (forn && itensDaOrdemAtual.length > 0) {{
@@ -1168,9 +2072,8 @@ html_code = f"""
 
     let enviandoAgora = false;
 
-    function handleFinalSubmit(e) {{
+    async function handleFinalSubmit(e) {{
       e.preventDefault();
-
       if (enviandoAgora) return;
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
@@ -1186,7 +2089,6 @@ html_code = f"""
       }}
 
       enviandoAgora = true;
-
       const oc = document.getElementById('formNumeroOC').value;
       const ano = document.getElementById('formAno').value;
       const mes = document.getElementById('formMes').value;
@@ -1195,6 +2097,7 @@ html_code = f"""
       const ehEdicao = (ocEmEdicao !== null);
 
       const dadosOCSalva = {{
+        tipo: "ordem_compra",
         oc,
         ano,
         mes,
@@ -1212,21 +2115,14 @@ html_code = f"""
       btnSalvar.disabled = true;
       btnSalvar.innerText = ehEdicao ? 'Atualizando na planilha...' : 'Gravando na planilha...';
 
-      try {{
-        const jsonEncoded = encodeURIComponent(JSON.stringify(dadosOCSalva));
-        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
-        const img = new Image();
-        img.src = beaconUrl;
-      }} catch (errBeacon) {{
-        console.error("Erro no envio:", errBeacon);
-      }}
+      await enviarParaPlanilha(dadosOCSalva);
 
       setTimeout(() => {{
         enviandoAgora = false;
         btnSalvar.disabled = false;
         btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span id="btnSalvarText">' + 
           (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
-      }}, 800);
+      }}, 600);
 
       if (ehEdicao) {{
         rawOrdersData = rawOrdersData.filter(item => item.oc !== oc);
@@ -1420,36 +2316,13 @@ html_code = f"""
       }}, 300);
     }}
 
-    function switchPage(page) {{
-      const pageDash = document.getElementById('pageDashboard');
-      const pageForm = document.getElementById('pageFormulario');
-      const btnDash = document.getElementById('navDashboard');
-      const btnForm = document.getElementById('navForm');
-
-      if (page === 'dashboard') {{
-        pageDash.classList.remove('hidden');
-        pageForm.classList.add('hidden');
-        btnDash.classList.add('active');
-        btnDash.classList.remove('inactive');
-        btnForm.classList.remove('active');
-        btnForm.classList.add('inactive');
-        updateDashboard();
-      }} else {{
-        pageDash.classList.add('hidden');
-        pageForm.classList.remove('hidden');
-        btnForm.classList.add('active');
-        btnForm.classList.remove('inactive');
-        btnDash.classList.remove('active');
-        btnDash.classList.add('inactive');
-        atualizarProximoNumeroOC();
-      }}
-      lucide.createIcons();
-    }}
-
     function formatCurrency(val) {{
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
+    // ==============================================================
+    // DASHBOARD SOLICITAÇÕES: KPIS & GRÁFICOS
+    // ==============================================================
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -1498,7 +2371,6 @@ html_code = f"""
     }}
     populateDropdowns();
 
-    // Configuração de Estilo Padronizada para Gráficos
     function getHorizontalBarOptions(isCurrency = false) {{
       const textColor = '#475569';
       const gridColor = 'rgba(226, 232, 240, 0.7)';
@@ -1553,7 +2425,6 @@ html_code = f"""
       }};
     }}
 
-    // Inicialização dos Gráficos Top 10 Peças
     const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
@@ -1598,7 +2469,6 @@ html_code = f"""
       }}
     }});
 
-    // Atualização Geral dos Componentes do Dashboard
     function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
@@ -1616,7 +2486,6 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
-      // 1. Métricas KPIs
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
@@ -1637,7 +2506,6 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
-      // 2. Consolidação de Peças para os Gráficos Top 10
       const pecasAgrupadas = {{}};
       filtered.forEach(item => {{
         const nomePeca = (item.peca || item.codigoPeca || 'Indefinida').trim();
@@ -1654,36 +2522,30 @@ html_code = f"""
         custo: vals.custo
       }}));
 
-      // Função utilitária para encurtar legendas longas nos eixos
       const truncarTexto = (txt, max = 28) => txt.length > max ? txt.substring(0, max) + '...' : txt;
 
-      // Top 10 por Quantidade
       const top10Qt = [...listaAgrupada].sort((a, b) => b.qt - a.qt).slice(0, 10);
       chartTopPecasQt.data.labels = top10Qt.map(p => truncarTexto(p.nome));
       chartTopPecasQt.data.datasets[0].data = top10Qt.map(p => p.qt);
       chartTopPecasQt.update();
 
-      // Top 10 por Custo Total
       const top10Custo = [...listaAgrupada].sort((a, b) => b.custo - a.custo).slice(0, 10);
       chartTopPecasCusto.data.labels = top10Custo.map(p => truncarTexto(p.nome));
       chartTopPecasCusto.data.datasets[0].data = top10Custo.map(p => p.custo);
       chartTopPecasCusto.update();
 
-      // 3. Distribuição por Categoria
       const catCounts = {{}};
       filtered.forEach(d => {{ if(d.categoria) catCounts[d.categoria] = (catCounts[d.categoria] || 0) + (d.qt || 0); }});
       chartCategory.data.labels = Object.keys(catCounts);
       chartCategory.data.datasets[0].data = Object.values(catCounts);
       chartCategory.update();
 
-      // 4. Fornecedor por Custo
       const supplierCosts = {{}};
       filtered.forEach(d => {{ if(d.fornecedor) supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + (d.custoTotal || 0); }});
       chartSupplier.data.labels = Object.keys(supplierCosts);
       chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
       chartSupplier.update();
 
-      // 5. Tabela Resumo Consolidada
       renderTable(filtered, searchVal);
     }}
 
@@ -1752,10 +2614,17 @@ html_code = f"""
       updateDashboard();
     }});
 
-    updateDashboard();
+    // ==============================================================
+    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA
+    // ==============================================================
+    const abaSalvaPosRefresh = localStorage.getItem('restaurar_aba_pos_refresh');
+    const abaSessao = sessionStorage.getItem('aba_ativa_atual');
+    const abaParaAbrir = abaSalvaPosRefresh || abaSessao || 'dashboardRetiradas';
+
+    switchPage(abaParaAbrir);
   </script>
 </body>
 </html>
 """
 
-components.html(html_code, height=2500, scrolling=True)
+components.html(html_code, height=2700, scrolling=True)
