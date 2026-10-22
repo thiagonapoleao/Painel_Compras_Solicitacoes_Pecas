@@ -104,11 +104,12 @@ def carregar_catalogo_planilha():
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
     col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
-    # Coluna I (índice 8) representa os Técnicos
+    
+    # Coluna I rigorosa (índice 8 na base 0)
     col_i = df.columns[8] if len(df.columns) > 8 else None
 
     catalogo = []
-    tecnicos_set = set()
+    tecnicos_rigorosos = []
 
     for _, row in df.iterrows():
         cod = str(row[col_a]).strip() if pd.notna(row[col_a]) else ""
@@ -124,13 +125,15 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
+        # Captura rigorosamente apenas da coluna I da aba gid=270834817
         if col_i and pd.notna(row[col_i]):
             tec = str(row[col_i]).strip()
-            if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome"]:
-                tecnicos_set.add(tec)
+            if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel"]:
+                if tec not in tecnicos_rigorosos:
+                    tecnicos_rigorosos.append(tec)
 
-    tecnicos_ordenados = sorted(list(tecnicos_set))
-    return catalogo, tecnicos_ordenados
+    tecnicos_rigorosos.sort()
+    return catalogo, tecnicos_rigorosos
 
 @st.cache_data(ttl=20)
 def obter_dados_ordens_e_proxima_oc():
@@ -240,9 +243,9 @@ def obter_dados_retiradas():
     retiradas.reverse()
     return retiradas
 
-catalogo_pecas, lista_tecnicos_base = carregar_catalogo_planilha()
+catalogo_pecas, lista_tecnicos_rigorosa = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
-tecnicos_base_json = json.dumps(lista_tecnicos_base, ensure_ascii=False)
+tecnicos_coluna_i_json = json.dumps(lista_tecnicos_rigorosa, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
 
 ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
@@ -412,7 +415,7 @@ html_code = f"""
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Técnico</label>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Técnico (Coluna I Oficial)</label>
             <select id="filterRetiradaTecnico" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todos os Técnicos</option>
             </select>
@@ -448,7 +451,7 @@ html_code = f"""
 
       <!-- CARDS DE KPIS RETIRADAS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <!-- CRITÉRIO ÚNICO EM DESTAQUE: Quantidade de Registros com Peças no Subtítulo -->
+        <!-- CRITÉRIO ÚNICO: Registros de Retirada no principal, peças no subtítulo -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Retiradas</span>
@@ -456,7 +459,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiRetiradaTotal" class="text-xl font-bold tracking-tight text-slate-800">0</span>
-            <p id="kpiRetiradaTotalSub" class="text-[11px] text-slate-400 mt-0.5">Total de 0 peças retiradas</p>
+            <p id="kpiRetiradaTotalSub" class="text-[11px] text-slate-400 mt-0.5">Total: 0 peças retiradas</p>
           </div>
         </div>
 
@@ -1146,7 +1149,7 @@ html_code = f"""
             </div>
             <div>
               <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Lançamento de Retirada de Peças</h2>
-              <p class="text-xs text-slate-500">Controle de Saída Técnico · Catálogo conectado diretamente à planilha</p>
+              <p class="text-xs text-slate-500">Controle de Saída Técnico · Técnicos oficiais da Coluna I da planilha</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -1162,9 +1165,9 @@ html_code = f"""
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
-              <!-- PRELISTA DE TÉCNICOS DA COLUNA I -->
-              <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione ou digite o técnico..." required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico * (Coluna I Oficial)</label>
+              <!-- PRELISTA RIGOROSA DE TÉCNICOS DA COLUNA I -->
+              <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione o técnico cadastrado..." required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
               <datalist id="listaTecnicos"></datalist>
             </div>
 
@@ -1306,7 +1309,10 @@ html_code = f"""
     }}
 
     const catalogoPecas = {catalogo_json};
-    const listaTecnicosBase = {tecnicos_base_json};
+    
+    // TÉCNICOS RIGOROSAMENTE EXTRAÍDOS DA COLUNA "I" DA ABA GID=270834817
+    const tecnicosOficiaisColunaI = {tecnicos_coluna_i_json};
+    
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
     let rawRetiradasData = {retiradas_json};
@@ -1339,11 +1345,10 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // POPULAR DATALIST DE TÉCNICOS DA COLUNA I
+    // POPULAR DATALIST DE TÉCNICOS RIGOROSAMENTE COM A COLUNA I
     const dlTecnicos = document.getElementById('listaTecnicos');
     dlTecnicos.innerHTML = '';
-    const todosTecnicos = [...new Set([...listaTecnicosBase, ...rawRetiradasData.map(r => r.tecnico)])].filter(Boolean).sort();
-    todosTecnicos.forEach(t => {{
+    tecnicosOficiaisColunaI.forEach(t => {{
       const opt = document.createElement('option');
       opt.value = t;
       dlTecnicos.appendChild(opt);
@@ -1512,15 +1517,15 @@ html_code = f"""
 
     function populateDropdownsRetiradas() {{
       const currentTec = filterRetTecnico.value;
-      const tecnicosUnicos = [...new Set([...listaTecnicosBase, ...rawRetiradasData.map(r => r.tecnico)])].filter(Boolean).sort();
+      // Preenche o dropdown de filtro RIGOROSAMENTE com os técnicos oficiais da coluna I
       filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
-      tecnicosUnicos.forEach(t => {{
+      tecnicosOficiaisColunaI.forEach(t => {{
         const opt = document.createElement('option');
         opt.value = t;
         opt.textContent = t;
         filterRetTecnico.appendChild(opt);
       }});
-      if (tecnicosUnicos.includes(currentTec)) filterRetTecnico.value = currentTec;
+      if (tecnicosOficiaisColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
     }}
     populateDropdownsRetiradas();
 
@@ -1570,7 +1575,6 @@ html_code = f"""
 
       await enviarParaPlanilha(payloadAtualizacao);
 
-      // Atualiza localmente o item para resposta imediata na interface
       itemEmBaixa.devolvida = novoStatus;
 
       btn.disabled = false;
@@ -1605,7 +1609,7 @@ html_code = f"""
 
       document.getElementById('badgeFiltroRetirada').innerText = `Filtrando: Técnico [${{tecVal}}] · Status [${{devVal}}] · Condição [${{condVal}}]`;
 
-      // CRITÉRIO AJUSTADO: Número de lançamentos/ordens em destaque e peças no rodapé
+      // CRITÉRIO ÚNICO: Total de Registros de Retirada (ex: 15) com peças no subtítulo
       const totalRegistrosRetirada = filtrados.length;
       let totalPecas = 0;
       let naoDevolvidas = 0;
@@ -1624,7 +1628,7 @@ html_code = f"""
       const pctNaoDevolvidas = totalPecas > 0 ? Math.round((naoDevolvidas / totalPecas) * 100) : 0;
       const pctDevolvidas = totalPecas > 0 ? Math.round((devolvidas / totalPecas) * 100) : 0;
 
-      // Exibição clara e sem dupla leitura:
+      // Exibição clara e única sem conflito visual
       document.getElementById('kpiRetiradaTotal').innerText = totalRegistrosRetirada.toLocaleString('pt-BR');
       document.getElementById('kpiRetiradaTotalSub').innerText = `Total: ${{totalPecas.toLocaleString('pt-BR')}} peças retiradas`;
 
@@ -2642,7 +2646,7 @@ html_code = f"""
     }});
 
     // ==============================================================
-    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA
+    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA (PADRÃO: DASHBOARD RETIRADAS)
     // ==============================================================
     const abaSalvaPosRefresh = localStorage.getItem('restaurar_aba_pos_refresh');
     const abaSessao = sessionStorage.getItem('aba_ativa_atual');
