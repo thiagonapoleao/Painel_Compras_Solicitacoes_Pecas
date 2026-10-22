@@ -203,9 +203,8 @@ def obter_dados_retiradas():
 
     retiradas = []
     if df is not None and not df.empty:
-        # Colunas esperadas: Data, Técnico, Cliente, OS, Código, Descrição, Nova/Usada, Quantidade, Devolvida
         cols = list(df.columns)
-        for _, r in df.iterrows():
+        for idx, r in df.iterrows():
             data_val = str(r[cols[0]]).strip() if len(cols) > 0 and pd.notna(r[cols[0]]) else ""
             if not data_val or data_val.lower() in ["data", "nan"]:
                 continue
@@ -215,6 +214,7 @@ def obter_dados_retiradas():
                 except: return 1
 
             retiradas.append({
+                "id": idx,
                 "data": data_val,
                 "tecnico": str(r[cols[1]]).strip() if len(cols) > 1 and pd.notna(r[cols[1]]) else "-",
                 "cliente": str(r[cols[2]]).strip() if len(cols) > 2 and pd.notna(r[cols[2]]) else "-",
@@ -226,7 +226,6 @@ def obter_dados_retiradas():
                 "devolvida": str(r[cols[8]]).strip() if len(cols) > 8 and pd.notna(r[cols[8]]) else "Não"
             })
 
-    # Ordenação mais recente primeiro
     retiradas.reverse()
     return retiradas
 
@@ -338,6 +337,53 @@ html_code = f"""
   </header>
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ============================================================== -->
+    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA -->
+    <!-- ============================================================== -->
+    <div id="modalBaixaPendencia" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <div class="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+              <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Atualizar Status de Devolução</h3>
+              <p class="text-xs text-slate-500">Registrar baixa de peça pendente</p>
+            </div>
+          </div>
+          <button type="button" onclick="fecharModalBaixa()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+            ✕
+          </button>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5 text-slate-600">
+          <p><strong class="text-slate-800">Ordem de Serviço:</strong> <span id="modalOS" class="font-mono font-bold text-blue-700">OS-0000</span></p>
+          <p><strong class="text-slate-800">Técnico:</strong> <span id="modalTecnico" class="font-semibold text-slate-700"></span></p>
+          <p><strong class="text-slate-800">Peça:</strong> <span id="modalPeca" class="font-bold text-slate-800"></span></p>
+          <p><strong class="text-slate-800">Quantidade:</strong> <span id="modalQt" class="font-bold text-rose-600"></span></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Novo Status da Peça *</label>
+          <select id="modalNovoStatus" class="w-full text-xs font-bold rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="Sim" selected>Sim (Peça Devolvida ao Almoxarifado)</option>
+            <option value="Instalação Nova">Instalação Nova (Instalada em Campo)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onclick="fecharModalBaixa()" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+            Cancelar
+          </button>
+          <button type="button" id="btnConfirmarBaixa" onclick="confirmarBaixaPendencia()" class="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/25 hover:bg-emerald-700 transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span id="btnConfirmarBaixaText">Confirmar Baixa</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============================================================== -->
     <!-- PÁGINA 0: DASHBOARD DE RETIRADAS (NOVO DASHBOARD INICIAL) -->
@@ -496,7 +542,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- TABELA EXCLUSIVA: PEÇAS NÃO DEVOLVIDAS -->
+      <!-- TABELA EXCLUSIVA: PEÇAS NÃO DEVOLVIDAS (COM OPÇÃO DE EDIÇÃO / BAIXA) -->
       <section class="bg-white p-5 rounded-2xl border-2 border-rose-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-rose-100">
           <div>
@@ -504,7 +550,7 @@ html_code = f"""
               <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
               Peças Não Devolvidas (Pendências com Técnicos)
             </h2>
-            <p class="text-xs text-rose-500 font-medium">Lista de peças retiradas que ainda não retornaram ao almoxarifado</p>
+            <p class="text-xs text-rose-500 font-medium">Clique no botão "Devolver" para dar baixa imediata na pendência</p>
           </div>
           <span id="badgeNaoDevolvidasCount" class="text-xs px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold">
             0 pendência(s)
@@ -515,7 +561,8 @@ html_code = f"""
           <table class="w-full text-left text-xs text-slate-600">
             <thead class="bg-rose-50/70 uppercase font-semibold text-rose-800">
               <tr>
-                <th class="py-3 px-3 rounded-l-lg">Data</th>
+                <th class="py-3 px-3 rounded-l-lg">Ação</th>
+                <th class="py-3 px-3">Data</th>
                 <th class="py-3 px-3">Nº OS</th>
                 <th class="py-3 px-3">Técnico</th>
                 <th class="py-3 px-3">Cliente</th>
@@ -1284,7 +1331,6 @@ html_code = f"""
     async function enviarParaPlanilha(payload) {{
       const jsonStr = JSON.stringify(payload);
       
-      // Tentativa 1: POST form-urlencoded
       try {{
         await fetch(APPS_SCRIPT_URL, {{
           method: 'POST',
@@ -1297,7 +1343,6 @@ html_code = f"""
         console.warn("POST falhou, tentando fallback GET:", errPost);
       }}
 
-      // Tentativa 2: GET com query parameter
       try {{
         const urlGet = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
         await fetch(urlGet, {{ method: 'GET', mode: 'no-cors' }});
@@ -1306,7 +1351,6 @@ html_code = f"""
         console.warn("GET fetch falhou, aplicando fallback Img:", errGet);
       }}
 
-      // Tentativa 3: Image beacon
       try {{
         const img = new Image();
         img.src = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
@@ -1319,7 +1363,7 @@ html_code = f"""
     }}
 
     // ==============================================================
-    // REFRESH PERSISTENTE (MANTÉM NA TELA ATUAL)
+    // REFRESH PERSISTENTE
     // ==============================================================
     function executarRefresh() {{
       const paginaAtual = sessionStorage.getItem('aba_ativa_atual') || 'dashboardRetiradas';
@@ -1438,12 +1482,12 @@ html_code = f"""
       options: getHorizontalRetiradaBarOptions()
     }});
 
-    // Popular Dropdowns Filtro Retiradas
     const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
     const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
     const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
 
     function populateDropdownsRetiradas() {{
+      const currentTec = filterRetTecnico.value;
       const tecnicosUnicos = [...new Set(rawRetiradasData.map(r => r.tecnico).filter(Boolean))].sort();
       filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
       tecnicosUnicos.forEach(t => {{
@@ -1452,10 +1496,69 @@ html_code = f"""
         opt.textContent = t;
         filterRetTecnico.appendChild(opt);
       }});
+      if (tecnicosUnicos.includes(currentTec)) filterRetTecnico.value = currentTec;
     }}
     populateDropdownsRetiradas();
 
-    // Atualização Geral Dashboard de Retiradas
+    // ==============================================================
+    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA
+    // ==============================================================
+    let itemEmBaixa = null;
+
+    function abrirModalBaixa(idx) {{
+      const item = rawRetiradasData.find(r => String(r.id) === String(idx));
+      if (!item) return;
+
+      itemEmBaixa = item;
+      document.getElementById('modalOS').innerText = item.os || '-';
+      document.getElementById('modalTecnico').innerText = item.tecnico || '-';
+      document.getElementById('modalPeca').innerText = `${{item.codigo}} - ${{item.descricao}}`;
+      document.getElementById('modalQt').innerText = `${{item.quantidade}} un (${{item.novaUsada}})`;
+      document.getElementById('modalNovoStatus').value = 'Sim';
+
+      document.getElementById('modalBaixaPendencia').classList.remove('hidden');
+      lucide.createIcons();
+    }}
+
+    function fecharModalBaixa() {{
+      itemEmBaixa = null;
+      document.getElementById('modalBaixaPendencia').classList.add('hidden');
+    }}
+
+    async function confirmarBaixaPendencia() {{
+      if (!itemEmBaixa) return;
+
+      const novoStatus = document.getElementById('modalNovoStatus').value;
+      const btn = document.getElementById('btnConfirmarBaixa');
+      btn.disabled = true;
+      document.getElementById('btnConfirmarBaixaText').innerText = 'Gravando...';
+
+      const payloadAtualizacao = {{
+        tipo: "atualizar_status_retirada",
+        aba_gid: GID_RETIRADA,
+        aba_nome: "Retirada de Peças",
+        os: itemEmBaixa.os,
+        codigo: itemEmBaixa.codigo,
+        data: itemEmBaixa.data,
+        tecnico: itemEmBaixa.tecnico,
+        novoStatus: novoStatus
+      }};
+
+      await enviarParaPlanilha(payloadAtualizacao);
+
+      // Atualiza localmente o item para atualização imediata
+      itemEmBaixa.devolvida = novoStatus;
+
+      btn.disabled = false;
+      document.getElementById('btnConfirmarBaixaText').innerText = 'Confirmar Baixa';
+      fecharModalBaixa();
+
+      atualizarDashboardRetiradas();
+    }}
+
+    // ==============================================================
+    // ATUALIZAÇÃO GERAL DO DASHBOARD DE RETIRADAS
+    // ==============================================================
     function atualizarDashboardRetiradas() {{
       const tecVal = filterRetTecnico.value;
       const devVal = filterRetDevolvida.value;
@@ -1529,7 +1632,7 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela: Peças Não Devolvidas
+      // Tabela: Peças Não Devolvidas (Com Botão de Edição/Baixa)
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
@@ -1538,10 +1641,16 @@ html_code = f"""
 
       const tbNaoDev = document.getElementById('tableNaoDevolvidasBody');
       if (naoDevolvidasLista.length === 0) {{
-        tbNaoDev.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-emerald-600 font-semibold">🎉 Nenhuma peça pendente de devolução para os filtros selecionados!</td></tr>';
+        tbNaoDev.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-emerald-600 font-semibold">🎉 Nenhuma peça pendente de devolução para os filtros selecionados!</td></tr>';
       }} else {{
         tbNaoDev.innerHTML = naoDevolvidasLista.map(item => `
           <tr class="hover:bg-rose-50/40 transition">
+            <td class="py-2.5 px-3">
+              <button type="button" onclick="abrirModalBaixa('${{item.id}}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Devolver
+              </button>
+            </td>
             <td class="py-2.5 px-3 font-semibold text-slate-700">${{item.data}}</td>
             <td class="py-2.5 px-3 font-mono font-bold text-rose-700">${{item.os}}</td>
             <td class="py-2.5 px-3 font-bold text-slate-800">${{item.tecnico}}</td>
@@ -1580,6 +1689,7 @@ html_code = f"""
           `;
         }}).join('');
       }}
+      lucide.createIcons();
     }}
 
     [filterRetTecnico, filterRetDevolvida, filterRetCondicao].forEach(el => el.addEventListener('change', atualizarDashboardRetiradas));
@@ -1592,7 +1702,7 @@ html_code = f"""
     }});
 
     // ==============================================================
-    // RETIRADA: SINCRONIZAÇÃO E ENVIO
+    // RETIRADA: FORMULÁRIO E ENVIO
     // ==============================================================
     function aoMudarCodigoRetirada() {{
       const cod = document.getElementById('retiradaCodigo').value.trim();
@@ -1664,8 +1774,8 @@ html_code = f"""
 
       await enviarParaPlanilha(payloadRetirada);
 
-      // Adiciona localmente para visualização instantânea
       rawRetiradasData.unshift({{
+        id: Date.now(),
         data,
         tecnico,
         cliente,
@@ -2505,7 +2615,7 @@ html_code = f"""
     }});
 
     // ==============================================================
-    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA (PADRÃO: DASHBOARD RETIRADAS)
+    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA
     // ==============================================================
     const abaSalvaPosRefresh = localStorage.getItem('restaurar_aba_pos_refresh');
     const abaSessao = sessionStorage.getItem('aba_ativa_atual');
