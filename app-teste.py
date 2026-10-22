@@ -125,7 +125,7 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
-        # Captura rigorosamente apenas da coluna I da aba gid=270834817
+        # Captura apenas da coluna I da aba gid=270834817
         if col_i and pd.notna(row[col_i]):
             tec = str(row[col_i]).strip()
             if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel"]:
@@ -415,7 +415,7 @@ html_code = f"""
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label class="block text-xs font-medium text-slate-500 mb-1">Técnico (Coluna I Oficial)</label>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Técnico</label>
             <select id="filterRetiradaTecnico" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800">
               <option value="ALL">Todos os Técnicos</option>
             </select>
@@ -451,7 +451,6 @@ html_code = f"""
 
       <!-- CARDS DE KPIS RETIRADAS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <!-- CRITÉRIO ÚNICO: Registros de Retirada no principal, peças no subtítulo -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Retiradas</span>
@@ -1148,8 +1147,8 @@ html_code = f"""
               <i data-lucide="package-minus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Lançamento de Retirada de Peças</h2>
-              <p class="text-xs text-slate-500">Controle de Saída Técnico · Técnicos oficiais da Coluna I da planilha</p>
+              <h2 id="formRetiradaTitleText" class="text-base font-bold text-slate-900">Formulário de Entrada: Lançamento de Retirada de Peças</h2>
+              <p class="text-xs text-slate-500">Controle de Saída Técnico</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -1165,8 +1164,7 @@ html_code = f"""
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico * (Coluna I Oficial)</label>
-              <!-- PRELISTA RIGOROSA DE TÉCNICOS DA COLUNA I -->
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
               <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione o técnico cadastrado..." required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
               <datalist id="listaTecnicos"></datalist>
             </div>
@@ -1309,8 +1307,6 @@ html_code = f"""
     }}
 
     const catalogoPecas = {catalogo_json};
-    
-    // TÉCNICOS RIGOROSAMENTE EXTRAÍDOS DA COLUNA "I" DA ABA GID=270834817
     const tecnicosOficiaisColunaI = {tecnicos_coluna_i_json};
     
     let rawOrdersData = {ocs_planilha_json};
@@ -1345,7 +1341,7 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // POPULAR DATALIST DE TÉCNICOS RIGOROSAMENTE COM A COLUNA I
+    // Popula datalist de técnicos
     const dlTecnicos = document.getElementById('listaTecnicos');
     dlTecnicos.innerHTML = '';
     tecnicosOficiaisColunaI.forEach(t => {{
@@ -1517,7 +1513,6 @@ html_code = f"""
 
     function populateDropdownsRetiradas() {{
       const currentTec = filterRetTecnico.value;
-      // Preenche o dropdown de filtro RIGOROSAMENTE com os técnicos oficiais da coluna I
       filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
       tecnicosOficiaisColunaI.forEach(t => {{
         const opt = document.createElement('option');
@@ -1609,7 +1604,6 @@ html_code = f"""
 
       document.getElementById('badgeFiltroRetirada').innerText = `Filtrando: Técnico [${{tecVal}}] · Status [${{devVal}}] · Condição [${{condVal}}]`;
 
-      // CRITÉRIO ÚNICO: Total de Registros de Retirada (ex: 15) com peças no subtítulo
       const totalRegistrosRetirada = filtrados.length;
       let totalPecas = 0;
       let naoDevolvidas = 0;
@@ -1628,7 +1622,6 @@ html_code = f"""
       const pctNaoDevolvidas = totalPecas > 0 ? Math.round((naoDevolvidas / totalPecas) * 100) : 0;
       const pctDevolvidas = totalPecas > 0 ? Math.round((devolvidas / totalPecas) * 100) : 0;
 
-      // Exibição clara e única sem conflito visual
       document.getElementById('kpiRetiradaTotal').innerText = totalRegistrosRetirada.toLocaleString('pt-BR');
       document.getElementById('kpiRetiradaTotalSub').innerText = `Total: ${{totalPecas.toLocaleString('pt-BR')}} peças retiradas`;
 
@@ -2607,7 +2600,7 @@ html_code = f"""
       if (searchTerm) {{
         itemsArray = itemsArray.filter(i => 
           (i.peca && i.peca.toLowerCase().includes(searchTerm)) || 
-          (i.codigoPeca && i.codigoPeca.toLowerCase().includes(searchTerm)) ||
+          (i.codigoPeca && i.codigoPeca.toLowerCase().includes(searchTerm)) || 
           (i.categoria && i.categoria.toLowerCase().includes(searchTerm))
         );
       }}
