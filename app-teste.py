@@ -351,9 +351,9 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA -->
-    <div id="modalBaixaPendencia" style="display: none;" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA (FIXADO NO TOPO) -->
+    <div id="modalBaixaPendencia" style="display: none;" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 overflow-y-auto">
+      <div id="modalBaixaCard" class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 my-auto sm:my-0">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
           <div class="flex items-center gap-2">
             <div class="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
@@ -1354,7 +1354,6 @@ html_code = f"""
     async function enviarParaPlanilha(payload) {{
       const jsonStr = JSON.stringify(payload);
       
-      // Tentativa 1: POST via fetch com limite de espera
       try {{
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 7000);
@@ -1371,7 +1370,6 @@ html_code = f"""
         console.warn("POST falhou ou excedeu timeout, tentando GET fallback:", errPost);
       }}
 
-      // Tentativa 2: GET via fetch
       try {{
         const urlGet = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
         const controller = new AbortController();
@@ -1383,7 +1381,6 @@ html_code = f"""
         console.warn("GET fetch falhou, aplicando fallback Image beacon:", errGet);
       }}
 
-      // Tentativa 3: Image beacon
       try {{
         const img = new Image();
         img.src = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
@@ -1532,7 +1529,7 @@ html_code = f"""
     populateDropdownsRetiradas();
 
     // ==============================================================
-    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA (CORRIGIDO)
+    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA (MODAL NO TOPO)
     // ==============================================================
     let itemEmBaixa = null;
 
@@ -1554,6 +1551,15 @@ html_code = f"""
       const modal = document.getElementById('modalBaixaPendencia');
       modal.classList.remove('hidden');
       modal.style.display = 'flex';
+      
+      // Rola suavemente até o topo para foco imediato no modal
+      const modalBox = document.getElementById('modalBaixaCard');
+      if (modalBox) {{
+        modalBox.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      }} else {{
+        window.scrollTo({{ top: 0, behavior: 'smooth' }});
+      }}
+      
       lucide.createIcons();
     }}
 
@@ -1611,7 +1617,6 @@ html_code = f"""
         console.warn("Aviso ao enviar baixa para a planilha:", err);
       }}
 
-      // Atualiza o registro em memória local imediatamente
       itemEmBaixa.devolvida = novoStatus;
       const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
       if (target) {{
@@ -1624,7 +1629,6 @@ html_code = f"""
 
       atualizarDashboardRetiradas();
 
-      // Alerta de sucesso na interface
       const alertBox = document.getElementById('alertRetiradaSuccess');
       if (alertBox) {{
         document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Status de devolução atualizado com sucesso!`;
