@@ -81,7 +81,7 @@ def obter_logo_base64():
 logo_base64_src = obter_logo_base64()
 
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE_PECAS = "270834817"       # Aba: Base de Dados (catálogo)
+GID_BASE_PECAS = "270834817"       # Aba: Base de Dados (catálogo e técnicos na coluna I)
 GID_ORDEM_COMPRA = "643448898"      # Aba: Ordem de Compra(Peças)
 GID_RETIRADA_PECAS = "1232857188"   # Aba: Retirada de Peças
 
@@ -98,14 +98,18 @@ def carregar_catalogo_planilha():
         pass
 
     if df is None or df.empty:
-        return []
+        return [], []
 
     col_a = df.columns[0]
     col_b = df.columns[1] if len(df.columns) > 1 else col_a
     col_c = df.columns[2] if len(df.columns) > 2 else col_a
     col_f = df.columns[5] if len(df.columns) > 5 else df.columns[-1]
+    # Coluna I (índice 8) representa os Técnicos
+    col_i = df.columns[8] if len(df.columns) > 8 else None
 
     catalogo = []
+    tecnicos_set = set()
+
     for _, row in df.iterrows():
         cod = str(row[col_a]).strip() if pd.notna(row[col_a]) else ""
         desc = str(row[col_b]).strip() if pd.notna(row[col_b]) else ""
@@ -119,7 +123,14 @@ def carregar_catalogo_planilha():
                 "categoria": cat,
                 "fornecedor": forn
             })
-    return catalogo
+
+        if col_i and pd.notna(row[col_i]):
+            tec = str(row[col_i]).strip()
+            if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome"]:
+                tecnicos_set.add(tec)
+
+    tecnicos_ordenados = sorted(list(tecnicos_set))
+    return catalogo, tecnicos_ordenados
 
 @st.cache_data(ttl=20)
 def obter_dados_ordens_e_proxima_oc():
@@ -229,8 +240,9 @@ def obter_dados_retiradas():
     retiradas.reverse()
     return retiradas
 
-catalogo_pecas = carregar_catalogo_planilha()
+catalogo_pecas, lista_tecnicos_base = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
+tecnicos_base_json = json.dumps(lista_tecnicos_base, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
 
 ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
@@ -338,9 +350,7 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- ============================================================== -->
     <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA -->
-    <!-- ============================================================== -->
     <div id="modalBaixaPendencia" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -386,7 +396,7 @@ html_code = f"""
     </div>
 
     <!-- ============================================================== -->
-    <!-- PÁGINA 0: DASHBOARD DE RETIRADAS (NOVO DASHBOARD INICIAL) -->
+    <!-- PÁGINA 0: DASHBOARD DE RETIRADAS -->
     <!-- ============================================================== -->
     <div id="pageDashboardRetiradas" class="space-y-6">
 
@@ -438,6 +448,7 @@ html_code = f"""
 
       <!-- CARDS DE KPIS RETIRADAS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <!-- CRITÉRIO ÚNICO EM DESTAQUE: Quantidade de Registros com Peças no Subtítulo -->
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total de Retiradas</span>
@@ -445,7 +456,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiRetiradaTotal" class="text-xl font-bold tracking-tight text-slate-800">0</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Registros na base</p>
+            <p id="kpiRetiradaTotalSub" class="text-[11px] text-slate-400 mt-0.5">Total de 0 peças retiradas</p>
           </div>
         </div>
 
@@ -542,7 +553,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- TABELA EXCLUSIVA: PEÇAS NÃO DEVOLVIDAS (COM OPÇÃO DE EDIÇÃO / BAIXA) -->
+      <!-- TABELA EXCLUSIVA: PEÇAS NÃO DEVOLVIDAS -->
       <section class="bg-white p-5 rounded-2xl border-2 border-rose-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-rose-100">
           <div>
@@ -1152,7 +1163,9 @@ html_code = f"""
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
-              <input type="text" id="retiradaTecnico" placeholder="Nome do técnico responsável" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <!-- PRELISTA DE TÉCNICOS DA COLUNA I -->
+              <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione ou digite o técnico..." required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <datalist id="listaTecnicos"></datalist>
             </div>
 
             <div>
@@ -1212,7 +1225,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC ==================== -->
+    <!-- ÁREA DE IMPRESSÃO DA OC -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
         
@@ -1293,6 +1306,7 @@ html_code = f"""
     }}
 
     const catalogoPecas = {catalogo_json};
+    const listaTecnicosBase = {tecnicos_base_json};
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
     let rawRetiradasData = {retiradas_json};
@@ -1323,6 +1337,16 @@ html_code = f"""
       const opt = document.createElement('option');
       opt.value = forn;
       dlFornecedores.appendChild(opt);
+    }});
+
+    // POPULAR DATALIST DE TÉCNICOS DA COLUNA I
+    const dlTecnicos = document.getElementById('listaTecnicos');
+    dlTecnicos.innerHTML = '';
+    const todosTecnicos = [...new Set([...listaTecnicosBase, ...rawRetiradasData.map(r => r.tecnico)])].filter(Boolean).sort();
+    todosTecnicos.forEach(t => {{
+      const opt = document.createElement('option');
+      opt.value = t;
+      dlTecnicos.appendChild(opt);
     }});
 
     // ==============================================================
@@ -1488,7 +1512,7 @@ html_code = f"""
 
     function populateDropdownsRetiradas() {{
       const currentTec = filterRetTecnico.value;
-      const tecnicosUnicos = [...new Set(rawRetiradasData.map(r => r.tecnico).filter(Boolean))].sort();
+      const tecnicosUnicos = [...new Set([...listaTecnicosBase, ...rawRetiradasData.map(r => r.tecnico)])].filter(Boolean).sort();
       filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
       tecnicosUnicos.forEach(t => {{
         const opt = document.createElement('option');
@@ -1546,7 +1570,7 @@ html_code = f"""
 
       await enviarParaPlanilha(payloadAtualizacao);
 
-      // Atualiza localmente o item para atualização imediata
+      // Atualiza localmente o item para resposta imediata na interface
       itemEmBaixa.devolvida = novoStatus;
 
       btn.disabled = false;
@@ -1581,8 +1605,8 @@ html_code = f"""
 
       document.getElementById('badgeFiltroRetirada').innerText = `Filtrando: Técnico [${{tecVal}}] · Status [${{devVal}}] · Condição [${{condVal}}]`;
 
-      // KPIs Retiradas
-      const totalRet = filtrados.length;
+      // CRITÉRIO AJUSTADO: Número de lançamentos/ordens em destaque e peças no rodapé
+      const totalRegistrosRetirada = filtrados.length;
       let totalPecas = 0;
       let naoDevolvidas = 0;
       let devolvidas = 0;
@@ -1600,7 +1624,10 @@ html_code = f"""
       const pctNaoDevolvidas = totalPecas > 0 ? Math.round((naoDevolvidas / totalPecas) * 100) : 0;
       const pctDevolvidas = totalPecas > 0 ? Math.round((devolvidas / totalPecas) * 100) : 0;
 
-      document.getElementById('kpiRetiradaTotal').innerText = `${{totalRet}} (${{totalPecas}} un)`;
+      // Exibição clara e sem dupla leitura:
+      document.getElementById('kpiRetiradaTotal').innerText = totalRegistrosRetirada.toLocaleString('pt-BR');
+      document.getElementById('kpiRetiradaTotalSub').innerText = `Total: ${{totalPecas.toLocaleString('pt-BR')}} peças retiradas`;
+
       document.getElementById('kpiRetiradaNaoDevolvidas').innerText = `${{naoDevolvidas.toLocaleString('pt-BR')}} un`;
       document.getElementById('kpiRetiradaNaoDevolvidasPct').innerText = `${{pctNaoDevolvidas}}%`;
       document.getElementById('kpiRetiradaDevolvidas').innerText = `${{devolvidas.toLocaleString('pt-BR')}} un`;
@@ -1632,7 +1659,7 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela: Peças Não Devolvidas (Com Botão de Edição/Baixa)
+      // Tabela: Peças Não Devolvidas
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
