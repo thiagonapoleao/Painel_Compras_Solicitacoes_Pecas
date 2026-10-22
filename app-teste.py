@@ -81,13 +81,12 @@ def obter_logo_base64():
 logo_base64_src = obter_logo_base64()
 
 SPREADSHEET_ID = "1iWjdaZLAp5hi9YIhmfSO4cPBn6fkfDjef8PAdZp1nsY"
-GID_BASE_PECAS = "270834817"          # Aba: Base de Dados (catálogo)
-GID_ORDEM_COMPRA = "643448898"         # Aba: Ordem de Compra(Peças)
-GID_RETIRADA_PECAS = "1232857188"      # Aba: Retirada de Peças
+GID_BASE_PECAS = "270834817"      # Aba: Base de Dados (catálogo)
+GID_ORDEM_COMPRA = "643448898"     # Aba: Ordem de Compra(Peças)
+GID_RETIRADA_PECAS = "1232857188"  # Aba: Retirada de Peças
 
 URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_BASE_PECAS}"
 URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
-URL_CSV_RETIRADAS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_RETIRADA_PECAS}"
 
 @st.cache_data(ttl=20)
 def carregar_catalogo_planilha():
@@ -193,31 +192,6 @@ def obter_dados_ordens_e_proxima_oc():
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
     return ocs_existentes, maior_por_ano
 
-@st.cache_data(ttl=20)
-def carregar_retiradas_existentes():
-    df = None
-    try:
-        df = pd.read_csv(URL_CSV_RETIRADAS, dtype=str)
-    except Exception:
-        pass
-
-    retiradas = []
-    if df is not None and not df.empty:
-        cols = list(df.columns)
-        for _, r in df.iterrows():
-            retiradas.append({
-                "data": str(r.iloc[0]).strip() if len(cols) > 0 and pd.notna(r.iloc[0]) else "",
-                "tecnico": str(r.iloc[1]).strip() if len(cols) > 1 and pd.notna(r.iloc[1]) else "",
-                "cliente": str(r.iloc[2]).strip() if len(cols) > 2 and pd.notna(r.iloc[2]) else "",
-                "os": str(r.iloc[3]).strip() if len(cols) > 3 and pd.notna(r.iloc[3]) else "",
-                "codigo": str(r.iloc[4]).strip() if len(cols) > 4 and pd.notna(r.iloc[4]) else "",
-                "descricao": str(r.iloc[5]).strip() if len(cols) > 5 and pd.notna(r.iloc[5]) else "",
-                "condicao": str(r.iloc[6]).strip() if len(cols) > 6 and pd.notna(r.iloc[6]) else "Nova",
-                "qt": str(r.iloc[7]).strip() if len(cols) > 7 and pd.notna(r.iloc[7]) else "1",
-                "devolvida": str(r.iloc[8]).strip() if len(cols) > 8 and pd.notna(r.iloc[8]) else "Não"
-            })
-    return retiradas
-
 catalogo_pecas = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
@@ -225,9 +199,6 @@ total_itens_carregados = len(catalogo_pecas)
 ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
 ocs_planilha_json = json.dumps(ocs_planilha, ensure_ascii=False)
 max_seq_anos_json = json.dumps(max_seq_anos, ensure_ascii=False)
-
-retiradas_iniciais = carregar_retiradas_existentes()
-retiradas_json = json.dumps(retiradas_iniciais, ensure_ascii=False)
 
 html_code = f"""
 <!DOCTYPE html>
@@ -301,17 +272,17 @@ html_code = f"""
         </div>
       </div>
       
-      <div class="flex flex-wrap items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-        <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
+        <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           Dashboard
         </button>
-        <button id="navForm" class="nav-btn active flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
+        <button id="navForm" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('formulario')">
           <i data-lucide="plus-circle" class="w-4 h-4"></i>
           Nova Solicitação (OC)
         </button>
-        <button id="navRetirada" class="nav-btn inactive flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('retirada')">
-          <i data-lucide="wrench" class="w-4 h-4"></i>
+        <button id="navRetirada" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('retirada')">
+          <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
           Retirada de Peças
         </button>
         <button onclick="window.parent.location.reload()" title="Clique para recarregar da planilha" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer transition">
@@ -449,7 +420,9 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- Gráficos Top 10 -->
+      <!-- ============================================================== -->
+      <!-- GRÁFICOS: TOP 10 PEÇAS MAIS SOLICITADAS (QUANTIDADE E CUSTO) -->
+      <!-- ============================================================== -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -533,7 +506,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO OC ==================== -->
+    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO ==================== -->
     <div id="pageFormulario" class="space-y-6">
 
       <!-- Alerta de Modo de Edição Ativo -->
@@ -761,7 +734,9 @@ html_code = f"""
         </form>
       </section>
 
-      <!-- TABELA COMPLETA DE TODAS AS OCS EM ORDEM DECRESCENTE -->
+      <!-- ============================================================== -->
+      <!-- TABELA COMPLETA DE TODAS AS OCS EM ORDEM DECRESCENTE COM PESQUISAS -->
+      <!-- ============================================================== -->
       <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
           <div>
@@ -776,6 +751,7 @@ html_code = f"""
           </span>
         </div>
 
+        <!-- 2 CAMPOS DE PESQUISA INDEPENDENTES -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">
@@ -829,17 +805,17 @@ html_code = f"""
     <div id="pageRetirada" class="hidden space-y-6">
 
       <!-- Alerta de Sucesso Retirada -->
-      <div id="alertSuccessRetirada" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
+      <div id="alertRetiradaSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-emerald-600 text-white rounded-xl">
             <i data-lucide="check-circle" class="w-5 h-5"></i>
           </div>
           <div>
-            <p id="alertSuccessRetiradaTitle" class="text-sm font-bold">Retirada gravada com sucesso na planilha!</p>
-            <p id="alertSuccessRetiradaSub" class="text-xs text-emerald-700">Dados registrados na aba Retirada de Peças (gid=1232857188).</p>
+            <p id="alertRetiradaSuccessTitle" class="text-sm font-bold">Retirada de Peça registrada com sucesso!</p>
+            <p id="alertRetiradaSuccessSub" class="text-xs text-emerald-700">Dados salvos com sucesso na aba Retirada de Peças.</p>
           </div>
         </div>
-        <button type="button" onclick="document.getElementById('alertSuccessRetirada').classList.add('hidden')" class="px-3 py-2 rounded-xl hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition">
+        <button type="button" onclick="document.getElementById('alertRetiradaSuccess').classList.add('hidden')" class="px-3 py-2 rounded-xl hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition">
           Fechar
         </button>
       </div>
@@ -848,11 +824,11 @@ html_code = f"""
         <div class="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
           <div class="flex items-center gap-3">
             <div class="p-2.5 bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-500/25">
-              <i data-lucide="wrench" class="w-6 h-6"></i>
+              <i data-lucide="package-minus" class="w-6 h-6"></i>
             </div>
             <div>
-              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Retirada de Peças</h2>
-              <p class="text-xs text-slate-500">Lançamento de saídas para Ordens de Serviço · Gravação direta na aba de retiradas</p>
+              <h2 class="text-base font-bold text-slate-900">Formulário de Entrada: Lançamento de Retirada de Peças</h2>
+              <p class="text-xs text-slate-500">Controle de Saída Técnico · Catálogo conectado diretamente à planilha</p>
             </div>
           </div>
           <span class="text-xs font-semibold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -863,41 +839,38 @@ html_code = f"""
         <form id="retiradaForm" onsubmit="handleRetiradaSubmit(event)" class="space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-5 rounded-2xl bg-slate-50/90 border border-slate-200">
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Data *</label>
-              <input type="date" id="retData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Data da Retirada *</label>
+              <input type="date" id="retiradaData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
-              <input type="text" id="retTecnico" placeholder="Nome do técnico responsável" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <input type="text" id="retiradaTecnico" placeholder="Nome do técnico responsável" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente *</label>
-              <input type="text" id="retCliente" placeholder="Nome da empresa ou cliente" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <input type="text" id="retiradaCliente" placeholder="Nome do cliente / ponto" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Nº OS *</label>
-              <input type="text" id="retOS" placeholder="Ex: OS-1234, 4529" required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Número da OS *</label>
+              <input type="text" id="retiradaOS" placeholder="Ex: OS-12345" required class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
-          </div>
 
-          <!-- SELEÇÃO DA PEÇA E STATUS -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-5 rounded-2xl border border-amber-200 bg-amber-50/20">
             <div>
               <label class="block text-xs font-bold text-slate-800 mb-1">Código da Peça *</label>
-              <input list="listaCodigosPecas" id="retCodigo" placeholder="Digite ou selecione..." oninput="aoMudarCodigoRetirada()" onchange="aoMudarCodigoRetirada()" required class="w-full text-sm font-mono font-bold rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-600">
+              <input list="listaCodigosPecas" id="retiradaCodigo" placeholder="Digite ou selecione o código..." required oninput="aoMudarCodigoRetirada()" onchange="aoMudarCodigoRetirada()" class="w-full text-sm font-mono font-bold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
-            <div class="lg:col-span-2">
+            <div class="md:col-span-2 lg:col-span-3">
               <label class="block text-xs font-bold text-slate-800 mb-1">Descrição da Peça *</label>
-              <input list="listaDescricoesPecas" id="retDescricao" placeholder="Digite ou selecione a descrição..." oninput="aoMudarDescricaoRetirada()" onchange="aoMudarDescricaoRetirada()" required class="w-full text-sm font-semibold rounded-xl border border-amber-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-600">
+              <input list="listaDescricoesPecas" id="retiradaDescricao" placeholder="Digite ou selecione a descrição..." required oninput="aoMudarDescricaoRetirada()" onchange="aoMudarDescricaoRetirada()" class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Nova / Usada *</label>
-              <select id="retCondicao" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 font-semibold">
+              <select id="retiradaNovaUsada" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
                 <option value="Nova" selected>Nova</option>
                 <option value="Usada">Usada</option>
               </select>
@@ -905,12 +878,12 @@ html_code = f"""
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Quantidade *</label>
-              <input type="number" id="retQt" min="1" value="1" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 font-bold">
+              <input type="number" id="retiradaQuantidade" min="1" value="1" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
-            <div class="lg:col-span-2">
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Devolvida? *</label>
-              <select id="retDevolvida" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 font-semibold">
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Devolvida *</label>
+              <select id="retiradaDevolvida" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
                 <option value="Não" selected>Não</option>
                 <option value="Sim">Sim</option>
                 <option value="Instalação Nova">Instalação Nova</option>
@@ -924,54 +897,10 @@ html_code = f"""
             </button>
             <button type="submit" id="btnSalvarRetirada" class="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-bold shadow-lg shadow-amber-500/25 hover:bg-amber-700 transition">
               <i data-lucide="check" class="w-4 h-4"></i>
-              <span id="btnSalvarRetiradaText">Registrar Retirada de Peça</span>
+              <span id="btnSalvarRetiradaText">Gravar Retirada de Peça</span>
             </button>
           </div>
         </form>
-      </section>
-
-      <!-- HISTÓRICO DAS RETIRADAS REALIZADAS -->
-      <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
-          <div>
-            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
-              Histórico de Retiradas de Peças
-            </h3>
-            <p class="text-xs text-slate-500">Registros sincronizados com a planilha oficial</p>
-          </div>
-          <span id="labelContadorRetiradas" class="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold">
-            0 registro(s)
-          </span>
-        </div>
-
-        <div class="relative">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" id="filtroSearchRetirada" placeholder="Buscar por técnico, cliente, OS, código ou descrição..." oninput="filtrarTabelaRetiradas()" class="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm">
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-slate-600">
-            <thead class="bg-slate-50 uppercase font-semibold text-slate-500">
-              <tr>
-                <th class="py-2.5 px-3">Data</th>
-                <th class="py-2.5 px-3">Técnico</th>
-                <th class="py-2.5 px-3">Cliente</th>
-                <th class="py-2.5 px-3">Nº OS</th>
-                <th class="py-2.5 px-3">Código</th>
-                <th class="py-2.5 px-3">Descrição da Peça</th>
-                <th class="py-2.5 px-3 text-center">Condição</th>
-                <th class="py-2.5 px-3 text-center">Qtde</th>
-                <th class="py-2.5 px-3 text-center">Devolvida</th>
-              </tr>
-            </thead>
-            <tbody id="retiradasTableBody" class="divide-y divide-slate-100">
-              <tr>
-                <td colspan="9" class="text-center py-6 text-slate-400">Nenhuma retirada registrada ainda.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </section>
 
     </div>
@@ -979,6 +908,7 @@ html_code = f"""
     <!-- ==================== ÁREA EXCLUSIVA DE IMPRESSÃO DA OC ==================== -->
     <div id="printArea" class="hidden">
       <div class="max-w-4xl mx-auto border-2 border-slate-800 p-8 rounded-lg bg-white text-slate-900 font-sans">
+        
         <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
           <div class="flex items-center gap-4">
             <img id="printLogoImg" src="{logo_base64_src}" alt="Logotipo" class="max-h-16 w-auto object-contain" onerror="this.style.display='none';">
@@ -1048,16 +978,17 @@ html_code = f"""
     Chart.register(ChartDataLabels);
 
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
-    const GID_RETIRADA_PECAS = "{GID_RETIRADA_PECAS}";
+    const GID_RETIRADA = "{GID_RETIRADA_PECAS}";
 
-    const hoje = new Date().toISOString().split('T')[0];
-    document.getElementById('formData').value = hoje;
-    document.getElementById('retData').value = hoje;
+    document.getElementById('formData').value = new Date().toISOString().split('T')[0];
+    if (document.getElementById('retiradaData')) {{
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+    }}
 
     const catalogoPecas = {catalogo_json};
+
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
-    let rawRetiradasData = {retiradas_json};
 
     // Popula Datalists
     const dlCodigos = document.getElementById('listaCodigosPecas');
@@ -1087,141 +1018,6 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // Auto-complete na página de Retirada
-    function aoMudarCodigoRetirada() {{
-      const codDigitado = document.getElementById('retCodigo').value.trim();
-      if (!codDigitado) return;
-      const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
-      if (itemAchado) {{
-        document.getElementById('retDescricao').value = itemAchado.descricao;
-      }}
-    }}
-
-    function aoMudarDescricaoRetirada() {{
-      const descDigitada = document.getElementById('retDescricao').value.trim();
-      if (!descDigitada) return;
-      const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
-      if (itemAchado) {{
-        document.getElementById('retCodigo').value = itemAchado.codigo;
-      }}
-    }}
-
-    function limparFormRetirada() {{
-      document.getElementById('retData').value = new Date().toISOString().split('T')[0];
-      document.getElementById('retTecnico').value = '';
-      document.getElementById('retCliente').value = '';
-      document.getElementById('retOS').value = '';
-      document.getElementById('retCodigo').value = '';
-      document.getElementById('retDescricao').value = '';
-      document.getElementById('retCondicao').value = 'Nova';
-      document.getElementById('retQt').value = '1';
-      document.getElementById('retDevolvida').value = 'Não';
-    }}
-
-    let enviandoRetirada = false;
-    function handleRetiradaSubmit(e) {{
-      e.preventDefault();
-      if (enviandoRetirada) return;
-
-      const dataVal = document.getElementById('retData').value;
-      const tecnicoVal = document.getElementById('retTecnico').value.trim();
-      const clienteVal = document.getElementById('retCliente').value.trim();
-      const osVal = document.getElementById('retOS').value.trim();
-      const codigoVal = document.getElementById('retCodigo').value.trim().toUpperCase();
-      const descricaoVal = document.getElementById('retDescricao').value.trim();
-      const condicaoVal = document.getElementById('retCondicao').value;
-      const qtVal = parseInt(document.getElementById('retQt').value) || 1;
-      const devolvidaVal = document.getElementById('retDevolvida').value;
-
-      if (!codigoVal || !descricaoVal) {{
-        alert('Por favor, informe o Código e a Descrição da peça.');
-        return;
-      }}
-
-      enviandoRetirada = true;
-      const btnSalvar = document.getElementById('btnSalvarRetirada');
-      btnSalvar.disabled = true;
-      btnSalvar.innerText = 'Gravando na aba Retirada de Peças...';
-
-      const payloadRetirada = {{
-        tipo: "retirada_pecas",
-        gidAlvo: GID_RETIRADA_PECAS,
-        data: dataVal,
-        tecnico: tecnicoVal,
-        cliente: clienteVal,
-        os: osVal,
-        codigo: codigoVal,
-        descricao: descricaoVal,
-        condicao: condicaoVal,
-        qt: qtVal,
-        devolvida: devolvidaVal
-      }};
-
-      try {{
-        const jsonEncoded = encodeURIComponent(JSON.stringify(payloadRetirada));
-        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
-        const img = new Image();
-        img.src = beaconUrl;
-      }} catch (errBeacon) {{
-        console.error("Erro no envio:", errBeacon);
-      }}
-
-      setTimeout(() => {{
-        enviandoRetirada = false;
-        btnSalvar.disabled = false;
-        btnSalvar.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> <span id="btnSalvarRetiradaText">Registrar Retirada de Peça</span>';
-      }}, 800);
-
-      // Adiciona no topo do histórico da sessão
-      rawRetiradasData.unshift({{
-        data: dataVal,
-        tecnico: tecnicoVal,
-        cliente: clienteVal,
-        os: osVal,
-        codigo: codigoVal,
-        descricao: descricaoVal,
-        condicao: condicaoVal,
-        qt: qtVal,
-        devolvida: devolvidaVal
-      }});
-
-      limparFormRetirada();
-      renderizarTabelaRetiradas();
-
-      const alertBox = document.getElementById('alertSuccessRetirada');
-      document.getElementById('alertSuccessRetiradaTitle').innerText = `✅ Retirada registrada com sucesso para OS ${{osVal}}!`;
-      document.getElementById('alertSuccessRetiradaSub').innerText = `Técnico: ${{tecnicoVal}} · Cliente: ${{clienteVal}} · Peça: ${{codigoVal}} -${{descricaoVal}} (${{qtVal}} un)`; alertBox.classList.remove('hidden'); alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }}); lucide.createIcons(); }}  function filtrarTabelaRetiradas() {{ const termo = (document.getElementById('filtroSearchRetirada')?.value \vert{}\vert{} '').trim().toLowerCase(); const filtrados = rawRetiradasData.filter(i => {{ return !termo \vert{}\vert{} (i.tecnico && i.tecnico.toLowerCase().includes(termo)) \vert{}\vert{} (i.cliente && i.cliente.toLowerCase().includes(termo)) \vert{}\vert{} (i.os && i.os.toLowerCase().includes(termo)) \vert{}\vert{} (i.codigo && i.codigo.toLowerCase().includes(termo)) \vert{}\vert{} (i.descricao && i.descricao.toLowerCase().includes(termo)); }}); renderizarTabelaRetiradas(filtrados); }}  function renderizarTabelaRetiradas(lista = rawRetiradasData) {{ const tbody = document.getElementById('retiradasTableBody'); const badge = document.getElementById('labelContadorRetiradas'); if (badge) badge.innerText = `${{lista.length}} registro(s)`;
-
-      if (!lista || lista.length === 0) {{
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400">Nenhum registro de retirada encontrado.</td></tr>';
-        return;
-      }}
-
-      tbody.innerHTML = lista.map(item => `
-        <tr class="hover:bg-slate-50 transition font-medium">
-          <td class="py-2.5 px-3 whitespace-nowrap text-slate-500">${{item.data}}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.tecnico}}</td>
-          <td class="py-2.5 px-3 text-slate-700">${{item.cliente}}</td>
-          <td class="py-2.5 px-3 font-mono font-bold text-amber-700">${{item.os}}</td>
-          <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${{item.codigo}}</td>
-          <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.descricao}}</td>
-          <td class="py-2.5 px-3 text-center">
-            <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${{item.condicao === 'Nova' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700'}}">
-              ${{item.condicao}}
-            </span>
-          </td>
-          <td class="py-2.5 px-3 text-center font-bold text-slate-800">${{item.qt}} un</td>
-          <td class="py-2.5 px-3 text-center">
-            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${{item.devolvida === 'Sim' ? 'bg-emerald-100 text-emerald-800' : (item.devolvida === 'Instalação Nova' ? 'bg-blue-100 text-blue-800' : 'bg-rose-50 text-rose-700 border border-rose-200')}}">
-              ${{item.devolvida}}
-            </span>
-          </td>
-        </tr>
-      `).join('');
-    }}
-    renderizarTabelaRetiradas();
-
-    // Funções da OC
     function aoMudarFornecedorPrincipal() {{
       const forn = document.getElementById('formFornecedor').value.trim();
       if (forn && itensDaOrdemAtual.length > 0) {{
@@ -1238,10 +1034,12 @@ html_code = f"""
     function aoMudarCodigo() {{
       const codDigitado = document.getElementById('itemCodigoPeca').value.trim();
       if (!codDigitado) return;
+
       const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
         document.getElementById('itemPeca').value = itemAchado.descricao;
         if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
@@ -1253,16 +1051,112 @@ html_code = f"""
     function aoMudarDescricao() {{
       const descDigitada = document.getElementById('itemPeca').value.trim();
       if (!descDigitada) return;
+
       const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
         document.getElementById('itemCodigoPeca').value = itemAchado.codigo;
         if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
         }}
         calcItemPreview();
       }}
+    }}
+
+    // Sincronização Código/Descrição no Formulário de Retirada
+    function aoMudarCodigoRetirada() {{
+      const cod = document.getElementById('retiradaCodigo').value.trim();
+      if (!cod) return;
+      const achado = catalogoPecas.find(p => p.codigo.toLowerCase() === cod.toLowerCase());
+      if (achado) {{
+        document.getElementById('retiradaDescricao').value = achado.descricao;
+      }}
+    }}
+
+    function aoMudarDescricaoRetirada() {{
+      const desc = document.getElementById('retiradaDescricao').value.trim();
+      if (!desc) return;
+      const achado = catalogoPecas.find(p => p.descricao.toLowerCase() === desc.toLowerCase());
+      if (achado) {{
+        document.getElementById('retiradaCodigo').value = achado.codigo;
+      }}
+    }}
+
+    function limparFormRetirada() {{
+      document.getElementById('retiradaForm').reset();
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+      document.getElementById('retiradaNovaUsada').value = 'Nova';
+      document.getElementById('retiradaQuantidade').value = '1';
+      document.getElementById('retiradaDevolvida').value = 'Não';
+    }}
+
+    let enviandoRetirada = false;
+    function handleRetiradaSubmit(e) {{
+      e.preventDefault();
+      if (enviandoRetirada) return;
+
+      const data = document.getElementById('retiradaData').value;
+      const tecnico = document.getElementById('retiradaTecnico').value.trim();
+      const cliente = document.getElementById('retiradaCliente').value.trim();
+      const os = document.getElementById('retiradaOS').value.trim();
+      const codigo = document.getElementById('retiradaCodigo').value.trim();
+      const descricao = document.getElementById('retiradaDescricao').value.trim();
+      const novaUsada = document.getElementById('retiradaNovaUsada').value;
+      const quantidade = parseInt(document.getElementById('retiradaQuantidade').value) || 1;
+      const devolvida = document.getElementById('retiradaDevolvida').value;
+
+      if (!codigo || !descricao) {{
+        alert('Por favor, informe o Código e a Descrição da Peça.');
+        return;
+      }}
+
+      enviandoRetirada = true;
+      const btn = document.getElementById('btnSalvarRetirada');
+      btn.disabled = true;
+      document.getElementById('btnSalvarRetiradaText').innerText = 'Gravando na planilha...';
+
+      const payloadRetirada = {{
+        tipo: "retirada_pecas",
+        aba_gid: GID_RETIRADA,
+        aba_nome: "Retirada de Peças",
+        registro: {{
+          data: data,
+          tecnico: tecnico,
+          cliente: cliente,
+          os: os,
+          codigo: codigo,
+          descricao: descricao,
+          novaUsada: novaUsada,
+          quantidade: quantidade,
+          devolvida: devolvida
+        }}
+      }};
+
+      try {{
+        const jsonEncoded = encodeURIComponent(JSON.stringify(payloadRetirada));
+        const beaconUrl = APPS_SCRIPT_URL + "?data=" + jsonEncoded;
+        const img = new Image();
+        img.src = beaconUrl;
+      }} catch (errBeacon) {{
+        console.error("Erro no envio de retirada:", errBeacon);
+      }}
+
+      setTimeout(() => {{
+        enviandoRetirada = false;
+        btn.disabled = false;
+        document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
+        
+        limparFormRetirada();
+        
+        const alertBox = document.getElementById('alertRetiradaSuccess');
+        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
+        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
+        alertBox.classList.remove('hidden');
+        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+        lucide.createIcons();
+      }}, 800);
     }}
 
     function calcItemPreview() {{
@@ -1386,7 +1280,8 @@ html_code = f"""
         `;
       }}).join('');
 
-      document.getElementById('footTotalQt').innerText = `${{somaQt}} un`; document.getElementById('footTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('footTotalQt').innerText = `${{somaQt}} un`;
+      document.getElementById('footTotalAtendida').innerText = `${{somaAtendida}} un`;
       document.getElementById('footTotalValor').innerText = formatCurrency(somaValor);
       lucide.createIcons();
     }}
@@ -1415,6 +1310,7 @@ html_code = f"""
 
     function gerarNumeroOC(anoSelecionado) {{
       let maior = maxSeqAnosPlanilha[anoSelecionado] || 0;
+
       rawOrdersData.forEach(item => {{
         if (item.oc) {{
           const match = item.oc.match(new RegExp('OC-' + anoSelecionado + '-(\\\\d+)', 'i'));
@@ -1424,6 +1320,7 @@ html_code = f"""
           }}
         }}
       }});
+
       const proximoSeq = String(maior + 1).padStart(4, '0');
       return `OC-${{anoSelecionado}}-${{proximoSeq}}`;
     }}
@@ -1478,8 +1375,10 @@ html_code = f"""
     }}
 
     let enviandoAgora = false;
+
     function handleFinalSubmit(e) {{
       e.preventDefault();
+
       if (enviandoAgora) return;
 
       const fornecedorPrincipal = document.getElementById('formFornecedor').value.trim().toUpperCase();
@@ -1504,7 +1403,6 @@ html_code = f"""
       const ehEdicao = (ocEmEdicao !== null);
 
       const dadosOCSalva = {{
-        tipo: "ordem_compra",
         oc,
         ano,
         mes,
@@ -1621,7 +1519,7 @@ html_code = f"""
 
       if (badgeContador) {{
         const ocsUnicasFiltradas = new Set(listaItens.map(i => i.oc)).size;
-        badgeContador.innerText = `${{ocsUnicasFiltradas}} OC(s) ·${{listaItens.length}} item(ns)`;
+        badgeContador.innerText = `${{ocsUnicasFiltradas}} OC(s) · ${{listaItens.length}} item(ns)`;
       }}
 
       if (!listaItens || listaItens.length === 0) {{
@@ -1649,4 +1547,436 @@ html_code = f"""
           <td class="py-2.5 px-3 font-bold text-blue-900">${{item.fornecedor || '-'}}</td>
           <td class="py-2.5 px-3 font-mono text-slate-600">${{item.codigoPeca}}</td>
           <td class="py-2.5 px-3 font-semibold text-slate-800">${{item.peca}}</td>
-          <td class="py-
+          <td class="py-2.5 px-3 text-center font-bold">${{item.qt}} un</td>
+          <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${{item.qtAprovada}} un</td>
+          <td class="py-2.5 px-3 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
+        </tr>
+      `).join('');
+      lucide.createIcons();
+    }}
+    filtrarTabelaHistorico();
+
+    function imprimirUltimaOC() {{
+      if (!ultimaOCSalva) {{
+        alert('Nenhuma ordem de compra recente disponível para impressão.');
+        return;
+      }}
+      executarImpressao(ultimaOCSalva);
+    }}
+
+    function imprimirOCEspecifica(numeroOC) {{
+      const ocData = todasOCsEmitidas[numeroOC];
+      if (!ocData) {{
+        const itens = rawOrdersData.filter(i => i.oc === numeroOC);
+        if (itens.length > 0) {{
+          executarImpressao({{
+            oc: numeroOC,
+            ano: itens[0].ano || '2026',
+            mes: itens[0].mes || '',
+            data: itens[0].data || '',
+            solicitante: itens[0].solicitante || '',
+            fornecedor: itens[0].fornecedor || '',
+            itens: itens
+          }});
+          return;
+        }}
+        alert('Dados da Ordem de Compra ' + numeroOC + ' não localizados.');
+        return;
+      }}
+      executarImpressao(ocData);
+    }}
+
+    function executarImpressao(dadosOC) {{
+      document.getElementById('printOCNumero').innerText = dadosOC.oc;
+      document.getElementById('printOCData').innerText = `Data: ${{dadosOC.data}}`;
+      document.getElementById('printOCFornecedor').innerText = dadosOC.fornecedor;
+      document.getElementById('printOCSolicitante').innerText = dadosOC.solicitante;
+
+      const tbody = document.getElementById('printOCTableBody');
+      let somaQt = 0;
+      let somaAtendida = 0;
+      let somaCusto = 0;
+
+      tbody.innerHTML = dadosOC.itens.map((item, idx) => {{
+        somaQt += item.qt;
+        somaAtendida += item.qtAprovada;
+        somaCusto += item.custoTotal;
+
+        return `
+          <tr class="border-b border-slate-200">
+            <td class="py-2 px-3 border border-slate-300 font-bold">${{idx + 1}}</td>
+            <td class="py-2 px-3 border border-slate-300 font-mono font-bold">${{item.codigoPeca}}</td>
+            <td class="py-2 px-3 border border-slate-300">${{item.peca}}</td>
+            <td class="py-2 px-3 border border-slate-300 text-center">${{item.qt}} un</td>
+            <td class="py-2 px-3 border border-slate-300 text-center font-bold">${{item.qtAprovada}} un</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right">${{formatCurrency(item.custoUnit)}}</td>
+            <td class="py-2.5 px-3 border border-slate-300 text-right font-bold">${{formatCurrency(item.custoTotal)}}</td>
+          </tr>
+        `;
+      }}).join('');
+
+      document.getElementById('printOCTotalQt').innerText = `${{somaQt}} un`;
+      document.getElementById('printOCTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('printOCTotalValor').innerText = formatCurrency(somaCusto);
+
+      const printArea = document.getElementById('printArea');
+      printArea.classList.remove('hidden');
+
+      setTimeout(() => {{
+        window.print();
+        printArea.classList.add('hidden');
+      }}, 300);
+    }}
+
+    function switchPage(page) {{
+      const pageDash = document.getElementById('pageDashboard');
+      const pageForm = document.getElementById('pageFormulario');
+      const pageRetirada = document.getElementById('pageRetirada');
+
+      const btnDash = document.getElementById('navDashboard');
+      const btnForm = document.getElementById('navForm');
+      const btnRetirada = document.getElementById('navRetirada');
+
+      // Reseta classes nos botões
+      [btnDash, btnForm, btnRetirada].forEach(b => {{
+        if (b) {{
+          b.classList.remove('active');
+          b.classList.add('inactive');
+        }}
+      }});
+
+      // Oculta todas as páginas
+      pageDash.classList.add('hidden');
+      pageForm.classList.add('hidden');
+      pageRetirada.classList.add('hidden');
+
+      if (page === 'dashboard') {{
+        pageDash.classList.remove('hidden');
+        btnDash.classList.add('active');
+        btnDash.classList.remove('inactive');
+        updateDashboard();
+      }} else if (page === 'formulario') {{
+        pageForm.classList.remove('hidden');
+        btnForm.classList.add('active');
+        btnForm.classList.remove('inactive');
+        atualizarProximoNumeroOC();
+      }} else if (page === 'retirada') {{
+        pageRetirada.classList.remove('hidden');
+        btnRetirada.classList.add('active');
+        btnRetirada.classList.remove('inactive');
+      }}
+      lucide.createIcons();
+    }}
+
+    function formatCurrency(val) {{
+      return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
+    }}
+
+    const filterYear = document.getElementById('filterYear');
+    const filterMonth = document.getElementById('filterMonth');
+    const filterCategory = document.getElementById('filterCategory');
+    const filterRequester = document.getElementById('filterRequester');
+    const resetFiltersBtn = document.getElementById('resetFilters');
+    const activeFilterBadge = document.getElementById('activeFilterBadge');
+
+    const kpiTotalCost = document.getElementById('kpiTotalCost');
+    const kpiTotalRequests = document.getElementById('kpiTotalRequests');
+    const kpiItemsQty = document.getElementById('kpiItemsQty');
+    const kpiApprovedQty = document.getElementById('kpiApprovedQty');
+    const kpiApprovedPercent = document.getElementById('kpiApprovedPercent');
+    const kpiUnapprovedQty = document.getElementById('kpiUnapprovedQty');
+    const kpiUnapprovedPercent = document.getElementById('kpiUnapprovedPercent');
+    const kpiAvgCost = document.getElementById('kpiAvgCost');
+
+    const tableBody = document.getElementById('tableBody');
+    const tableSearch = document.getElementById('tableSearch');
+    const tableCountBadge = document.getElementById('tableCountBadge');
+
+    function populateDropdowns() {{
+      const currentYear = filterYear.value;
+      const currentMonth = filterMonth.value;
+      const currentCat = filterCategory.value;
+      const currentReq = filterRequester.value;
+
+      filterYear.innerHTML = '<option value="ALL">Todos os Anos</option>';
+      filterMonth.innerHTML = '<option value="ALL">Todos os Meses</option>';
+      filterCategory.innerHTML = '<option value="ALL">Todas as Categorias</option>';
+      filterRequester.innerHTML = '<option value="ALL">Todos os Solicitantes</option>';
+
+      const years = [...new Set(rawOrdersData.map(d => d.ano).filter(Boolean))].sort();
+      const months = [...new Set(rawOrdersData.map(d => d.mes).filter(Boolean))];
+      const categories = [...new Set(rawOrdersData.map(d => d.categoria).filter(Boolean))].sort();
+      const requesters = [...new Set(rawOrdersData.map(d => d.solicitante).filter(Boolean))].sort();
+
+      years.forEach(y => {{ const opt = document.createElement('option'); opt.value = y; opt.textContent = y; filterYear.appendChild(opt); }});
+      months.forEach(m => {{ const opt = document.createElement('option'); opt.value = m; opt.textContent = m; filterMonth.appendChild(opt); }});
+      categories.forEach(c => {{ const opt = document.createElement('option'); opt.value = c; opt.textContent = c; filterCategory.appendChild(opt); }});
+      requesters.forEach(r => {{ const opt = document.createElement('option'); opt.value = r; opt.textContent = r; filterRequester.appendChild(opt); }});
+
+      if (years.includes(currentYear)) filterYear.value = currentYear;
+      if (months.includes(currentMonth)) filterMonth.value = currentMonth;
+      if (categories.includes(currentCat)) filterCategory.value = currentCat;
+      if (requesters.includes(currentReq)) filterRequester.value = currentReq;
+    }}
+    populateDropdowns();
+
+    // Configuração de Estilo Padronizada para Gráficos
+    function getHorizontalBarOptions(isCurrency = false) {{
+      const textColor = '#475569';
+      const gridColor = 'rgba(226, 232, 240, 0.7)';
+      return {{
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ right: 40, left: 10, top: 10, bottom: 10 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => isCurrency ? 'Custo: ' + formatCurrency(context.raw) : 'Quantidade: ' + context.raw.toLocaleString('pt-BR') + ' un'
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'right',
+            offset: 4,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => {{
+              if (!v) return '';
+              return isCurrency ? formatCurrency(v) : v.toLocaleString('pt-BR');
+            }}
+          }}
+        }},
+        scales: {{
+          x: {{
+            grid: {{ color: gridColor }},
+            ticks: {{
+              color: textColor,
+              font: {{ size: 10 }},
+              callback: (v) => isCurrency ? (v >= 1000 ? 'R$' + (v/1000).toFixed(0) + 'k' : 'R$' + v) : v
+            }},
+            beginAtZero: true
+          }},
+          y: {{
+            grid: {{ display: false }},
+            ticks: {{
+              color: textColor,
+              font: {{ size: 10, weight: '600' }}
+            }}
+          }}
+        }}
+      }};
+    }}
+
+    // Inicialização dos Gráficos Top 10 Peças
+    const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
+      type: 'bar',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalBarOptions(false)
+    }});
+
+    const chartTopPecasCusto = new Chart(document.getElementById('chartTopPecasCusto').getContext('2d'), {{
+      type: 'bar',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(16, 185, 129, 0.85)', borderRadius: 6 }}] }},
+      options: getHorizontalBarOptions(true)
+    }});
+
+    const chartCategory = new Chart(document.getElementById('chartCategoryDist').getContext('2d'), {{
+      type: 'doughnut',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: ['#0284c7', '#06b6d4', '#f59e0b', '#6366f1', '#10b981'], borderWidth: 2, borderColor: '#ffffff' }}] }},
+      options: {{ responsive: true, maintainAspectRatio: false, cutout: '62%' }}
+    }});
+
+    const chartSupplier = new Chart(document.getElementById('chartSupplierCost').getContext('2d'), {{
+      type: 'bar',
+      data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(245, 158, 11, 0.85)', borderRadius: 8 }}] }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{ backgroundColor: '#ffffff', titleColor: '#0f172a', bodyColor: '#334155', borderColor: '#e2e8f0', borderWidth: 1, padding: 10 }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 11 }},
+            formatter: (v) => v ? formatCurrency(v) : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
+    }});
+
+    // Atualização Geral dos Componentes do Dashboard
+    function updateDashboard() {{
+      const yearVal = filterYear.value;
+      const monthVal = filterMonth.value;
+      const catVal = filterCategory.value;
+      const reqVal = filterRequester.value;
+      const searchVal = tableSearch.value.trim().toLowerCase();
+
+      const filtered = rawOrdersData.filter(item => {{
+        const matchYear = (yearVal === 'ALL' || item.ano === yearVal);
+        const matchMonth = (monthVal === 'ALL' || item.mes === monthVal);
+        const matchCat = (catVal === 'ALL' || item.categoria === catVal);
+        const matchReq = (reqVal === 'ALL' || item.solicitante === reqVal);
+        return matchYear && matchMonth && matchCat && matchReq;
+      }});
+
+      activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
+
+      // 1. Métricas KPIs
+      const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
+      const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
+      const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
+      const totalNaoAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtNaoAprovada || 0), 0);
+      
+      const ocsUnicas = new Set(filtered.map(f => f.oc)).size;
+      const avgCost = ocsUnicas > 0 ? (totalCusto / ocsUnicas) : 0;
+
+      const pctAtendidas = totalItens > 0 ? Math.round((totalAtendidas / totalItens) * 100) : 0;
+      const pctNaoAtendidas = totalItens > 0 ? (100 - pctAtendidas) : 0;
+
+      kpiTotalCost.innerText = formatCurrency(totalCusto);
+      kpiTotalRequests.innerText = ocsUnicas;
+      kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
+      kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
+      kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
+      kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
+      kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
+      kpiAvgCost.innerText = formatCurrency(avgCost);
+
+      // 2. Consolidação de Peças para os Gráficos Top 10
+      const pecasAgrupadas = {{}};
+      filtered.forEach(item => {{
+        const nomePeca = (item.peca || item.codigoPeca || 'Indefinida').trim();
+        if (!pecasAgrupadas[nomePeca]) {{
+          pecasAgrupadas[nomePeca] = {{ qt: 0, custo: 0 }};
+        }}
+        pecasAgrupadas[nomePeca].qt += (item.qt || 0);
+        pecasAgrupadas[nomePeca].custo += (item.custoTotal || 0);
+      }});
+
+      const listaAgrupada = Object.entries(pecasAgrupadas).map(([nome, vals]) => ({{
+        nome,
+        qt: vals.qt,
+        custo: vals.custo
+      }}));
+
+      const truncarTexto = (txt, max = 28) => txt.length > max ? txt.substring(0, max) + '...' : txt;
+
+      // Top 10 por Quantidade
+      const top10Qt = [...listaAgrupada].sort((a, b) => b.qt - a.qt).slice(0, 10);
+      chartTopPecasQt.data.labels = top10Qt.map(p => truncarTexto(p.nome));
+      chartTopPecasQt.data.datasets[0].data = top10Qt.map(p => p.qt);
+      chartTopPecasQt.update();
+
+      // Top 10 por Custo Total
+      const top10Custo = [...listaAgrupada].sort((a, b) => b.custo - a.custo).slice(0, 10);
+      chartTopPecasCusto.data.labels = top10Custo.map(p => truncarTexto(p.nome));
+      chartTopPecasCusto.data.datasets[0].data = top10Custo.map(p => p.custo);
+      chartTopPecasCusto.update();
+
+      // 3. Distribuição por Categoria
+      const catCounts = {{}};
+      filtered.forEach(d => {{ if(d.categoria) catCounts[d.categoria] = (catCounts[d.categoria] || 0) + (d.qt || 0); }});
+      chartCategory.data.labels = Object.keys(catCounts);
+      chartCategory.data.datasets[0].data = Object.values(catCounts);
+      chartCategory.update();
+
+      // 4. Fornecedor por Custo
+      const supplierCosts = {{}};
+      filtered.forEach(d => {{ if(d.fornecedor) supplierCosts[d.fornecedor] = (supplierCosts[d.fornecedor] || 0) + (d.custoTotal || 0); }});
+      chartSupplier.data.labels = Object.keys(supplierCosts);
+      chartSupplier.data.datasets[0].data = Object.values(supplierCosts);
+      chartSupplier.update();
+
+      // 5. Tabela Resumo Consolidada
+      renderTable(filtered, searchVal);
+    }}
+
+    function renderTable(dataList, searchTerm) {{
+      const grouped = {{}};
+      dataList.forEach(item => {{
+        const key = item.codigoPeca || item.peca;
+        if (!grouped[key]) {{
+          grouped[key] = {{
+            codigoPeca: item.codigoPeca || '—',
+            peca: item.peca,
+            categoria: item.categoria,
+            qtTotal: 0,
+            qtAtendida: 0,
+            qtNaoAtendida: 0,
+            pedidosCount: 0,
+            custoTotal: 0
+          }};
+        }}
+        grouped[key].qtTotal += (item.qt || 0);
+        grouped[key].qtAtendida += (item.qtAprovada || 0);
+        grouped[key].qtNaoAtendida += (item.qtNaoAprovada || 0);
+        grouped[key].pedidosCount += 1;
+        grouped[key].custoTotal += (item.custoTotal || 0);
+      }});
+
+      let itemsArray = Object.values(grouped);
+      if (searchTerm) {{
+        itemsArray = itemsArray.filter(i => 
+          (i.peca && i.peca.toLowerCase().includes(searchTerm)) || 
+          (i.codigoPeca && i.codigoPeca.toLowerCase().includes(searchTerm)) ||
+          (i.categoria && i.categoria.toLowerCase().includes(searchTerm))
+        );
+      }}
+
+      itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
+      tableCountBadge.innerText = `${{itemsArray.length}} itens`;
+
+      if (itemsArray.length === 0) {{
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Nenhuma peça encontrada.</td></tr>`;
+        return;
+      }}
+
+      tableBody.innerHTML = itemsArray.map(item => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-3 px-4 font-mono font-semibold text-blue-600">${{item.codigoPeca}}</td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${{item.peca}}</td>
+          <td class="py-3 px-4"><span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">${{item.categoria}}</span></td>
+          <td class="py-3 px-4 text-center font-bold text-slate-700">${{item.qtTotal.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center font-semibold text-emerald-600">${{item.qtAtendida.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center font-semibold text-rose-500">${{item.qtNaoAtendida.toLocaleString('pt-BR')}} un</td>
+          <td class="py-3 px-4 text-center text-slate-500">${{item.pedidosCount}}</td>
+          <td class="py-3 px-4 text-right font-bold text-amber-600">${{formatCurrency(item.custoTotal)}}</td>
+        </tr>
+      `).join('');
+    }}
+
+    [filterYear, filterMonth, filterCategory, filterRequester].forEach(select => select.addEventListener('change', updateDashboard));
+    tableSearch.addEventListener('input', updateDashboard);
+    resetFiltersBtn.addEventListener('click', () => {{
+      filterYear.value = 'ALL';
+      filterMonth.value = 'ALL';
+      filterCategory.value = 'ALL';
+      filterRequester.value = 'ALL';
+      tableSearch.value = '';
+      updateDashboard();
+    }});
+
+    updateDashboard();
+  </script>
+</body>
+</html>
+"""
+
+components.html(html_code, height=2500, scrolling=True)
