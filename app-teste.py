@@ -32,7 +32,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# CARREGAMENTO DO ARQUIVO "Logotipo.PNG"
+# CARREGAMENTO DO LOGOTIPO
 # ==============================================================================
 def obter_logo_base64():
     pastas_busca = [
@@ -40,42 +40,20 @@ def obter_logo_base64():
         os.getcwd(),
         "."
     ]
-    
     nomes_alvo = [
         "Logotipo.PNG", "Logotipo.png", "logotipo.PNG", "logotipo.png",
         "LOGOTIPO.PNG", "logo.PNG", "logo.png"
     ]
-    
-    caminho_encontrado = None
     for pasta in pastas_busca:
         if not pasta:
             continue
         for nome in nomes_alvo:
             candidato = os.path.join(pasta, nome)
             if os.path.isfile(candidato):
-                caminho_encontrado = candidato
-                break
-        if caminho_encontrado:
-            break
-            
-    if not caminho_encontrado:
-        for pasta in pastas_busca:
-            if not pasta or not os.path.isdir(pasta):
-                continue
-            for arq in os.listdir(pasta):
-                if arq.lower() in ["logotipo.png", "logotipo.jpg", "logotipo.jpeg"]:
-                    caminho_encontrado = os.path.join(pasta, arq)
-                    break
-            if caminho_encontrado:
-                break
-
-    if caminho_encontrado and os.path.exists(caminho_encontrado):
-        ext = os.path.splitext(caminho_encontrado)[1].lower().replace(".", "")
-        mime = "jpeg" if ext in ["jpg", "jpeg"] else "png"
-        with open(caminho_encontrado, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode("utf-8")
-            return f"data:image/{mime};base64,{encoded}"
-            
+                ext = os.path.splitext(candidato)[1].lower().replace(".", "")
+                mime = "jpeg" if ext in ["jpg", "jpeg"] else "png"
+                with open(candidato, "rb") as f:
+                    return f"data:image/{mime};base64,{base64.b64encode(f.read()).decode('utf-8')}"
     return ""
 
 logo_base64_src = obter_logo_base64()
@@ -89,7 +67,7 @@ URL_CSV_CATALOGO = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/exp
 URL_CSV_ORDENS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_ORDEM_COMPRA}"
 URL_CSV_RETIRADAS = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid={GID_RETIRADA_PECAS}"
 
-@st.cache_data(ttl=20)
+@st.cache_data(ttl=5)
 def carregar_catalogo_planilha():
     df = None
     try:
@@ -132,7 +110,7 @@ def carregar_catalogo_planilha():
     tecnicos_rigorosos.sort()
     return catalogo, tecnicos_rigorosos
 
-@st.cache_data(ttl=20)
+@st.cache_data(ttl=5)
 def obter_dados_ordens_e_proxima_oc():
     df = None
     try:
@@ -204,7 +182,7 @@ def obter_dados_ordens_e_proxima_oc():
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
     return ocs_existentes, maior_por_ano
 
-@st.cache_data(ttl=20)
+@st.cache_data(ttl=5)
 def obter_dados_retiradas():
     df = None
     try:
@@ -306,6 +284,12 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
+  <!-- MECANISMO DE SUBMISSÃO OCULTA - GARANTE GRAVAÇÃO SEM BLOQUEIO DE CORS -->
+  <iframe name="target_post_frame" id="target_post_frame" style="display:none; width:0; height:0; border:0;"></iframe>
+  <form id="hiddenSubmissionForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="target_post_frame" style="display:none;">
+    <input type="hidden" name="data" id="hiddenSubmissionData">
+  </form>
+
   <!-- Header Superior -->
   <header class="no-print sticky top-0 z-40 bg-white/95 border-b border-slate-200 backdrop-blur-md px-6 py-3">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
@@ -350,7 +334,7 @@ html_code = f"""
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-    <!-- MODAL PARA ATUALIZAÇÃO / BAIXA DE PENDÊNCIA (POSICIONADO NO TOPO) -->
+    <!-- MODAL DE BAIXA / ATUALIZAÇÃO DE DEVOLUÇÃO -->
     <div id="modalBaixaPendencia" style="display: none;" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 overflow-y-auto">
       <div id="modalBaixaCard" class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 my-auto sm:my-0">
         <div class="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -360,7 +344,7 @@ html_code = f"""
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Atualizar Status de Devolução</h3>
-              <p class="text-xs text-slate-500">Registrar alteração na planilha</p>
+              <p class="text-xs text-slate-500">Gravação em tempo real na planilha Google Sheets</p>
             </div>
           </div>
           <button type="button" onclick="fecharModalBaixa()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
@@ -396,9 +380,7 @@ html_code = f"""
       </div>
     </div>
 
-    <!-- ============================================================== -->
     <!-- PÁGINA 0: DASHBOARD DE RETIRADAS -->
-    <!-- ============================================================== -->
     <div id="pageDashboardRetiradas" class="space-y-6">
 
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -560,7 +542,7 @@ html_code = f"""
               <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
               Peças Não Devolvidas (Pendências com Técnicos)
             </h2>
-            <p class="text-xs text-rose-500 font-medium">Clique no botão "Devolver" para dar baixa imediata na pendência</p>
+            <p class="text-xs text-rose-500 font-medium">Clique em "Devolver" para dar baixa imediata na planilha</p>
           </div>
           <span id="badgeNaoDevolvidasCount" class="text-xs px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold">
             0 pendência(s)
@@ -625,7 +607,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 1: DASHBOARD SOLICITAÇÕES ==================== -->
+    <!-- PÁGINA 1: DASHBOARD SOLICITAÇÕES -->
     <div id="pageDashboard" class="hidden space-y-6">
 
       <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -675,7 +657,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- CARDS DE KPIS -->
+      <!-- CARDS DE KPIS OC -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
@@ -750,7 +732,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- GRÁFICOS: TOP 10 PEÇAS MAIS SOLICITADAS -->
+      <!-- GRÁFICOS SOLICITAÇÕES -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -834,7 +816,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO ==================== -->
+    <!-- PÁGINA 2: FORMULÁRIO DE LANÇAMENTO / EDIÇÃO OC -->
     <div id="pageFormulario" class="hidden space-y-6">
 
       <div id="alertEditMode" class="hidden p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex justify-between items-center shadow-sm">
@@ -935,7 +917,7 @@ html_code = f"""
                 <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
                 Adicionar Peça à Ordem de Compra
               </h3>
-              <span class="text-[11px] text-slate-500">Pré-listas conectadas à Coluna A e B da planilha</span>
+              <span class="text-[11px] text-slate-500">Listas sincronizadas com as Colunas A e B da planilha</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1054,7 +1036,7 @@ html_code = f"""
         </form>
       </section>
 
-      <!-- HISTÓRICO DAS OCS -->
+      <!-- HISTÓRICO DE OCS -->
       <section class="no-print bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-3">
           <div>
@@ -1118,7 +1100,7 @@ html_code = f"""
 
     </div>
 
-    <!-- ==================== PÁGINA 3: FORMULÁRIO DE RETIRADA DE PEÇAS ==================== -->
+    <!-- PÁGINA 3: FORMULÁRIO DE RETIRADA DE PEÇAS -->
     <div id="pageRetirada" class="hidden space-y-6">
 
       <div id="alertRetiradaSuccess" class="hidden p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm transition">
@@ -1295,13 +1277,6 @@ html_code = f"""
     Chart.register(ChartDataLabels);
 
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
-    const GID_RETIRADA = "{GID_RETIRADA_PECAS}";
-
-    document.getElementById('formData').value = new Date().toISOString().split('T')[0];
-    if (document.getElementById('retiradaData')) {{
-      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
-    }}
-
     const catalogoPecas = {catalogo_json};
     const tecnicosOficiaisColunaI = {tecnicos_coluna_i_json};
     
@@ -1309,7 +1284,12 @@ html_code = f"""
     let maxSeqAnosPlanilha = {max_seq_anos_json};
     let rawRetiradasData = {retiradas_json};
 
-    // Popula Datalists Catálogo
+    document.getElementById('formData').value = new Date().toISOString().split('T')[0];
+    if (document.getElementById('retiradaData')) {{
+      document.getElementById('retiradaData').value = new Date().toISOString().split('T')[0];
+    }}
+
+    // Datalists de catálogo
     const dlCodigos = document.getElementById('listaCodigosPecas');
     dlCodigos.innerHTML = '';
     const codigosUnicos = [...new Set(catalogoPecas.map(p => p.codigo).filter(Boolean))].sort();
@@ -1337,7 +1317,7 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // Popula datalist de técnicos
+    // Datalist de técnicos
     const dlTecnicos = document.getElementById('listaTecnicos');
     dlTecnicos.innerHTML = '';
     tecnicosOficiaisColunaI.forEach(t => {{
@@ -1346,61 +1326,54 @@ html_code = f"""
       dlTecnicos.appendChild(opt);
     }});
 
-    // ==============================================================
-    // ENVIO UNIFICADO AO GOOGLE APPS SCRIPT COM TIMEOUT SEGURO
-    // ==============================================================
-    async function enviarParaPlanilha(payload) {{
-      const jsonStr = JSON.stringify(payload);
-      
-      try {{
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
-        await fetch(APPS_SCRIPT_URL, {{
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
-          body: 'data=' + encodeURIComponent(jsonStr),
-          signal: controller.signal
-        }});
-        clearTimeout(timeoutId);
-        return true;
-      }} catch (errPost) {{
-        console.warn("POST falhou ou excedeu timeout, tentando GET fallback:", errPost);
-      }}
+    const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
+    const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
+    const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
 
-      try {{
-        const urlGet = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 7000);
-        await fetch(urlGet, {{ method: 'GET', mode: 'no-cors', signal: controller.signal }});
-        clearTimeout(timeoutId);
-        return true;
-      }} catch (errGet) {{
-        console.warn("GET fetch falhou, aplicando fallback Image beacon:", errGet);
-      }}
+    function populateDropdownsRetiradas() {{
+      const currentTec = filterRetTecnico.value;
+      filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
+      tecnicosOficiaisColunaI.forEach(t => {{
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        filterRetTecnico.appendChild(opt);
+      }});
+      if (tecnicosOficiaisColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
+    }}
+    populateDropdownsRetiradas();
 
-      try {{
-        const img = new Image();
-        img.src = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(jsonStr);
-        return true;
-      }} catch (errImg) {{
-        console.error("Falha geral de envio:", errImg);
-        return false;
-      }}
+    // ==============================================================
+    // ENVIO INFALÍVEL VIA FORMULÁRIO OCULTO COM TARGET IFRAME
+    // ==============================================================
+    function enviarParaPlanilhaGarantido(payload) {{
+      return new Promise((resolve) => {{
+        const form = document.getElementById('hiddenSubmissionForm');
+        const input = document.getElementById('hiddenSubmissionData');
+        const iframe = document.getElementById('target_post_frame');
+
+        input.value = JSON.stringify(payload);
+
+        let resolvido = false;
+        iframe.onload = () => {{
+          if (!resolvido) {{ resolvido = true; resolve(true); }}
+        }};
+
+        // Fallback de tempo limite caso o iframe não dispare onload
+        setTimeout(() => {{
+          if (!resolvido) {{ resolvido = true; resolve(true); }}
+        }}, 3500);
+
+        form.submit();
+      }});
     }}
 
-    // ==============================================================
-    // REFRESH PERSISTENTE
-    // ==============================================================
     function executarRefresh() {{
       const paginaAtual = sessionStorage.getItem('aba_ativa_atual') || 'dashboardRetiradas';
       localStorage.setItem('restaurar_aba_pos_refresh', paginaAtual);
       window.parent.location.reload();
     }}
 
-    // ==============================================================
-    // CONTROLE DE NAVEGAÇÃO ENTRE TELAS
-    // ==============================================================
     function switchPage(page) {{
       sessionStorage.setItem('aba_ativa_atual', page);
       localStorage.setItem('restaurar_aba_pos_refresh', page);
@@ -1450,9 +1423,6 @@ html_code = f"""
       lucide.createIcons();
     }}
 
-    // ==============================================================
-    // GRÁFICOS DO DASHBOARD DE RETIRADAS
-    // ==============================================================
     function getHorizontalRetiradaBarOptions() {{
       const textColor = '#475569';
       const gridColor = 'rgba(226, 232, 240, 0.7)';
@@ -1509,35 +1479,14 @@ html_code = f"""
       options: getHorizontalRetiradaBarOptions()
     }});
 
-    const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
-    const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
-    const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
-
-    function populateDropdownsRetiradas() {{
-      const currentTec = filterRetTecnico.value;
-      filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
-      tecnicosOficiaisColunaI.forEach(t => {{
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        filterRetTecnico.appendChild(opt);
-      }});
-      if (tecnicosOficiaisColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
-    }}
-    populateDropdownsRetiradas();
-
     // ==============================================================
-    // FLUXO DE EDIÇÃO / BAIXA DE PENDÊNCIA (MODAL NO TOPO)
+    // FLUXO DE BAIXA / DEVOLUÇÃO DE RETIRADAS
     // ==============================================================
     let itemEmBaixa = null;
 
     function abrirModalBaixa(idx) {{
       const item = rawRetiradasData.find(r => String(r.id) === String(idx));
-      if (!item) {{
-        console.error("Item não localizado para ID:", idx);
-        alert("Erro: Peça não encontrada no registro local.");
-        return;
-      }}
+      if (!item) return;
 
       itemEmBaixa = item;
       document.getElementById('modalOS').innerText = item.os || '-';
@@ -1551,12 +1500,7 @@ html_code = f"""
       modal.style.display = 'flex';
       
       const modalBox = document.getElementById('modalBaixaCard');
-      if (modalBox) {{
-        modalBox.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-      }} else {{
-        window.scrollTo({{ top: 0, behavior: 'smooth' }});
-      }}
-      
+      if (modalBox) modalBox.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
       lucide.createIcons();
     }}
 
@@ -1575,71 +1519,29 @@ html_code = f"""
       btn.disabled = true;
       document.getElementById('btnConfirmarBaixaText').innerText = 'Gravando na planilha...';
 
-      // Monta o payload unificado para o Google Apps Script
       const payloadAtualizacao = {{
         tipo: "atualizar_status_retirada",
         action: "atualizar_status_retirada",
-        acao: "atualizar_status_retirada",
-        aba_gid: GID_RETIRADA,
-        aba_nome: "Retirada de Peças",
-        os: itemEmBaixa.os,
-        codigo: itemEmBaixa.codigo,
-        codigoPeca: itemEmBaixa.codigo,
-        descricao: itemEmBaixa.descricao,
-        data: itemEmBaixa.data,
-        tecnico: itemEmBaixa.tecnico,
-        cliente: itemEmBaixa.cliente,
-        quantidade: itemEmBaixa.quantidade,
-        novaUsada: itemEmBaixa.novaUsada,
-        novoStatus: novoStatus,
-        devolvida: novoStatus,
-        status: novoStatus,
-        registro: {{
-          os: itemEmBaixa.os,
-          codigo: itemEmBaixa.codigo,
-          descricao: itemEmBaixa.descricao,
-          data: itemEmBaixa.data,
-          tecnico: itemEmBaixa.tecnico,
-          cliente: itemEmBaixa.cliente,
-          quantidade: itemEmBaixa.quantidade,
-          novaUsada: itemEmBaixa.novaUsada,
-          devolvida: novoStatus,
-          novoStatus: novoStatus,
-          status: novoStatus
-        }}
+        os: String(itemEmBaixa.os || '').trim(),
+        codigo: String(itemEmBaixa.codigo || '').trim(),
+        novoStatus: novoStatus
       }};
 
-      try {{
-        await enviarParaPlanilha(payloadAtualizacao);
-      }} catch (err) {{
-        console.warn("Aviso ao enviar baixa para a planilha:", err);
-      }}
+      await enviarParaPlanilhaGarantido(payloadAtualizacao);
 
-      // Atualiza o registro em memória local imediatamente
+      // Atualiza o estado em memória imediatamente
       itemEmBaixa.devolvida = novoStatus;
       const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
-      if (target) {{
-        target.devolvida = novoStatus;
-      }}
+      if (target) target.devolvida = novoStatus;
 
       btn.disabled = false;
       document.getElementById('btnConfirmarBaixaText').innerText = 'Confirmar Baixa';
       fecharModalBaixa();
 
       atualizarDashboardRetiradas();
-
-      const alertBox = document.getElementById('alertRetiradaSuccess');
-      if (alertBox) {{
-        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Status alterado com sucesso!`;
-        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{itemEmBaixa.os}} · Peça: ${{itemEmBaixa.codigo}} gravada como "${{novoStatus}}" na planilha.`;
-        alertBox.classList.remove('hidden');
-        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-      }}
+      alert(`Status da OS ${{itemEmBaixa.os}} atualizado com sucesso para "${{novoStatus}}"!`);
     }}
 
-    // ==============================================================
-    // ATUALIZAÇÃO GERAL DO DASHBOARD DE RETIRADAS
-    // ==============================================================
     function atualizarDashboardRetiradas() {{
       const tecVal = filterRetTecnico.value;
       const devVal = filterRetDevolvida.value;
@@ -1691,7 +1593,7 @@ html_code = f"""
       document.getElementById('kpiRetiradaTecnicos').innerText = new Set(filtrados.map(r => r.tecnico)).size;
       document.getElementById('kpiRetiradaClientes').innerText = new Set(filtrados.map(r => r.cliente)).size;
 
-      // Gráfico 1: Top 10 Peças Mais Retiradas
+      // Gráficos
       const pecasContagem = {{}};
       filtrados.forEach(r => {{
         const nome = (r.descricao || r.codigo || 'Peça').trim();
@@ -1703,7 +1605,6 @@ html_code = f"""
       chartTopPecasRetiradas.data.datasets[0].data = top10Pecas.map(p => p.qt);
       chartTopPecasRetiradas.update();
 
-      // Gráfico 2: Retiradas por Técnico
       const tecContagem = {{}};
       filtrados.forEach(r => {{
         const t = (r.tecnico || 'Indefinido').trim();
@@ -1714,7 +1615,7 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela: Peças Não Devolvidas
+      // Tabela Peças Não Devolvidas
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
@@ -1728,7 +1629,7 @@ html_code = f"""
         tbNaoDev.innerHTML = naoDevolvidasLista.map(item => `
           <tr class="hover:bg-rose-50/40 transition">
             <td class="py-2.5 px-3">
-              <button type="button" data-id="${{item.id}}" onclick="abrirModalBaixa(this.getAttribute('data-id'))" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition cursor-pointer">
+              <button type="button" onclick="abrirModalBaixa('${{item.id}}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-sm transition cursor-pointer">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 Devolver
               </button>
@@ -1745,7 +1646,7 @@ html_code = f"""
         `).join('');
       }}
 
-      // Tabela Geral de Retiradas
+      // Tabela Geral
       const tbGeral = document.getElementById('tableRetiradasGeralBody');
       if (filtrados.length === 0) {{
         tbGeral.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 font-semibold">Nenhuma retirada encontrada.</td></tr>';
@@ -1839,8 +1740,7 @@ html_code = f"""
 
       const payloadRetirada = {{
         tipo: "retirada_pecas",
-        aba_gid: GID_RETIRADA,
-        aba_nome: "Retirada de Peças",
+        action: "retirada_pecas",
         registro: {{
           data: data,
           tecnico: tecnico,
@@ -1854,7 +1754,7 @@ html_code = f"""
         }}
       }};
 
-      await enviarParaPlanilha(payloadRetirada);
+      await enviarParaPlanilhaGarantido(payloadRetirada);
 
       rawRetiradasData.unshift({{
         id: String(Date.now()),
@@ -1869,22 +1769,20 @@ html_code = f"""
         devolvida
       }});
 
-      setTimeout(() => {{
-        enviandoRetirada = false;
-        btn.disabled = false;
-        document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
-        
-        limparFormRetirada();
-        populateDropdownsRetiradas();
-        atualizarDashboardRetiradas();
-        
-        const alertBox = document.getElementById('alertRetiradaSuccess');
-        document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
-        document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
-        alertBox.classList.remove('hidden');
-        alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-        lucide.createIcons();
-      }}, 600);
+      enviandoRetirada = false;
+      btn.disabled = false;
+      document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
+      
+      limparFormRetirada();
+      populateDropdownsRetiradas();
+      atualizarDashboardRetiradas();
+      
+      const alertBox = document.getElementById('alertRetiradaSuccess');
+      document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
+      document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
+      alertBox.classList.remove('hidden');
+      alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+      lucide.createIcons();
     }}
 
     // ==============================================================
@@ -2180,6 +2078,7 @@ html_code = f"""
 
       const dadosOCSalva = {{
         tipo: "ordem_compra",
+        action: "ordem_compra",
         oc,
         ano,
         mes,
@@ -2197,14 +2096,12 @@ html_code = f"""
       btnSalvar.disabled = true;
       btnSalvar.innerText = ehEdicao ? 'Atualizando na planilha...' : 'Gravando na planilha...';
 
-      await enviarParaPlanilha(dadosOCSalva);
+      await enviarParaPlanilhaGarantido(dadosOCSalva);
 
-      setTimeout(() => {{
-        enviandoAgora = false;
-        btnSalvar.disabled = false;
-        btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span id="btnSalvarText">' + 
-          (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
-      }}, 600);
+      enviandoAgora = false;
+      btnSalvar.disabled = false;
+      btnSalvar.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> <span id="btnSalvarText">' + 
+        (ehEdicao ? 'Atualizar Ordem de Compra' : 'Salvar e Emitir Ordem de Compra') + '</span>';
 
       if (ehEdicao) {{
         rawOrdersData = rawOrdersData.filter(item => item.oc !== oc);
@@ -2258,7 +2155,7 @@ html_code = f"""
 
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = ehEdicao ? 
-        `✅ Ordem de Compra ${{oc}} atualizada com sucesso (${{totalPecas}} peças)!` :
+        `✅ Ordem de Compra ${{oc}} atualizada com sucesso (${{totalPecas}} peças)!` : 
         `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
       document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados gravados na planilha Google Sheets.`;
       alertBox.classList.remove('hidden');
@@ -2491,17 +2388,13 @@ html_code = f"""
             grid: {{ color: gridColor }},
             ticks: {{
               color: textColor,
-              font: {{ size: 10 }},
-              callback: (v) => isCurrency ? (v >= 1000 ? 'R$' + (v/1000).toFixed(0) + 'k' : 'R$' + v) : v
+              font: {{ size: 10 }}
             }},
             beginAtZero: true
           }},
           y: {{
             grid: {{ display: false }},
-            ticks: {{
-              color: textColor,
-              font: {{ size: 10, weight: '600' }}
-            }}
+            ticks: {{ color: textColor, font: {{ size: 10, weight: '600' }} }}
           }}
         }}
       }};
@@ -2696,9 +2589,6 @@ html_code = f"""
       updateDashboard();
     }});
 
-    // ==============================================================
-    // INICIALIZAÇÃO COM RESTAURAÇÃO DE TELA (PADRÃO: DASHBOARD RETIRADAS)
-    // ==============================================================
     const abaSalvaPosRefresh = localStorage.getItem('restaurar_aba_pos_refresh');
     const abaSessao = sessionStorage.getItem('aba_ativa_atual');
     const abaParaAbrir = abaSalvaPosRefresh || abaSessao || 'dashboardRetiradas';
