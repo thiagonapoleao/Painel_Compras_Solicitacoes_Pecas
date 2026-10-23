@@ -85,7 +85,7 @@ def carregar_catalogo_planilha():
     col_i = df.columns[8] if len(df.columns) > 8 else None
 
     catalogo = []
-    tecnicos_rigorosos = []
+    nomes_coluna_i = []
 
     for _, row in df.iterrows():
         cod = str(row[col_a]).strip() if pd.notna(row[col_a]) else ""
@@ -101,15 +101,15 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
-        # Captura técnicos da Coluna I da aba Base de Dados
+        # Captura nomes da Coluna I da aba Base de Dados (Técnicos / Solicitantes)
         if col_i and pd.notna(row[col_i]):
-            tec = str(row[col_i]).strip()
-            if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel"]:
-                if tec not in tecnicos_rigorosos:
-                    tecnicos_rigorosos.append(tec)
+            nome = str(row[col_i]).strip()
+            if nome and nome.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel", "solicitante"]:
+                if nome not in nomes_coluna_i:
+                    nomes_coluna_i.append(nome)
 
-    tecnicos_rigorosos.sort()
-    return catalogo, tecnicos_rigorosos
+    nomes_coluna_i.sort()
+    return catalogo, nomes_coluna_i
 
 @st.cache_data(ttl=5)
 def obter_dados_ordens_e_proxima_oc():
@@ -222,9 +222,9 @@ def obter_dados_retiradas():
     retiradas.reverse()
     return retiradas
 
-catalogo_pecas, lista_tecnicos_rigorosa = carregar_catalogo_planilha()
+catalogo_pecas, lista_nomes_coluna_i = carregar_catalogo_planilha()
 catalogo_json = json.dumps(catalogo_pecas, ensure_ascii=False)
-tecnicos_coluna_i_json = json.dumps(lista_tecnicos_rigorosa, ensure_ascii=False)
+nomes_coluna_i_json = json.dumps(lista_nomes_coluna_i, ensure_ascii=False)
 total_itens_carregados = len(catalogo_pecas)
 
 ocs_planilha, max_seq_anos = obter_dados_ordens_e_proxima_oc()
@@ -288,7 +288,7 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL -->
+  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL SEM RESTRIÇÃO DE CORS -->
   <iframe name="target_post_frame" id="target_post_frame" style="display:none; width:0; height:0; border:0;"></iframe>
   <form id="hiddenSubmissionForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="target_post_frame" style="display:none;">
     <input type="hidden" name="data" id="hiddenSubmissionData">
@@ -901,9 +901,11 @@ html_code = f"""
               <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
             </div>
 
+            <!-- SOLICITANTE COM PRE-LISTA DA ABA BASE DE DADOS (COLUNA I) -->
             <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
-              <input type="text" id="formSolicitante" placeholder="Ex: Willian Neves, Thiago, Flávio, Samantha" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800">
+              <input list="listaSolicitantes" id="formSolicitante" placeholder="Selecione ou digite o solicitante..." required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <datalist id="listaSolicitantes"></datalist>
             </div>
 
             <div class="md:col-span-3 lg:col-span-6 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200">
@@ -1148,7 +1150,6 @@ html_code = f"""
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
-              <!-- INPUT COM LISTA DE TÉCNICOS CARREGADA AUTOMATICAMENTE -->
               <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione ou digite o técnico..." required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
               <datalist id="listaTecnicos"></datalist>
             </div>
@@ -1284,7 +1285,7 @@ html_code = f"""
 
     const APPS_SCRIPT_URL = "{APPS_SCRIPT_WEBAPP_URL}";
     const catalogoPecas = {catalogo_json};
-    const tecnicosOficiaisColunaI = {tecnicos_coluna_i_json};
+    const nomesColunaI = {nomes_coluna_i_json};
     
     let rawOrdersData = {ocs_planilha_json};
     let maxSeqAnosPlanilha = {max_seq_anos_json};
@@ -1323,28 +1324,45 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // POPULAÇÃO DOS TÉCNICOS NO DATALIST DO FORMULÁRIO E NO DROPDOWN DO FILTRO
-    function inicializarTecnicos() {{
+    // POPULAÇÃO DOS TÉCNICOS / SOLICITANTES DA COLUNA I (BASE DE DADOS)
+    function inicializarNomesColunaI() {{
+      // Datalist do formulário de Retirada
       const dlTec = document.getElementById('listaTecnicos');
-      dlTec.innerHTML = '';
-      tecnicosOficiaisColunaI.forEach(t => {{
-        const opt = document.createElement('option');
-        opt.value = t;
-        dlTec.appendChild(opt);
-      }});
+      if (dlTec) {{
+        dlTec.innerHTML = '';
+        nomesColunaI.forEach(t => {{
+          const opt = document.createElement('option');
+          opt.value = t;
+          dlTec.appendChild(opt);
+        }});
+      }}
 
+      // Datalist do campo Solicitante em Nova Solicitação (OC)
+      const dlSolic = document.getElementById('listaSolicitantes');
+      if (dlSolic) {{
+        dlSolic.innerHTML = '';
+        nomesColunaI.forEach(s => {{
+          const opt = document.createElement('option');
+          opt.value = s;
+          dlSolic.appendChild(opt);
+        }});
+      }}
+
+      // Dropdown de filtro do Dashboard de Retiradas
       const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
-      const currentTec = filterRetTecnico.value;
-      filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
-      tecnicosOficiaisColunaI.forEach(t => {{
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        filterRetTecnico.appendChild(opt);
-      }});
-      if (tecnicosOficiaisColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
+      if (filterRetTecnico) {{
+        const currentTec = filterRetTecnico.value;
+        filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
+        nomesColunaI.forEach(t => {{
+          const opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t;
+          filterRetTecnico.appendChild(opt);
+        }});
+        if (nomesColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
+      }}
     }}
-    inicializarTecnicos();
+    inicializarNomesColunaI();
 
     const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
     const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
@@ -1421,11 +1439,12 @@ html_code = f"""
         btnForm.classList.add('active');
         btnForm.classList.remove('inactive');
         atualizarProximoNumeroOC();
+        inicializarNomesColunaI();
       }} else if (page === 'retirada') {{
         pageRetirada.classList.remove('hidden');
         btnRetirada.classList.add('active');
         btnRetirada.classList.remove('inactive');
-        inicializarTecnicos();
+        inicializarNomesColunaI();
       }}
       lucide.createIcons();
     }}
@@ -1786,7 +1805,7 @@ html_code = f"""
       document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
       
       limparFormRetirada();
-      inicializarTecnicos();
+      inicializarNomesColunaI();
       atualizarDashboardRetiradas();
       
       const alertBox = document.getElementById('alertRetiradaSuccess');
