@@ -202,8 +202,12 @@ def obter_dados_retiradas():
                 try: return int(float(str(v).replace(",", ".")))
                 except: return 1
 
-            retiradas.append({
+            # idx + 2 corresponde exatamente à linha da planilha (linha 1 = cabeçalho)
+            linha_planilha = idx + 2
+
+            rets_item = {
                 "id": str(idx),
+                "linha": linha_planilha,
                 "data": data_val,
                 "tecnico": str(r[cols[1]]).strip() if len(cols) > 1 and pd.notna(r[cols[1]]) else "-",
                 "cliente": str(r[cols[2]]).strip() if len(cols) > 2 and pd.notna(r[cols[2]]) else "-",
@@ -213,7 +217,8 @@ def obter_dados_retiradas():
                 "novaUsada": str(r[cols[6]]).strip() if len(cols) > 6 and pd.notna(r[cols[6]]) else "Nova",
                 "quantidade": to_int(r[cols[7]]) if len(cols) > 7 and pd.notna(r[cols[7]]) else 1,
                 "devolvida": str(r[cols[8]]).strip() if len(cols) > 8 and pd.notna(r[cols[8]]) else "Não"
-            })
+            }
+            retiradas.append(rets_item)
 
     retiradas.reverse()
     return retiradas
@@ -284,7 +289,7 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- MECANISMO DE SUBMISSÃO OCULTA - GARANTE GRAVAÇÃO SEM BLOQUEIO DE CORS -->
+  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL SEM RESTRIÇÃO DE CORS -->
   <iframe name="target_post_frame" id="target_post_frame" style="display:none; width:0; height:0; border:0;"></iframe>
   <form id="hiddenSubmissionForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="target_post_frame" style="display:none;">
     <input type="hidden" name="data" id="hiddenSubmissionData">
@@ -311,7 +316,7 @@ html_code = f"""
       <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex-wrap">
         <button id="navDashboardRetiradas" class="nav-btn active flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboardRetiradas')">
           <i data-lucide="package-search" class="w-4 h-4"></i>
-          Dashboard de Retiradas
+          Dashboard Retiradas
         </button>
         <button id="navDashboard" class="nav-btn inactive flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition" onclick="switchPage('dashboard')">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
@@ -344,7 +349,7 @@ html_code = f"""
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Atualizar Status de Devolução</h3>
-              <p class="text-xs text-slate-500">Gravação em tempo real na planilha Google Sheets</p>
+              <p class="text-xs text-slate-500">Gravação direta na coluna I da planilha</p>
             </div>
           </div>
           <button type="button" onclick="fecharModalBaixa()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
@@ -357,6 +362,7 @@ html_code = f"""
           <p><strong class="text-slate-800">Técnico:</strong> <span id="modalTecnico" class="font-semibold text-slate-700"></span></p>
           <p><strong class="text-slate-800">Peça:</strong> <span id="modalPeca" class="font-bold text-slate-800"></span></p>
           <p><strong class="text-slate-800">Quantidade:</strong> <span id="modalQt" class="font-bold text-rose-600"></span></p>
+          <p class="text-[10px] text-slate-400">Linha física de gravação: <span id="modalLinha" class="font-mono font-semibold"></span></p>
         </div>
 
         <div>
@@ -542,7 +548,7 @@ html_code = f"""
               <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
               Peças Não Devolvidas (Pendências com Técnicos)
             </h2>
-            <p class="text-xs text-rose-500 font-medium">Clique em "Devolver" para dar baixa imediata na planilha</p>
+            <p class="text-xs text-rose-500 font-medium">Clique no botão "Devolver" para dar baixa e gravar na coluna I da planilha</p>
           </div>
           <span id="badgeNaoDevolvidasCount" class="text-xs px-3 py-1 rounded-full bg-rose-100 text-rose-800 font-bold">
             0 pendência(s)
@@ -569,7 +575,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- TABELA GERAL DE TODAS AS RETIRADAS -->
+      <!-- TABELA GERAL DE RETIRADAS -->
       <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-100">
           <div>
@@ -597,7 +603,7 @@ html_code = f"""
                 <th class="py-2.5 px-3">Descrição</th>
                 <th class="py-2.5 px-3 text-center">Condição</th>
                 <th class="py-2.5 px-3 text-center">Qt</th>
-                <th class="py-2.5 px-3 text-center rounded-r-lg">Status Devolução</th>
+                <th class="py-2.5 px-3 text-center rounded-r-lg">Status (Coluna I)</th>
               </tr>
             </thead>
             <tbody id="tableRetiradasGeralBody" class="divide-y divide-slate-100"></tbody>
@@ -657,7 +663,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- CARDS DE KPIS OC -->
+      <!-- CARDS KPIS SOLICITAÇÕES -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
@@ -1359,7 +1365,6 @@ html_code = f"""
           if (!resolvido) {{ resolvido = true; resolve(true); }}
         }};
 
-        // Fallback de tempo limite caso o iframe não dispare onload
         setTimeout(() => {{
           if (!resolvido) {{ resolvido = true; resolve(true); }}
         }}, 3500);
@@ -1480,7 +1485,7 @@ html_code = f"""
     }});
 
     // ==============================================================
-    // FLUXO DE BAIXA / DEVOLUÇÃO DE RETIRADAS
+    // BAIXA / RETORNO DE PEÇAS AO ALMOXARIFADO
     // ==============================================================
     let itemEmBaixa = null;
 
@@ -1493,6 +1498,7 @@ html_code = f"""
       document.getElementById('modalTecnico').innerText = item.tecnico || '-';
       document.getElementById('modalPeca').innerText = (item.codigo || '') + ' - ' + (item.descricao || '');
       document.getElementById('modalQt').innerText = (item.quantidade || 1) + ' un (' + (item.novaUsada || 'Nova') + ')';
+      document.getElementById('modalLinha').innerText = item.linha || 'Localização Inteligente';
       document.getElementById('modalNovoStatus').value = 'Sim';
 
       const modal = document.getElementById('modalBaixaPendencia');
@@ -1522,14 +1528,17 @@ html_code = f"""
       const payloadAtualizacao = {{
         tipo: "atualizar_status_retirada",
         action: "atualizar_status_retirada",
+        linha: itemEmBaixa.linha, // Envia o número da linha física da planilha
         os: String(itemEmBaixa.os || '').trim(),
         codigo: String(itemEmBaixa.codigo || '').trim(),
+        descricao: String(itemEmBaixa.descricao || '').trim(),
+        tecnico: String(itemEmBaixa.tecnico || '').trim(),
         novoStatus: novoStatus
       }};
 
       await enviarParaPlanilhaGarantido(payloadAtualizacao);
 
-      // Atualiza o estado em memória imediatamente
+      // Atualiza os dados em memória local instantaneamente
       itemEmBaixa.devolvida = novoStatus;
       const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
       if (target) target.devolvida = novoStatus;
@@ -1539,7 +1548,7 @@ html_code = f"""
       fecharModalBaixa();
 
       atualizarDashboardRetiradas();
-      alert(`Status da OS ${{itemEmBaixa.os}} atualizado com sucesso para "${{novoStatus}}"!`);
+      alert(`Status gravado na Coluna I da planilha com sucesso: "${{novoStatus}}"!`);
     }}
 
     function atualizarDashboardRetiradas() {{
@@ -1593,7 +1602,7 @@ html_code = f"""
       document.getElementById('kpiRetiradaTecnicos').innerText = new Set(filtrados.map(r => r.tecnico)).size;
       document.getElementById('kpiRetiradaClientes').innerText = new Set(filtrados.map(r => r.cliente)).size;
 
-      // Gráficos
+      // Top 10 Peças Mais Retiradas
       const pecasContagem = {{}};
       filtrados.forEach(r => {{
         const nome = (r.descricao || r.codigo || 'Peça').trim();
@@ -1605,6 +1614,7 @@ html_code = f"""
       chartTopPecasRetiradas.data.datasets[0].data = top10Pecas.map(p => p.qt);
       chartTopPecasRetiradas.update();
 
+      // Retiradas por Técnico
       const tecContagem = {{}};
       filtrados.forEach(r => {{
         const t = (r.tecnico || 'Indefinido').trim();
@@ -1615,7 +1625,7 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela Peças Não Devolvidas
+      // Tabela de Peças Não Devolvidas
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
@@ -1646,7 +1656,7 @@ html_code = f"""
         `).join('');
       }}
 
-      // Tabela Geral
+      // Tabela Geral de Retiradas
       const tbGeral = document.getElementById('tableRetiradasGeralBody');
       if (filtrados.length === 0) {{
         tbGeral.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 font-semibold">Nenhuma retirada encontrada.</td></tr>';
@@ -1758,6 +1768,7 @@ html_code = f"""
 
       rawRetiradasData.unshift({{
         id: String(Date.now()),
+        linha: rawRetiradasData.length + 2,
         data,
         tecnico,
         cliente,
