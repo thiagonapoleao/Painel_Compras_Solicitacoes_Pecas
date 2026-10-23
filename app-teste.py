@@ -101,6 +101,7 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
+        # Captura técnicos da Coluna I da aba Base de Dados
         if col_i and pd.notna(row[col_i]):
             tec = str(row[col_i]).strip()
             if tec and tec.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel"]:
@@ -202,10 +203,9 @@ def obter_dados_retiradas():
                 try: return int(float(str(v).replace(",", ".")))
                 except: return 1
 
-            # idx + 2 corresponde exatamente à linha da planilha (linha 1 = cabeçalho)
             linha_planilha = idx + 2
 
-            rets_item = {
+            retiradas.append({
                 "id": str(idx),
                 "linha": linha_planilha,
                 "data": data_val,
@@ -217,8 +217,7 @@ def obter_dados_retiradas():
                 "novaUsada": str(r[cols[6]]).strip() if len(cols) > 6 and pd.notna(r[cols[6]]) else "Nova",
                 "quantidade": to_int(r[cols[7]]) if len(cols) > 7 and pd.notna(r[cols[7]]) else 1,
                 "devolvida": str(r[cols[8]]).strip() if len(cols) > 8 and pd.notna(r[cols[8]]) else "Não"
-            }
-            retiradas.append(rets_item)
+            })
 
     retiradas.reverse()
     return retiradas
@@ -289,7 +288,7 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL SEM RESTRIÇÃO DE CORS -->
+  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL -->
   <iframe name="target_post_frame" id="target_post_frame" style="display:none; width:0; height:0; border:0;"></iframe>
   <form id="hiddenSubmissionForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="target_post_frame" style="display:none;">
     <input type="hidden" name="data" id="hiddenSubmissionData">
@@ -1149,7 +1148,8 @@ html_code = f"""
 
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Técnico *</label>
-              <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione o técnico cadastrado..." required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+              <!-- INPUT COM LISTA DE TÉCNICOS CARREGADA AUTOMATICAMENTE -->
+              <input list="listaTecnicos" id="retiradaTecnico" placeholder="Selecione ou digite o técnico..." required class="w-full text-sm font-semibold rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
               <datalist id="listaTecnicos"></datalist>
             </div>
 
@@ -1323,20 +1323,17 @@ html_code = f"""
       dlFornecedores.appendChild(opt);
     }});
 
-    // Datalist de técnicos
-    const dlTecnicos = document.getElementById('listaTecnicos');
-    dlTecnicos.innerHTML = '';
-    tecnicosOficiaisColunaI.forEach(t => {{
-      const opt = document.createElement('option');
-      opt.value = t;
-      dlTecnicos.appendChild(opt);
-    }});
+    // POPULAÇÃO DOS TÉCNICOS NO DATALIST DO FORMULÁRIO E NO DROPDOWN DO FILTRO
+    function inicializarTecnicos() {{
+      const dlTec = document.getElementById('listaTecnicos');
+      dlTec.innerHTML = '';
+      tecnicosOficiaisColunaI.forEach(t => {{
+        const opt = document.createElement('option');
+        opt.value = t;
+        dlTec.appendChild(opt);
+      }});
 
-    const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
-    const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
-    const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
-
-    function populateDropdownsRetiradas() {{
+      const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
       const currentTec = filterRetTecnico.value;
       filterRetTecnico.innerHTML = '<option value="ALL">Todos os Técnicos</option>';
       tecnicosOficiaisColunaI.forEach(t => {{
@@ -1347,7 +1344,11 @@ html_code = f"""
       }});
       if (tecnicosOficiaisColunaI.includes(currentTec)) filterRetTecnico.value = currentTec;
     }}
-    populateDropdownsRetiradas();
+    inicializarTecnicos();
+
+    const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
+    const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
+    const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
 
     // ==============================================================
     // ENVIO INFALÍVEL VIA FORMULÁRIO OCULTO COM TARGET IFRAME
@@ -1424,6 +1425,7 @@ html_code = f"""
         pageRetirada.classList.remove('hidden');
         btnRetirada.classList.add('active');
         btnRetirada.classList.remove('inactive');
+        inicializarTecnicos();
       }}
       lucide.createIcons();
     }}
@@ -1498,7 +1500,7 @@ html_code = f"""
       document.getElementById('modalTecnico').innerText = item.tecnico || '-';
       document.getElementById('modalPeca').innerText = (item.codigo || '') + ' - ' + (item.descricao || '');
       document.getElementById('modalQt').innerText = (item.quantidade || 1) + ' un (' + (item.novaUsada || 'Nova') + ')';
-      document.getElementById('modalLinha').innerText = item.linha || 'Localização Inteligente';
+      document.getElementById('modalLinha').innerText = item.linha || 'Busca Inteligente';
       document.getElementById('modalNovoStatus').value = 'Sim';
 
       const modal = document.getElementById('modalBaixaPendencia');
@@ -1528,7 +1530,7 @@ html_code = f"""
       const payloadAtualizacao = {{
         tipo: "atualizar_status_retirada",
         action: "atualizar_status_retirada",
-        linha: itemEmBaixa.linha, // Envia o número da linha física da planilha
+        linha: itemEmBaixa.linha,
         os: String(itemEmBaixa.os || '').trim(),
         codigo: String(itemEmBaixa.codigo || '').trim(),
         descricao: String(itemEmBaixa.descricao || '').trim(),
@@ -1538,7 +1540,6 @@ html_code = f"""
 
       await enviarParaPlanilhaGarantido(payloadAtualizacao);
 
-      // Atualiza os dados em memória local instantaneamente
       itemEmBaixa.devolvida = novoStatus;
       const target = rawRetiradasData.find(r => String(r.id) === String(itemEmBaixa.id));
       if (target) target.devolvida = novoStatus;
@@ -1785,7 +1786,7 @@ html_code = f"""
       document.getElementById('btnSalvarRetiradaText').innerText = 'Gravar Retirada de Peça';
       
       limparFormRetirada();
-      populateDropdownsRetiradas();
+      inicializarTecnicos();
       atualizarDashboardRetiradas();
       
       const alertBox = document.getElementById('alertRetiradaSuccess');
