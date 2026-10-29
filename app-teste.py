@@ -128,6 +128,7 @@ def obter_dados_ordens_e_proxima_oc():
         col_prod = df.columns[2] if len(df.columns) > 2 else ""
         col_cat = df.columns[3] if len(df.columns) > 3 else ""
         col_data = df.columns[4] if len(df.columns) > 4 else ""
+        col_mes = df.columns[5] if len(df.columns) > 5 else ""
         col_custo = df.columns[6] if len(df.columns) > 6 else ""
         col_qt = df.columns[7] if len(df.columns) > 7 else ""
         col_qt_aprov = df.columns[8] if len(df.columns) > 8 else ""
@@ -161,11 +162,13 @@ def obter_dados_ordens_e_proxima_oc():
             qt_val = int(to_float(r.get(col_qt, 1)))
             qt_ap = int(to_float(r.get(col_qt_aprov, qt_val)))
             venda_u = to_float(r.get(col_venda, 0))
+            mes_val = str(r.get(col_mes, "")).strip()
 
             ocs_existentes.append({
                 "oc": oc_val,
                 "seq_num": seq_num,
                 "ano": ano_str,
+                "mes": mes_val,
                 "data": str(r.get(col_data, "")).strip(),
                 "solicitante": solic,
                 "fornecedor": str(r.get(col_forn, "")).strip(),
@@ -734,6 +737,37 @@ html_code = f"""
             <span id="kpiAvgCost" class="text-xl font-bold tracking-tight text-slate-800">R$ 0,00</span>
             <p class="text-[11px] text-slate-400 mt-0.5">Média por pedido</p>
           </div>
+        </div>
+      </section>
+
+      <!-- NOVOS GRÁFICOS: EVOLUÇÃO MENSAL EM QUANTIDADE E VALOR -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i>
+                Peças Solicitadas por Mês (Quantidade)
+              </h3>
+              <p class="text-xs text-slate-400">Total de peças solicitadas e atendidas por mês</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Mensal (Unidades)</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartPecasPorMesQt"></canvas></div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-emerald-600"></i>
+                Valor Solicitado por Mês (R$ Custo Total)
+              </h3>
+              <p class="text-xs text-slate-400">Impacto financeiro acumulado das ordens a cada mês</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Mensal (R$)</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartPecasPorMesValor"></canvas></div>
         </div>
       </section>
 
@@ -1326,7 +1360,6 @@ html_code = f"""
 
     // POPULAÇÃO DOS TÉCNICOS / SOLICITANTES DA COLUNA I (BASE DE DADOS)
     function inicializarNomesColunaI() {{
-      // Datalist do formulário de Retirada
       const dlTec = document.getElementById('listaTecnicos');
       if (dlTec) {{
         dlTec.innerHTML = '';
@@ -1337,7 +1370,6 @@ html_code = f"""
         }});
       }}
 
-      // Datalist do campo Solicitante em Nova Solicitação (OC)
       const dlSolic = document.getElementById('listaSolicitantes');
       if (dlSolic) {{
         dlSolic.innerHTML = '';
@@ -1348,7 +1380,6 @@ html_code = f"""
         }});
       }}
 
-      // Dropdown de filtro do Dashboard de Retiradas
       const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
       if (filterRetTecnico) {{
         const currentTec = filterRetTecnico.value;
@@ -1622,7 +1653,6 @@ html_code = f"""
       document.getElementById('kpiRetiradaTecnicos').innerText = new Set(filtrados.map(r => r.tecnico)).size;
       document.getElementById('kpiRetiradaClientes').innerText = new Set(filtrados.map(r => r.cliente)).size;
 
-      // Top 10 Peças Mais Retiradas
       const pecasContagem = {{}};
       filtrados.forEach(r => {{
         const nome = (r.descricao || r.codigo || 'Peça').trim();
@@ -1634,7 +1664,6 @@ html_code = f"""
       chartTopPecasRetiradas.data.datasets[0].data = top10Pecas.map(p => p.qt);
       chartTopPecasRetiradas.update();
 
-      // Retiradas por Técnico
       const tecContagem = {{}};
       filtrados.forEach(r => {{
         const t = (r.tecnico || 'Indefinido').trim();
@@ -1645,7 +1674,6 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela de Peças Não Devolvidas
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
@@ -1676,7 +1704,6 @@ html_code = f"""
         `).join('');
       }}
 
-      // Tabela Geral de Retiradas
       const tbGeral = document.getElementById('tableRetiradasGeralBody');
       if (filtrados.length === 0) {{
         tbGeral.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 font-semibold">Nenhuma retirada encontrada.</td></tr>';
@@ -2431,6 +2458,107 @@ html_code = f"""
       }};
     }}
 
+    // NOVOS GRÁFICOS: EVOLUÇÃO MENSAL
+    const chartPecasPorMesQt = new Chart(document.getElementById('chartPecasPorMesQt').getContext('2d'), {{
+      type: 'bar',
+      data: {{
+        labels: [],
+        datasets: [
+          {{
+            label: 'Qt Solicitada',
+            data: [],
+            backgroundColor: 'rgba(2, 132, 199, 0.85)',
+            borderRadius: 6
+          }},
+          {{
+            label: 'Qt Atendida',
+            data: [],
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderRadius: 6
+          }}
+        ]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{
+            display: true,
+            position: 'top',
+            labels: {{ font: {{ family: 'Inter', size: 11, weight: '600' }}, color: '#334155', boxWidth: 12 }}
+          }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => `${{context.dataset.label}}: ${{context.raw.toLocaleString('pt-BR')}} un`
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => v ? v.toLocaleString('pt-BR') : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
+    }});
+
+    const chartPecasPorMesValor = new Chart(document.getElementById('chartPecasPorMesValor').getContext('2d'), {{
+      type: 'bar',
+      data: {{
+        labels: [],
+        datasets: [{{
+          label: 'Valor Total (R$)',
+          data: [],
+          backgroundColor: 'rgba(16, 185, 129, 0.85)',
+          borderRadius: 8
+        }}]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => 'Custo Total: ' + formatCurrency(context.raw)
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => v ? formatCurrency(v) : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
+    }});
+
     const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
@@ -2475,6 +2603,26 @@ html_code = f"""
       }}
     }});
 
+    function normalizarMes(item) {{
+      if (item.mes && item.mes.trim()) {{
+        return item.mes.trim();
+      }}
+      if (item.data) {{
+        const partes = item.data.split(/[-/]/);
+        if (partes.length >= 2) {{
+          let m = parseInt(partes[1], 10);
+          if (partes[0].length === 4) {{
+            m = parseInt(partes[1], 10);
+          }} else if (partes[2] && partes[2].length === 4) {{
+            m = parseInt(partes[1], 10);
+          }}
+          const nomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+          if (!isNaN(m) && m >= 1 && m <= 12) return nomes[m - 1];
+        }}
+      }}
+      return "Outros";
+    }}
+
     function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
@@ -2511,6 +2659,40 @@ html_code = f"""
       kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
+
+      // CÁLCULO MENSAL: QUANTIDADE E VALOR
+      const mesesOrdem = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
+      const dadosPorMes = {{}};
+      mesesOrdem.forEach(m => {{
+        dadosPorMes[m] = {{ qtTotal: 0, qtAtendida: 0, valorTotal: 0 }};
+      }});
+
+      filtered.forEach(item => {{
+        const m = normalizarMes(item);
+        if (!dadosPorMes[m]) {{
+          dadosPorMes[m] = {{ qtTotal: 0, qtAtendida: 0, valorTotal: 0 }};
+        }}
+        dadosPorMes[m].qtTotal += (item.qt || 0);
+        dadosPorMes[m].qtAtendida += (item.qtAprovada || 0);
+        dadosPorMes[m].valorTotal += (item.custoTotal || 0);
+      }});
+
+      let mesesAtivos = mesesOrdem.filter(m => (dadosPorMes[m].qtTotal > 0 || dadosPorMes[m].valorTotal > 0));
+      if (mesesAtivos.length === 0) {{
+        mesesAtivos = mesesOrdem.slice(0, 6);
+      }}
+
+      chartPecasPorMesQt.data.labels = mesesAtivos;
+      chartPecasPorMesQt.data.datasets[0].data = mesesAtivos.map(m => dadosPorMes[m].qtTotal);
+      chartPecasPorMesQt.data.datasets[1].data = mesesAtivos.map(m => dadosPorMes[m].qtAtendida);
+      chartPecasPorMesQt.update();
+
+      chartPecasPorMesValor.data.labels = mesesAtivos;
+      chartPecasPorMesValor.data.datasets[0].data = mesesAtivos.map(m => dadosPorMes[m].valorTotal);
+      chartPecasPorMesValor.update();
 
       const pecasAgrupadas = {{}};
       filtered.forEach(item => {{
