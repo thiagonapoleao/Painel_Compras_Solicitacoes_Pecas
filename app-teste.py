@@ -123,18 +123,20 @@ def obter_dados_ordens_e_proxima_oc():
     maior_por_ano = {}
 
     if df is not None and not df.empty:
-        col_oc = df.columns[0] if len(df.columns) > 0 else ""
-        col_cod = df.columns[1] if len(df.columns) > 1 else ""
-        col_prod = df.columns[2] if len(df.columns) > 2 else ""
-        col_cat = df.columns[3] if len(df.columns) > 3 else ""
-        col_data = df.columns[4] if len(df.columns) > 4 else ""
-        col_mes = df.columns[5] if len(df.columns) > 5 else ""
-        col_g_custo = df.columns[6] if len(df.columns) > 6 else ""
-        col_qt = df.columns[7] if len(df.columns) > 7 else ""
-        col_qt_aprov = df.columns[8] if len(df.columns) > 8 else ""
-        col_venda = df.columns[10] if len(df.columns) > 10 else ""
-        col_forn = df.columns[11] if len(df.columns) > 11 else ""
-        col_obs = df.columns[13] if len(df.columns) > 13 else ""
+        # Mapeamento pelas letras das colunas da planilha (índice 0-based):
+        # A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, N:13
+        col_oc = df.columns[0] if len(df.columns) > 0 else ""       # Coluna A
+        col_cod = df.columns[1] if len(df.columns) > 1 else ""      # Coluna B
+        col_prod = df.columns[2] if len(df.columns) > 2 else ""     # Coluna C
+        col_cat = df.columns[3] if len(df.columns) > 3 else ""      # Coluna D
+        col_data = df.columns[4] if len(df.columns) > 4 else ""     # Coluna E
+        col_mes = df.columns[5] if len(df.columns) > 5 else ""      # Coluna F
+        col_g_custo = df.columns[6] if len(df.columns) > 6 else ""  # Coluna G (Custo / Valor Compras)
+        col_qt = df.columns[7] if len(df.columns) > 7 else ""       # Coluna H
+        col_qt_aprov = df.columns[8] if len(df.columns) > 8 else "" # Coluna I
+        col_venda = df.columns[10] if len(df.columns) > 10 else ""  # Coluna K
+        col_forn = df.columns[11] if len(df.columns) > 11 else ""   # Coluna L
+        col_obs = df.columns[13] if len(df.columns) > 13 else ""    # Coluna N
 
         for _, r in df.iterrows():
             oc_val = str(r[col_oc]).strip() if pd.notna(r[col_oc]) else ""
@@ -158,6 +160,7 @@ def obter_dados_ordens_e_proxima_oc():
                 try: return float(s)
                 except: return 0.0
 
+            # Lendo com precisão o valor monetário da Coluna G
             valor_coluna_g = to_float(r.get(col_g_custo, 0))
             qt_val = int(to_float(r.get(col_qt, 1)))
             qt_ap = int(to_float(r.get(col_qt_aprov, qt_val)))
@@ -180,7 +183,7 @@ def obter_dados_ordens_e_proxima_oc():
                 "qtNaoAprovada": max(0, qt_val - qt_ap),
                 "custoUnit": (valor_coluna_g / qt_ap) if qt_ap > 0 else valor_coluna_g,
                 "vendaUnit": venda_u if venda_u > 0 else ((valor_coluna_g / qt_ap * 1.70) if qt_ap > 0 else 0),
-                "custoTotal": valor_coluna_g
+                "custoTotal": valor_coluna_g  # Valor Compras (Custo) direto da Coluna G
             })
 
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
@@ -958,27 +961,25 @@ html_code = f"""
                 <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
                 Adicionar Peça à Ordem de Compra
               </h3>
-              <span class="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                🔒 Apenas itens cadastrados na base são aceitos
-              </span>
+              <span class="text-[11px] text-slate-500">Listas sincronizadas com as Colunas A e B da planilha</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-800 mb-1">Código da Peça *</label>
-                <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo(false)" onchange="aoMudarCodigo(true)" onblur="aoMudarCodigo(true)" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaCodigosPecas"></datalist>
               </div>
 
               <div class="col-span-1 md:col-span-2">
                 <label class="block text-xs font-bold text-slate-800 mb-1">Descrição da Peça / Produto *</label>
-                <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao(false)" onchange="aoMudarDescricao(true)" onblur="aoMudarDescricao(true)" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaDescricoesPecas"></datalist>
               </div>
 
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria</label>
-                <input type="text" id="itemCategoria" readonly placeholder="Preenchimento automático" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 cursor-not-allowed">
+                <input type="text" id="itemCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
               </div>
 
               <div>
@@ -1846,7 +1847,7 @@ html_code = f"""
     }}
 
     // ==============================================================
-    // OC: FORMULÁRIO, PREVIEWS & GRAVAÇÃO COM VALIDAÇÃO ESTRITA
+    // OC: FORMULÁRIO, PREVIEWS & GRAVAÇÃO
     // ==============================================================
     function aoMudarFornecedorPrincipal() {{
       const forn = document.getElementById('formFornecedor').value.trim();
@@ -1861,53 +1862,37 @@ html_code = f"""
       }}
     }}
 
-    function aoMudarCodigo(validarObrigatorio = false) {{
-      const inputCodigo = document.getElementById('itemCodigoPeca');
-      const codDigitado = inputCodigo.value.trim();
+    function aoMudarCodigo() {{
+      const codDigitado = document.getElementById('itemCodigoPeca').value.trim();
       if (!codDigitado) return;
 
-      const itemAchado = catalogoPecas.find(p => p.codigo && p.codigo.trim().toLowerCase() === codDigitado.toLowerCase());
+      const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
-        inputCodigo.value = itemAchado.codigo;
         document.getElementById('itemPeca').value = itemAchado.descricao;
-        document.getElementById('itemCategoria').value = itemAchado.categoria || 'Geral';
+        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
 
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
         }}
         calcItemPreview();
-      }} else if (validarObrigatorio) {{
-        alert('⚠️ Peça não encontrada!\nO código digitado não consta na base de dados. Por favor, selecione apenas itens cadastrados na pré-lista.');
-        inputCodigo.value = '';
-        document.getElementById('itemPeca').value = '';
-        document.getElementById('itemCategoria').value = '';
-        inputCodigo.focus();
       }}
     }}
 
-    function aoMudarDescricao(validarObrigatorio = false) {{
-      const inputDesc = document.getElementById('itemPeca');
-      const descDigitada = inputDesc.value.trim();
+    function aoMudarDescricao() {{
+      const descDigitada = document.getElementById('itemPeca').value.trim();
       if (!descDigitada) return;
 
-      const itemAchado = catalogoPecas.find(p => p.descricao && p.descricao.trim().toLowerCase() === descDigitada.toLowerCase());
+      const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
-        inputDesc.value = itemAchado.descricao;
         document.getElementById('itemCodigoPeca').value = itemAchado.codigo;
-        document.getElementById('itemCategoria').value = itemAchado.categoria || 'Geral';
+        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
 
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
         }}
         calcItemPreview();
-      }} else if (validarObrigatorio) {{
-        alert('⚠️ Peça não encontrada!\nA descrição digitada não consta na base de dados. Por favor, selecione apenas itens cadastrados na pré-lista.');
-        inputDesc.value = '';
-        document.getElementById('itemCodigoPeca').value = '';
-        document.getElementById('itemCategoria').value = '';
-        inputDesc.focus();
       }}
     }}
 
@@ -1937,47 +1922,27 @@ html_code = f"""
         return;
       }}
 
-      const inputCodigo = document.getElementById('itemCodigoPeca');
-      const inputDesc = document.getElementById('itemPeca');
-      const codigoPeca = inputCodigo.value.trim().toUpperCase();
-      const peca = inputDesc.value.trim().toUpperCase();
-
-      if (!codigoPeca || !peca) {{
-        alert('Por favor, informe o Código e a Descrição da Peça selecionando da pré-lista.');
-        inputCodigo.focus();
-        return;
-      }}
-
-      // Validação estrita: trava caso a peça não exista na pré-lista carregada do catálogo
-      const pecaValida = catalogoPecas.find(p => 
-        (p.codigo && p.codigo.trim().toUpperCase() === codigoPeca) &&
-        (p.descricao && p.descricao.trim().toUpperCase() === peca)
-      );
-
-      if (!pecaValida) {{
-        alert('⛔ Bloqueio de Segurança:\nApenas peças cadastradas na pré-lista da aba "Base de Dados" são aceitas. Selecione um item válido na listagem.');
-        inputCodigo.value = '';
-        inputDesc.value = '';
-        document.getElementById('itemCategoria').value = '';
-        inputCodigo.focus();
-        return;
-      }}
-
-      const categoria = pecaValida.categoria || document.getElementById('itemCategoria').value.trim() || 'Geral';
+      const codigoPeca = document.getElementById('itemCodigoPeca').value.trim().toUpperCase();
+      const peca = document.getElementById('itemPeca').value.trim().toUpperCase();
+      const categoria = document.getElementById('itemCategoria').value.trim() || 'Geral';
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       const qtAprovada = parseInt(document.getElementById('itemQtAprovada').value) || 0;
       const qtNaoAprovada = parseInt(document.getElementById('itemQtNaoAprovada').value) || 0;
       const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
       const vendaUnit = custoUnit * 1.70;
 
+      if (!codigoPeca || !peca) {{
+        alert('Por favor, informe ao menos o Código e a Descrição da Peça.');
+        return;
+      }}
       if (qt <= 0) {{
         alert('A Quantidade Solicitada deve ser maior que zero.');
         return;
       }}
 
       itensDaOrdemAtual.push({{
-        codigoPeca: pecaValida.codigo,
-        peca: pecaValida.descricao,
+        codigoPeca,
+        peca,
         fornecedor: fornecedorPrincipal,
         categoria,
         qt,
@@ -2496,7 +2461,7 @@ html_code = f"""
       }};
     }}
 
-    // GRÁFICOS: EVOLUÇÃO MENSAL
+    // NOVOS GRÁFICOS: EVOLUÇÃO MENSAL
     const chartPecasPorMesQt = new Chart(document.getElementById('chartPecasPorMesQt').getContext('2d'), {{
       type: 'bar',
       data: {{
@@ -2678,6 +2643,7 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
+      // Soma estrita do Custo vindo da Coluna G
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
@@ -2698,6 +2664,7 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
+      // CÁLCULO MENSAL: QUANTIDADE E VALOR (COLUNA G)
       const mesesOrdem = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
