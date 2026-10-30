@@ -123,18 +123,20 @@ def obter_dados_ordens_e_proxima_oc():
     maior_por_ano = {}
 
     if df is not None and not df.empty:
-        col_oc = df.columns[0]
-        col_cod = df.columns[1] if len(df.columns) > 1 else ""
-        col_prod = df.columns[2] if len(df.columns) > 2 else ""
-        col_cat = df.columns[3] if len(df.columns) > 3 else ""
-        col_data = df.columns[4] if len(df.columns) > 4 else ""
-        col_mes = df.columns[5] if len(df.columns) > 5 else ""
-        col_custo = df.columns[6] if len(df.columns) > 6 else ""
-        col_qt = df.columns[7] if len(df.columns) > 7 else ""
-        col_qt_aprov = df.columns[8] if len(df.columns) > 8 else ""
-        col_venda = df.columns[10] if len(df.columns) > 10 else ""
-        col_forn = df.columns[11] if len(df.columns) > 11 else ""
-        col_obs = df.columns[13] if len(df.columns) > 13 else ""
+        # Mapeamento pelas letras das colunas da planilha (índice 0-based):
+        # A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9, K:10, L:11, M:12, N:13
+        col_oc = df.columns[0] if len(df.columns) > 0 else ""       # Coluna A
+        col_cod = df.columns[1] if len(df.columns) > 1 else ""      # Coluna B
+        col_prod = df.columns[2] if len(df.columns) > 2 else ""     # Coluna C
+        col_cat = df.columns[3] if len(df.columns) > 3 else ""      # Coluna D
+        col_data = df.columns[4] if len(df.columns) > 4 else ""     # Coluna E
+        col_mes = df.columns[5] if len(df.columns) > 5 else ""      # Coluna F
+        col_g_custo = df.columns[6] if len(df.columns) > 6 else ""  # Coluna G (Custo / Valor Compras)
+        col_qt = df.columns[7] if len(df.columns) > 7 else ""       # Coluna H
+        col_qt_aprov = df.columns[8] if len(df.columns) > 8 else "" # Coluna I
+        col_venda = df.columns[10] if len(df.columns) > 10 else ""  # Coluna K
+        col_forn = df.columns[11] if len(df.columns) > 11 else ""   # Coluna L
+        col_obs = df.columns[13] if len(df.columns) > 13 else ""    # Coluna N
 
         for _, r in df.iterrows():
             oc_val = str(r[col_oc]).strip() if pd.notna(r[col_oc]) else ""
@@ -158,7 +160,8 @@ def obter_dados_ordens_e_proxima_oc():
                 try: return float(s)
                 except: return 0.0
 
-            custo_u = to_float(r.get(col_custo, 0))
+            # Lendo com precisão o valor monetário da Coluna G
+            valor_coluna_g = to_float(r.get(col_g_custo, 0))
             qt_val = int(to_float(r.get(col_qt, 1)))
             qt_ap = int(to_float(r.get(col_qt_aprov, qt_val)))
             venda_u = to_float(r.get(col_venda, 0))
@@ -178,9 +181,9 @@ def obter_dados_ordens_e_proxima_oc():
                 "qt": qt_val,
                 "qtAprovada": qt_ap,
                 "qtNaoAprovada": max(0, qt_val - qt_ap),
-                "custoUnit": custo_u,
-                "vendaUnit": venda_u if venda_u > 0 else (custo_u * 1.70),
-                "custoTotal": qt_ap * custo_u
+                "custoUnit": (valor_coluna_g / qt_ap) if qt_ap > 0 else valor_coluna_g,
+                "vendaUnit": venda_u if venda_u > 0 else ((valor_coluna_g / qt_ap * 1.70) if qt_ap > 0 else 0),
+                "custoTotal": valor_coluna_g  # Valor Compras (Custo) direto da Coluna G
             })
 
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
@@ -674,7 +677,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiTotalCost" class="text-xl font-bold tracking-tight text-amber-600">R$ 0,00</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Soma da coluna Custo</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Soma direta da Coluna G</p>
           </div>
         </div>
 
@@ -740,7 +743,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- NOVOS GRÁFICOS: EVOLUÇÃO MENSAL EM QUANTIDADE E VALOR -->
+      <!-- GRÁFICOS: EVOLUÇÃO MENSAL EM QUANTIDADE E VALOR -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -763,7 +766,7 @@ html_code = f"""
                 <i data-lucide="line-chart" class="w-4 h-4 text-emerald-600"></i>
                 Valor Solicitado por Mês (R$ Custo Total)
               </h3>
-              <p class="text-xs text-slate-400">Impacto financeiro acumulado das ordens a cada mês</p>
+              <p class="text-xs text-slate-400">Impacto financeiro acumulado das ordens a cada mês (Coluna G)</p>
             </div>
             <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Mensal (R$)</span>
           </div>
@@ -771,7 +774,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- GRÁFICOS SOLICITAÇÕES -->
+      <!-- GRÁFICOS TOP 10 SOLICITAÇÕES -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -822,7 +825,7 @@ html_code = f"""
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição e Custo Total</p>
+            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição e Custo Total (Coluna G)</p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -1005,7 +1008,7 @@ html_code = f"""
               </div>
 
               <div class="col-span-1 md:col-span-2">
-                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total</label>
+                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total (Coluna G)</label>
                 <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
               </div>
 
@@ -2640,6 +2643,7 @@ html_code = f"""
 
       activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
 
+      // Soma estrita do Custo vindo da Coluna G
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
       const totalAtendidas = filtered.reduce((acc, cur) => acc + (cur.qtAprovada || 0), 0);
@@ -2660,7 +2664,7 @@ html_code = f"""
       kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
       kpiAvgCost.innerText = formatCurrency(avgCost);
 
-      // CÁLCULO MENSAL: QUANTIDADE E VALOR
+      // CÁLCULO MENSAL: QUANTIDADE E VALOR (COLUNA G)
       const mesesOrdem = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
