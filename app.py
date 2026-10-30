@@ -101,7 +101,6 @@ def carregar_catalogo_planilha():
                 "fornecedor": forn
             })
 
-        # Captura nomes da Coluna I da aba Base de Dados (Técnicos / Solicitantes)
         if col_i and pd.notna(row[col_i]):
             nome = str(row[col_i]).strip()
             if nome and nome.lower() not in ["nan", "técnico", "tecnico", "nome", "responsável", "responsavel", "solicitante"]:
@@ -123,12 +122,13 @@ def obter_dados_ordens_e_proxima_oc():
     maior_por_ano = {}
 
     if df is not None and not df.empty:
-        col_oc = df.columns[0]
+        col_oc = df.columns[0] if len(df.columns) > 0 else ""
         col_cod = df.columns[1] if len(df.columns) > 1 else ""
         col_prod = df.columns[2] if len(df.columns) > 2 else ""
         col_cat = df.columns[3] if len(df.columns) > 3 else ""
         col_data = df.columns[4] if len(df.columns) > 4 else ""
-        col_custo = df.columns[6] if len(df.columns) > 6 else ""
+        col_mes = df.columns[5] if len(df.columns) > 5 else ""
+        col_g_custo = df.columns[6] if len(df.columns) > 6 else ""
         col_qt = df.columns[7] if len(df.columns) > 7 else ""
         col_qt_aprov = df.columns[8] if len(df.columns) > 8 else ""
         col_venda = df.columns[10] if len(df.columns) > 10 else ""
@@ -157,15 +157,17 @@ def obter_dados_ordens_e_proxima_oc():
                 try: return float(s)
                 except: return 0.0
 
-            custo_u = to_float(r.get(col_custo, 0))
+            valor_coluna_g = to_float(r.get(col_g_custo, 0))
             qt_val = int(to_float(r.get(col_qt, 1)))
             qt_ap = int(to_float(r.get(col_qt_aprov, qt_val)))
             venda_u = to_float(r.get(col_venda, 0))
+            mes_val = str(r.get(col_mes, "")).strip()
 
             ocs_existentes.append({
                 "oc": oc_val,
                 "seq_num": seq_num,
                 "ano": ano_str,
+                "mes": mes_val,
                 "data": str(r.get(col_data, "")).strip(),
                 "solicitante": solic,
                 "fornecedor": str(r.get(col_forn, "")).strip(),
@@ -175,9 +177,9 @@ def obter_dados_ordens_e_proxima_oc():
                 "qt": qt_val,
                 "qtAprovada": qt_ap,
                 "qtNaoAprovada": max(0, qt_val - qt_ap),
-                "custoUnit": custo_u,
-                "vendaUnit": venda_u if venda_u > 0 else (custo_u * 1.70),
-                "custoTotal": qt_ap * custo_u
+                "custoUnit": (valor_coluna_g / qt_ap) if qt_ap > 0 else valor_coluna_g,
+                "vendaUnit": venda_u if venda_u > 0 else ((valor_coluna_g / qt_ap * 1.70) if qt_ap > 0 else 0),
+                "custoTotal": valor_coluna_g
             })
 
     ocs_existentes.sort(key=lambda x: (x.get("ano", "0000"), x.get("seq_num", 0), x.get("oc", "")), reverse=True)
@@ -288,7 +290,6 @@ html_code = f"""
 </head>
 <body class="bg-slate-100 min-h-screen">
 
-  <!-- FORMULÁRIO OCULTO PARA POST INFALÍVEL SEM RESTRIÇÃO DE CORS -->
   <iframe name="target_post_frame" id="target_post_frame" style="display:none; width:0; height:0; border:0;"></iframe>
   <form id="hiddenSubmissionForm" action="{APPS_SCRIPT_WEBAPP_URL}" method="POST" target="target_post_frame" style="display:none;">
     <input type="hidden" name="data" id="hiddenSubmissionData">
@@ -433,7 +434,7 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- CARDS DE KPIS RETIRADAS -->
+      <!-- CARDS KPIS RETIRADAS -->
       <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div class="kpi-card p-4 rounded-2xl shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between">
@@ -671,7 +672,7 @@ html_code = f"""
           </div>
           <div class="mt-3">
             <span id="kpiTotalCost" class="text-xl font-bold tracking-tight text-amber-600">R$ 0,00</span>
-            <p class="text-[11px] text-slate-400 mt-0.5">Soma da coluna Custo</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Soma direta da Coluna G</p>
           </div>
         </div>
 
@@ -737,7 +738,38 @@ html_code = f"""
         </div>
       </section>
 
-      <!-- GRÁFICOS SOLICITAÇÕES -->
+      <!-- GRÁFICOS: EVOLUÇÃO MENSAL EM QUANTIDADE E VALOR -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i>
+                Peças Solicitadas por Mês (Quantidade)
+              </h3>
+              <p class="text-xs text-slate-400">Total de peças solicitadas e atendidas por mês</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Mensal (Unidades)</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartPecasPorMesQt"></canvas></div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-emerald-600"></i>
+                Valor Solicitado por Mês (R$ Custo Total)
+              </h3>
+              <p class="text-xs text-slate-400">Impacto financeiro acumulado das ordens a cada mês (Coluna G)</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Mensal (R$)</span>
+          </div>
+          <div class="relative h-80"><canvas id="chartPecasPorMesValor"></canvas></div>
+        </div>
+      </section>
+
+      <!-- GRÁFICOS TOP 10 SOLICITAÇÕES -->
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div class="flex items-center justify-between mb-3">
@@ -788,7 +820,7 @@ html_code = f"""
               <i data-lucide="table" class="w-4 h-4 text-blue-500"></i>
               Resumo Detalhado por Peça Solicitada
             </h2>
-            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição e Custo Total</p>
+            <p class="text-xs text-slate-500">Consolidado com Código da Peça, Descrição e Custo Total (Coluna G)</p>
           </div>
 
           <div class="flex items-center gap-3">
@@ -901,7 +933,6 @@ html_code = f"""
               <input type="date" id="formData" required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
             </div>
 
-            <!-- SOLICITANTE COM PRE-LISTA DA ABA BASE DE DADOS (COLUNA I) -->
             <div class="lg:col-span-2">
               <label class="block text-xs font-semibold text-slate-700 mb-1">Solicitante *</label>
               <input list="listaSolicitantes" id="formSolicitante" placeholder="Selecione ou digite o solicitante..." required class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -924,25 +955,27 @@ html_code = f"""
                 <i data-lucide="plus-circle" class="w-4 h-4 text-blue-600"></i>
                 Adicionar Peça à Ordem de Compra
               </h3>
-              <span class="text-[11px] text-slate-500">Listas sincronizadas com as Colunas A e B da planilha</span>
+              <span class="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                🔒 Apenas itens cadastrados na base são aceitos
+              </span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-800 mb-1">Código da Peça *</label>
-                <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo()" onchange="aoMudarCodigo()" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <input list="listaCodigosPecas" id="itemCodigoPeca" placeholder="Clique ou digite o código..." oninput="aoMudarCodigo(false)" onchange="aoMudarCodigo(true)" onblur="aoMudarCodigo(true)" class="w-full text-sm font-mono font-bold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaCodigosPecas"></datalist>
               </div>
 
               <div class="col-span-1 md:col-span-2">
                 <label class="block text-xs font-bold text-slate-800 mb-1">Descrição da Peça / Produto *</label>
-                <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao()" onchange="aoMudarDescricao()" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+                <input list="listaDescricoesPecas" id="itemPeca" placeholder="Clique ou digite a descrição da peça..." oninput="aoMudarDescricao(false)" onchange="aoMudarDescricao(true)" onblur="aoMudarDescricao(true)" class="w-full text-sm font-semibold rounded-xl border border-blue-300 bg-white px-3.5 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
                 <datalist id="listaDescricoesPecas"></datalist>
               </div>
 
               <div>
                 <label class="block text-xs font-semibold text-slate-700 mb-1">Categoria</label>
-                <input type="text" id="itemCategoria" placeholder="Ex: 8 PEÇAS, Multi Bebidas" class="w-full text-sm rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800">
+                <input type="text" id="itemCategoria" readonly placeholder="Preenchimento automático" class="w-full text-sm rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-slate-700 cursor-not-allowed">
               </div>
 
               <div>
@@ -971,7 +1004,7 @@ html_code = f"""
               </div>
 
               <div class="col-span-1 md:col-span-2">
-                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total</label>
+                <label class="block text-xs font-semibold text-amber-700 mb-1">Subtotal Custo Total (Coluna G)</label>
                 <input type="text" id="itemCustoSubtotalPreview" readonly value="R$ 0,00" class="w-full text-sm font-bold rounded-xl border border-amber-300 bg-amber-50/60 px-3 py-2 text-amber-900 cursor-not-allowed">
               </div>
 
@@ -1326,7 +1359,6 @@ html_code = f"""
 
     // POPULAÇÃO DOS TÉCNICOS / SOLICITANTES DA COLUNA I (BASE DE DADOS)
     function inicializarNomesColunaI() {{
-      // Datalist do formulário de Retirada
       const dlTec = document.getElementById('listaTecnicos');
       if (dlTec) {{
         dlTec.innerHTML = '';
@@ -1337,7 +1369,6 @@ html_code = f"""
         }});
       }}
 
-      // Datalist do campo Solicitante em Nova Solicitação (OC)
       const dlSolic = document.getElementById('listaSolicitantes');
       if (dlSolic) {{
         dlSolic.innerHTML = '';
@@ -1348,7 +1379,6 @@ html_code = f"""
         }});
       }}
 
-      // Dropdown de filtro do Dashboard de Retiradas
       const filterRetTecnico = document.getElementById('filterRetiradaTecnico');
       if (filterRetTecnico) {{
         const currentTec = filterRetTecnico.value;
@@ -1368,9 +1398,6 @@ html_code = f"""
     const filterRetDevolvida = document.getElementById('filterRetiradaDevolvida');
     const filterRetCondicao = document.getElementById('filterRetiradaCondicao');
 
-    // ==============================================================
-    // ENVIO INFALÍVEL VIA FORMULÁRIO OCULTO COM TARGET IFRAME
-    // ==============================================================
     function enviarParaPlanilhaGarantido(payload) {{
       return new Promise((resolve) => {{
         const form = document.getElementById('hiddenSubmissionForm');
@@ -1505,9 +1532,6 @@ html_code = f"""
       options: getHorizontalRetiradaBarOptions()
     }});
 
-    // ==============================================================
-    // BAIXA / RETORNO DE PEÇAS AO ALMOXARIFADO
-    // ==============================================================
     let itemEmBaixa = null;
 
     function abrirModalBaixa(idx) {{
@@ -1568,7 +1592,7 @@ html_code = f"""
       fecharModalBaixa();
 
       atualizarDashboardRetiradas();
-      alert(`Status gravado na Coluna I da planilha com sucesso: "${{novoStatus}}"!`);
+      alert('Status gravado na Coluna I da planilha com sucesso: "' + novoStatus + '"!');
     }}
 
     function atualizarDashboardRetiradas() {{
@@ -1591,7 +1615,7 @@ html_code = f"""
         return matchTec && matchDev && matchCond && matchSearch;
       }});
 
-      document.getElementById('badgeFiltroRetirada').innerText = `Filtrando: Técnico [${{tecVal}}] · Status [${{devVal}}] · Condição [${{condVal}}]`;
+      document.getElementById('badgeFiltroRetirada').innerText = 'Filtrando: Técnico [' + tecVal + '] · Status [' + devVal + '] · Condição [' + condVal + ']';
 
       const totalRegistrosRetirada = filtrados.length;
       let totalPecas = 0;
@@ -1612,17 +1636,16 @@ html_code = f"""
       const pctDevolvidas = totalPecas > 0 ? Math.round((devolvidas / totalPecas) * 100) : 0;
 
       document.getElementById('kpiRetiradaTotal').innerText = totalRegistrosRetirada.toLocaleString('pt-BR');
-      document.getElementById('kpiRetiradaTotalSub').innerText = `Total: ${{totalPecas.toLocaleString('pt-BR')}} peças retiradas`;
+      document.getElementById('kpiRetiradaTotalSub').innerText = 'Total: ' + totalPecas.toLocaleString('pt-BR') + ' peças retiradas';
 
-      document.getElementById('kpiRetiradaNaoDevolvidas').innerText = `${{naoDevolvidas.toLocaleString('pt-BR')}} un`;
-      document.getElementById('kpiRetiradaNaoDevolvidasPct').innerText = `${{pctNaoDevolvidas}}%`;
-      document.getElementById('kpiRetiradaDevolvidas').innerText = `${{devolvidas.toLocaleString('pt-BR')}} un`;
-      document.getElementById('kpiRetiradaDevolvidasPct').innerText = `${{pctDevolvidas}}%`;
-      document.getElementById('kpiRetiradaInstalacao').innerText = `${{instalacoes.toLocaleString('pt-BR')}} un`;
+      document.getElementById('kpiRetiradaNaoDevolvidas').innerText = naoDevolvidas.toLocaleString('pt-BR') + ' un';
+      document.getElementById('kpiRetiradaNaoDevolvidasPct').innerText = pctNaoDevolvidas + '%';
+      document.getElementById('kpiRetiradaDevolvidas').innerText = devolvidas.toLocaleString('pt-BR') + ' un';
+      document.getElementById('kpiRetiradaDevolvidasPct').innerText = pctDevolvidas + '%';
+      document.getElementById('kpiRetiradaInstalacao').innerText = instalacoes.toLocaleString('pt-BR') + ' un';
       document.getElementById('kpiRetiradaTecnicos').innerText = new Set(filtrados.map(r => r.tecnico)).size;
       document.getElementById('kpiRetiradaClientes').innerText = new Set(filtrados.map(r => r.cliente)).size;
 
-      // Top 10 Peças Mais Retiradas
       const pecasContagem = {{}};
       filtrados.forEach(r => {{
         const nome = (r.descricao || r.codigo || 'Peça').trim();
@@ -1634,7 +1657,6 @@ html_code = f"""
       chartTopPecasRetiradas.data.datasets[0].data = top10Pecas.map(p => p.qt);
       chartTopPecasRetiradas.update();
 
-      // Retiradas por Técnico
       const tecContagem = {{}};
       filtrados.forEach(r => {{
         const t = (r.tecnico || 'Indefinido').trim();
@@ -1645,12 +1667,11 @@ html_code = f"""
       chartRetiradasPorTecnico.data.datasets[0].data = topTecnicos.map(t => t.qt);
       chartRetiradasPorTecnico.update();
 
-      // Tabela de Peças Não Devolvidas
       const naoDevolvidasLista = filtrados.filter(r => {{
         const d = (r.devolvida || '').toLowerCase();
         return d === 'não' || d === 'nao';
       }});
-      document.getElementById('badgeNaoDevolvidasCount').innerText = `${{naoDevolvidasLista.length}} pendência(s)`;
+      document.getElementById('badgeNaoDevolvidasCount').innerText = naoDevolvidasLista.length + ' pendência(s)';
 
       const tbNaoDev = document.getElementById('tableNaoDevolvidasBody');
       if (naoDevolvidasLista.length === 0) {{
@@ -1676,7 +1697,6 @@ html_code = f"""
         `).join('');
       }}
 
-      // Tabela Geral de Retiradas
       const tbGeral = document.getElementById('tableRetiradasGeralBody');
       if (filtrados.length === 0) {{
         tbGeral.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 font-semibold">Nenhuma retirada encontrada.</td></tr>';
@@ -1714,9 +1734,6 @@ html_code = f"""
       atualizarDashboardRetiradas();
     }});
 
-    // ==============================================================
-    // RETIRADA: FORMULÁRIO E ENVIO
-    // ==============================================================
     function aoMudarCodigoRetirada() {{
       const cod = document.getElementById('retiradaCodigo').value.trim();
       if (!cod) return;
@@ -1809,16 +1826,13 @@ html_code = f"""
       atualizarDashboardRetiradas();
       
       const alertBox = document.getElementById('alertRetiradaSuccess');
-      document.getElementById('alertRetiradaSuccessTitle').innerText = `✅ Retirada da peça ${{codigo}} gravada com sucesso!`;
-      document.getElementById('alertRetiradaSuccessSub').innerText = `OS: ${{os}} · Técnico: ${{tecnico}} · Cliente: ${{cliente}} · Quantidade: ${{quantidade}} un (${{novaUsada}}).`;
+      document.getElementById('alertRetiradaSuccessTitle').innerText = '✅ Retirada da peça ' + codigo + ' gravada com sucesso!';
+      document.getElementById('alertRetiradaSuccessSub').innerText = 'OS: ' + os + ' · Técnico: ' + tecnico + ' · Cliente: ' + cliente + ' · Quantidade: ' + quantidade + ' un (' + novaUsada + ').';
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       lucide.createIcons();
     }}
 
-    // ==============================================================
-    // OC: FORMULÁRIO, PREVIEWS & GRAVAÇÃO
-    // ==============================================================
     function aoMudarFornecedorPrincipal() {{
       const forn = document.getElementById('formFornecedor').value.trim();
       if (forn && itensDaOrdemAtual.length > 0) {{
@@ -1832,37 +1846,51 @@ html_code = f"""
       }}
     }}
 
-    function aoMudarCodigo() {{
-      const codDigitado = document.getElementById('itemCodigoPeca').value.trim();
+    function aoMudarCodigo(validarObrigatorio = false) {{
+      const inputCodigo = document.getElementById('itemCodigoPeca');
+      const codDigitado = inputCodigo.value.trim();
       if (!codDigitado) return;
 
-      const itemAchado = catalogoPecas.find(p => p.codigo.toLowerCase() === codDigitado.toLowerCase());
+      const itemAchado = catalogoPecas.find(p => p.codigo && p.codigo.trim().toLowerCase() === codDigitado.toLowerCase());
       if (itemAchado) {{
+        inputCodigo.value = itemAchado.codigo;
         document.getElementById('itemPeca').value = itemAchado.descricao;
-        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+        document.getElementById('itemCategoria').value = itemAchado.categoria || 'Geral';
 
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
         }}
         calcItemPreview();
+      }} else if (validarObrigatorio) {{
+        alert('⚠️ Peça não encontrada!\\nO código digitado não consta na base de dados. Por favor, selecione apenas itens cadastrados na pré-lista.');
+        inputCodigo.value = '';
+        document.getElementById('itemPeca').value = '';
+        document.getElementById('itemCategoria').value = '';
       }}
     }}
 
-    function aoMudarDescricao() {{
-      const descDigitada = document.getElementById('itemPeca').value.trim();
+    function aoMudarDescricao(validarObrigatorio = false) {{
+      const inputDesc = document.getElementById('itemPeca');
+      const descDigitada = inputDesc.value.trim();
       if (!descDigitada) return;
 
-      const itemAchado = catalogoPecas.find(p => p.descricao.toLowerCase() === descDigitada.toLowerCase());
+      const itemAchado = catalogoPecas.find(p => p.descricao && p.descricao.trim().toLowerCase() === descDigitada.toLowerCase());
       if (itemAchado) {{
+        inputDesc.value = itemAchado.descricao;
         document.getElementById('itemCodigoPeca').value = itemAchado.codigo;
-        if (itemAchado.categoria) document.getElementById('itemCategoria').value = itemAchado.categoria;
+        document.getElementById('itemCategoria').value = itemAchado.categoria || 'Geral';
 
         const formForn = document.getElementById('formFornecedor');
         if (!formForn.value.trim() && itemAchado.fornecedor) {{
           formForn.value = itemAchado.fornecedor;
         }}
         calcItemPreview();
+      }} else if (validarObrigatorio) {{
+        alert('⚠️ Peça não encontrada!\\nA descrição digitada não consta na base de dados. Por favor, selecione apenas itens cadastrados na pré-lista.');
+        inputDesc.value = '';
+        document.getElementById('itemCodigoPeca').value = '';
+        document.getElementById('itemCategoria').value = '';
       }}
     }}
 
@@ -1892,27 +1920,46 @@ html_code = f"""
         return;
       }}
 
-      const codigoPeca = document.getElementById('itemCodigoPeca').value.trim().toUpperCase();
-      const peca = document.getElementById('itemPeca').value.trim().toUpperCase();
-      const categoria = document.getElementById('itemCategoria').value.trim() || 'Geral';
+      const inputCodigo = document.getElementById('itemCodigoPeca');
+      const inputDesc = document.getElementById('itemPeca');
+      const codigoPeca = inputCodigo.value.trim().toUpperCase();
+      const peca = inputDesc.value.trim().toUpperCase();
+
+      if (!codigoPeca || !peca) {{
+        alert('Por favor, informe o Código e a Descrição da Peça selecionando da pré-lista.');
+        inputCodigo.focus();
+        return;
+      }}
+
+      const pecaValida = catalogoPecas.find(p => 
+        (p.codigo && p.codigo.trim().toUpperCase() === codigoPeca) &&
+        (p.descricao && p.descricao.trim().toUpperCase() === peca)
+      );
+
+      if (!pecaValida) {{
+        alert('⛔ Bloqueio de Segurança:\\nApenas peças cadastradas na pré-lista da aba "Base de Dados" são aceitas. Selecione um item válido na listagem.');
+        inputCodigo.value = '';
+        inputDesc.value = '';
+        document.getElementById('itemCategoria').value = '';
+        inputCodigo.focus();
+        return;
+      }}
+
+      const categoria = pecaValida.categoria || document.getElementById('itemCategoria').value.trim() || 'Geral';
       const qt = parseInt(document.getElementById('itemQt').value) || 0;
       const qtAprovada = parseInt(document.getElementById('itemQtAprovada').value) || 0;
       const qtNaoAprovada = parseInt(document.getElementById('itemQtNaoAprovada').value) || 0;
       const custoUnit = parseFloat(document.getElementById('itemCustoUnit').value) || 0;
       const vendaUnit = custoUnit * 1.70;
 
-      if (!codigoPeca || !peca) {{
-        alert('Por favor, informe ao menos o Código e a Descrição da Peça.');
-        return;
-      }}
       if (qt <= 0) {{
         alert('A Quantidade Solicitada deve ser maior que zero.');
         return;
       }}
 
       itensDaOrdemAtual.push({{
-        codigoPeca,
-        peca,
+        codigoPeca: pecaValida.codigo,
+        peca: pecaValida.descricao,
         fornecedor: fornecedorPrincipal,
         categoria,
         qt,
@@ -1946,7 +1993,7 @@ html_code = f"""
     function renderizarTabelaItensOC() {{
       const tbody = document.getElementById('listaPecasOCTableBody');
       const badge = document.getElementById('badgeTotalItensOC');
-      badge.innerText = `${{itensDaOrdemAtual.length}} peça(s)`;
+      badge.innerText = itensDaOrdemAtual.length + ' peça(s)';
 
       if (itensDaOrdemAtual.length === 0) {{
         tbody.innerHTML = `
@@ -1987,8 +2034,8 @@ html_code = f"""
         `;
       }}).join('');
 
-      document.getElementById('footTotalQt').innerText = `${{somaQt}} un`;
-      document.getElementById('footTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('footTotalQt').innerText = somaQt + ' un';
+      document.getElementById('footTotalAtendida').innerText = somaAtendida + ' un';
       document.getElementById('footTotalValor').innerText = formatCurrency(somaValor);
       lucide.createIcons();
     }}
@@ -2029,7 +2076,7 @@ html_code = f"""
       }});
 
       const proximoSeq = String(maior + 1).padStart(4, '0');
-      return `OC-${{anoSelecionado}}-${{proximoSeq}}`;
+      return 'OC-' + anoSelecionado + '-' + proximoSeq;
     }}
 
     function atualizarProximoNumeroOC() {{
@@ -2186,9 +2233,9 @@ html_code = f"""
 
       const alertBox = document.getElementById('alertSuccess');
       document.getElementById('alertSuccessTitle').innerText = ehEdicao ? 
-        `✅ Ordem de Compra ${{oc}} atualizada com sucesso (${{totalPecas}} peças)!` : 
-        `✅ Ordem de Compra ${{oc}} salva com sucesso (${{totalPecas}} peças)!`;
-      document.getElementById('alertSuccessSub').innerText = `Fornecedor: ${{fornecedorPrincipal}} · Solicitante: ${{solicitante}} · Dados gravados na planilha Google Sheets.`;
+        '✅ Ordem de Compra ' + oc + ' atualizada com sucesso (' + totalPecas + ' peças)!' : 
+        '✅ Ordem de Compra ' + oc + ' salva com sucesso (' + totalPecas + ' peças)!';
+      document.getElementById('alertSuccessSub').innerText = 'Fornecedor: ' + fornecedorPrincipal + ' · Solicitante: ' + solicitante + ' · Dados gravados na planilha Google Sheets.';
       alertBox.classList.remove('hidden');
       alertBox.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
       lucide.createIcons();
@@ -2217,7 +2264,7 @@ html_code = f"""
 
       if (badgeContador) {{
         const ocsUnicasFiltradas = new Set(listaItens.map(i => i.oc)).size;
-        badgeContador.innerText = `${{ocsUnicasFiltradas}} OC(s) · ${{listaItens.length}} item(ns)`;
+        badgeContador.innerText = ocsUnicasFiltradas + ' OC(s) · ' + listaItens.length + ' item(ns)';
       }}
 
       if (!listaItens || listaItens.length === 0) {{
@@ -2286,7 +2333,7 @@ html_code = f"""
 
     function executarImpressao(dadosOC) {{
       document.getElementById('printOCNumero').innerText = dadosOC.oc;
-      document.getElementById('printOCData').innerText = `Data: ${{dadosOC.data}}`;
+      document.getElementById('printOCData').innerText = 'Data: ' + dadosOC.data;
       document.getElementById('printOCFornecedor').innerText = dadosOC.fornecedor;
       document.getElementById('printOCSolicitante').innerText = dadosOC.solicitante;
 
@@ -2313,8 +2360,8 @@ html_code = f"""
         `;
       }}).join('');
 
-      document.getElementById('printOCTotalQt').innerText = `${{somaQt}} un`;
-      document.getElementById('printOCTotalAtendida').innerText = `${{somaAtendida}} un`;
+      document.getElementById('printOCTotalQt').innerText = somaQt + ' un';
+      document.getElementById('printOCTotalAtendida').innerText = somaAtendida + ' un';
       document.getElementById('printOCTotalValor').innerText = formatCurrency(somaCusto);
 
       const printArea = document.getElementById('printArea');
@@ -2330,9 +2377,6 @@ html_code = f"""
       return (val || 0).toLocaleString('pt-BR', {{ style: 'currency', currency: 'BRL' }});
     }}
 
-    // ==============================================================
-    // DASHBOARD SOLICITAÇÕES: KPIS & GRÁFICOS
-    // ==============================================================
     const filterYear = document.getElementById('filterYear');
     const filterMonth = document.getElementById('filterMonth');
     const filterCategory = document.getElementById('filterCategory');
@@ -2431,6 +2475,106 @@ html_code = f"""
       }};
     }}
 
+    const chartPecasPorMesQt = new Chart(document.getElementById('chartPecasPorMesQt').getContext('2d'), {{
+      type: 'bar',
+      data: {{
+        labels: [],
+        datasets: [
+          {{
+            label: 'Qt Solicitada',
+            data: [],
+            backgroundColor: 'rgba(2, 132, 199, 0.85)',
+            borderRadius: 6
+          }},
+          {{
+            label: 'Qt Atendida',
+            data: [],
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderRadius: 6
+          }}
+        ]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{
+            display: true,
+            position: 'top',
+            labels: {{ font: {{ family: 'Inter', size: 11, weight: '600' }}, color: '#334155', boxWidth: 12 }}
+          }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => context.dataset.label + ': ' + context.raw.toLocaleString('pt-BR') + ' un'
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => v ? v.toLocaleString('pt-BR') : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
+    }});
+
+    const chartPecasPorMesValor = new Chart(document.getElementById('chartPecasPorMesValor').getContext('2d'), {{
+      type: 'bar',
+      data: {{
+        labels: [],
+        datasets: [{{
+          label: 'Valor Total (R$)',
+          data: [],
+          backgroundColor: 'rgba(16, 185, 129, 0.85)',
+          borderRadius: 8
+        }}]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {{ padding: {{ top: 22, bottom: 6, left: 6, right: 6 }} }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{
+            backgroundColor: '#ffffff',
+            titleColor: '#0f172a',
+            bodyColor: '#334155',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 10,
+            callbacks: {{
+              label: (context) => 'Custo Total: ' + formatCurrency(context.raw)
+            }}
+          }},
+          datalabels: {{
+            anchor: 'end',
+            align: 'top',
+            offset: 2,
+            color: '#0f172a',
+            font: {{ family: 'Inter', weight: 'bold', size: 10 }},
+            formatter: (v) => v ? formatCurrency(v) : ''
+          }}
+        }},
+        scales: {{
+          x: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }} }},
+          y: {{ grid: {{ color: 'rgba(226, 232, 240, 0.8)' }}, ticks: {{ color: '#64748b', font: {{ size: 10 }} }}, beginAtZero: true }}
+        }}
+      }}
+    }});
+
     const chartTopPecasQt = new Chart(document.getElementById('chartTopPecasQt').getContext('2d'), {{
       type: 'bar',
       data: {{ labels: [], datasets: [{{ data: [], backgroundColor: 'rgba(2, 132, 199, 0.85)', borderRadius: 6 }}] }},
@@ -2475,6 +2619,26 @@ html_code = f"""
       }}
     }});
 
+    function normalizarMes(item) {{
+      if (item.mes && item.mes.trim()) {{
+        return item.mes.trim();
+      }}
+      if (item.data) {{
+        const partes = item.data.split(/[-/]/);
+        if (partes.length >= 2) {{
+          let m = parseInt(partes[1], 10);
+          if (partes[0].length === 4) {{
+            m = parseInt(partes[1], 10);
+          }} else if (partes[2] && partes[2].length === 4) {{
+            m = parseInt(partes[1], 10);
+          }}
+          const nomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+          if (!isNaN(m) && m >= 1 && m <= 12) return nomes[m - 1];
+        }}
+      }}
+      return "Outros";
+    }}
+
     function updateDashboard() {{
       const yearVal = filterYear.value;
       const monthVal = filterMonth.value;
@@ -2490,7 +2654,7 @@ html_code = f"""
         return matchYear && matchMonth && matchCat && matchReq;
       }});
 
-      activeFilterBadge.innerText = `Filtrando: Ano [${{yearVal}}] · Mês [${{monthVal}}] · Categoria [${{catVal}}]`;
+      activeFilterBadge.innerText = 'Filtrando: Ano [' + yearVal + '] · Mês [' + monthVal + '] · Categoria [' + catVal + ']';
 
       const totalCusto = filtered.reduce((acc, cur) => acc + (cur.custoTotal || 0), 0);
       const totalItens = filtered.reduce((acc, cur) => acc + (cur.qt || 0), 0);
@@ -2505,12 +2669,45 @@ html_code = f"""
 
       kpiTotalCost.innerText = formatCurrency(totalCusto);
       kpiTotalRequests.innerText = ocsUnicas;
-      kpiItemsQty.innerText = `${{totalItens.toLocaleString('pt-BR')}} un`;
-      kpiApprovedQty.innerText = `${{totalAtendidas.toLocaleString('pt-BR')}} un`;
-      kpiApprovedPercent.innerText = `${{pctAtendidas}}%`;
-      kpiUnapprovedQty.innerText = `${{totalNaoAtendidas.toLocaleString('pt-BR')}} un`;
-      kpiUnapprovedPercent.innerText = `${{pctNaoAtendidas}}%`;
+      kpiItemsQty.innerText = totalItens.toLocaleString('pt-BR') + ' un';
+      kpiApprovedQty.innerText = totalAtendidas.toLocaleString('pt-BR') + ' un';
+      kpiApprovedPercent.innerText = pctAtendidas + '%';
+      kpiUnapprovedQty.innerText = totalNaoAtendidas.toLocaleString('pt-BR') + ' un';
+      kpiUnapprovedPercent.innerText = pctNaoAtendidas + '%';
       kpiAvgCost.innerText = formatCurrency(avgCost);
+
+      const mesesOrdem = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
+      const dadosPorMes = {{}};
+      mesesOrdem.forEach(m => {{
+        dadosPorMes[m] = {{ qtTotal: 0, qtAtendida: 0, valorTotal: 0 }};
+      }});
+
+      filtered.forEach(item => {{
+        const m = normalizarMes(item);
+        if (!dadosPorMes[m]) {{
+          dadosPorMes[m] = {{ qtTotal: 0, qtAtendida: 0, valorTotal: 0 }};
+        }}
+        dadosPorMes[m].qtTotal += (item.qt || 0);
+        dadosPorMes[m].qtAtendida += (item.qtAprovada || 0);
+        dadosPorMes[m].valorTotal += (item.custoTotal || 0);
+      }});
+
+      let mesesAtivos = mesesOrdem.filter(m => (dadosPorMes[m].qtTotal > 0 || dadosPorMes[m].valorTotal > 0));
+      if (mesesAtivos.length === 0) {{
+        mesesAtivos = mesesOrdem.slice(0, 6);
+      }}
+
+      chartPecasPorMesQt.data.labels = mesesAtivos;
+      chartPecasPorMesQt.data.datasets[0].data = mesesAtivos.map(m => dadosPorMes[m].qtTotal);
+      chartPecasPorMesQt.data.datasets[1].data = mesesAtivos.map(m => dadosPorMes[m].qtAtendida);
+      chartPecasPorMesQt.update();
+
+      chartPecasPorMesValor.data.labels = mesesAtivos;
+      chartPecasPorMesValor.data.datasets[0].data = mesesAtivos.map(m => dadosPorMes[m].valorTotal);
+      chartPecasPorMesValor.update();
 
       const pecasAgrupadas = {{}};
       filtered.forEach(item => {{
@@ -2588,10 +2785,10 @@ html_code = f"""
       }}
 
       itemsArray.sort((a, b) => b.custoTotal - a.custoTotal);
-      tableCountBadge.innerText = `${{itemsArray.length}} itens`;
+      tableCountBadge.innerText = itemsArray.length + ' itens';
 
       if (itemsArray.length === 0) {{
-        tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Nenhuma peça encontrada.</td></tr>`;
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-400">Nenhuma peça encontrada.</td></tr>';
         return;
       }}
 
